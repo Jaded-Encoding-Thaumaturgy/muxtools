@@ -8,7 +8,7 @@ from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame, TrackTy
 from .files import ensure_path_exists
 from .log import error, warn, debug
 from .download import get_executable
-from .format import get_absolute_tracknum
+from .files import get_absolute_tracknum
 from .convert import (
     timedelta_from_formatted,
     timedelta_to_frame,

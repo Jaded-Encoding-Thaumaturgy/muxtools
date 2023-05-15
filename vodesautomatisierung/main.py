@@ -1,8 +1,8 @@
 import os
+import json
 from pathlib import Path
 from configparser import ConfigParser
-from utils.log import error
-import json
+from .utils.log import error
 
 
 class Setup:

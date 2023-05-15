@@ -1,8 +1,8 @@
 import os
 import subprocess
 from abc import ABC, abstractmethod
-from utils.files import AudioFile
-from utils.types import PathLike
+from ..utils.files import AudioFile
+from ..utils.types import PathLike
 
 
 def run_commandline(command: str | list[str], quiet: bool = True, shell: bool = False, stdin=subprocess.DEVNULL, **kwargs) -> int:

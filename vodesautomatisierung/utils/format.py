@@ -1,29 +1,8 @@
 from pymediainfo import MediaInfo, Track
-from utils.types import TrackType, PathLike, AudioFormat
-from utils.files import ensure_path_exists
-from utils.log import error, warn
+from .types import TrackType, PathLike, AudioFormat
+from .files import ensure_path_exists
+from .log import error, warn
 import re
-
-# Of course these are not all of the formats possible but those are the most common from what I know.
-# fmt: off
-formats = [
-    # Lossy
-    AudioFormat("AC-3",         "ac3",      "A_AC3"),
-    AudioFormat("E-AC-3",       "eac3",     "A_EAC3"),
-    AudioFormat("AAC",          "aac",      "A_AAC*"), # Lots of different AAC formats idk what they mean, don't care either
-    AudioFormat("Opus",         "opus",     "A_OPUS"),
-    AudioFormat("Vorbis",       "ogg",      "A_VORBIS"),
-    
-    # Lossless
-    AudioFormat("FLAC",         "flac",     "A_FLAC", False),
-    AudioFormat("MLP FBA*",     "thd",      "A_TRUEHD", False), # Atmos stuff has some more shit in the format name
-    AudioFormat("PCM*",         "wav",      "A_PCM*", False),
-
-    # Disgusting DTS Stuff
-    AudioFormat("DTS XLL",      "dtshd",    "A_DTS", False), # Can be HD-MA or Headphone X or X, who the fuck knows
-    AudioFormat("DTS",          "dts",      "A_DTS"), # Can be lossy
-]
-# fmt: on
 
 
 def get_absolute_track(file: PathLike, track: int, type: TrackType) -> Track:
@@ -83,46 +62,3 @@ def get_absolute_tracknum(file: PathLike, track: int, type: TrackType) -> int:
     :param type:    TrackType of the requested relative track
     """
     return get_absolute_track(file, track, type).track_id
-
-
-def format_from_track(track: Track) -> AudioFormat | None:
-    for format in formats:
-        f = str(track.format)
-        if hasattr(track, "format_additionalfeatures") and track.format_additionalfeatures:
-            f = f"{f} {track.format_additionalfeatures}"
-        if "*" in format.format:
-            # matches = filter([f.lower()], format.format.lower())
-            if re.match(format.format.replace("*", ".*"), f, re.IGNORECASE):
-                return format
-        else:
-            if format.format.casefold() == f.casefold():
-                return format
-
-        if "*" in format.codecid:
-            # matches = filter([str(track.codec_id).lower()], format.codecid)
-            if re.match(format.codecid.replace("*", ".*"), str(track.codec_id), re.IGNORECASE):
-                return format
-        else:
-            if format.codecid.casefold() == str(track.codec_id).casefold():
-                return format
-    return None
-
-
-def is_fancy_codec(track: Track) -> bool:
-    """
-    Tries to check if a track is some fancy DTS (X, Headphone X) or TrueHD with Atmos
-
-    :param track:   Input track to check
-    """
-    codec_id = str(track.codec_id).casefold()
-    if codec_id == "A_TRUEHD".casefold():
-        # If it contains something other than "MLP FBA" it's probably atmos
-        return bool(re.sub("MLP FBA", "", str(track.format).strip(), re.IGNORECASE))
-    elif codec_id == "A_DTS".casefold():
-        # Not even lossless if this doesn't exist
-        if not hasattr(track, "format_additionalfeatures"):
-            return False
-        # If those additional features contain something after removing "XLL" its some fancy stuff
-        return bool(re.sub("XLL", "", str(track.format_additionalfeatures).strip(), re.IGNORECASE))
-
-    return False

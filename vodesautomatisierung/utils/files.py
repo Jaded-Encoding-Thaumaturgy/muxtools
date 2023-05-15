@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import TypeVar
 from dataclasses import dataclass
 from pymediainfo import Track, MediaInfo
-from utils.env import get_workdir
-from utils.log import *
-from utils.types import AudioInfo
+from .env import get_workdir
+from .log import *
+from .types import AudioInfo, TrackType
 
 __all__ = [
     "VideoFile",
@@ -131,7 +131,7 @@ class AudioFile(MuxingFile):
         return MediaInfo.parse(self.file).audio_tracks[0]
 
     def is_lossy(self) -> bool:
-        from utils.format import format_from_track
+        from ..audio.audioutils import format_from_track
 
         minfo = self.get_mediainfo()
         form = format_from_track(minfo)
@@ -161,3 +161,62 @@ class AudioFile(MuxingFile):
 @dataclass
 class SubtitleFile(MuxingFile):
     pass
+
+
+def get_absolute_track(file: PathLike, track: int, type: TrackType) -> Track:
+    """
+    Finds the absolute track for a relative track number of a specific type.
+
+    :param file:    String or pathlib based Path
+    :param track:   Relative track number
+    :param type:    TrackType of the requested relative track
+    """
+    file = ensure_path_exists(file, get_absolute_track)
+    mediainfo = MediaInfo.parse(file)
+
+    current = 0
+    # Weird mediainfo quirks
+    for t in mediainfo.tracks:
+        if t.track_type.lower() not in ["video", "audio", "text"]:
+            continue
+        t.track_id = current
+        current += 1
+
+    videos = mediainfo.video_tracks
+    audios = mediainfo.audio_tracks
+    subtitles = mediainfo.text_tracks
+    match type:
+        case TrackType.VIDEO:
+            if not videos:
+                raise error(f"No video tracks have been found in '{file.name}'!", get_absolute_track)
+            try:
+                return videos[track]
+            except:
+                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+        case TrackType.AUDIO:
+            if not audios:
+                raise error(f"No audio tracks have been found in '{file.name}'!", get_absolute_track)
+            try:
+                return audios[track]
+            except:
+                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+        case TrackType.SUB:
+            if not subtitles:
+                raise error(f"No subtitle tracks have been found in '{file.name}'!", get_absolute_track)
+            try:
+                return subtitles[track]
+            except:
+                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+        case _:
+            raise error("Not implemented for anything other than Video, Audio or Subtitles.", get_absolute_track)
+
+
+def get_absolute_tracknum(file: PathLike, track: int, type: TrackType) -> int:
+    """
+    Finds the absolute track number for a relative track number of a specific type.
+
+    :param file:    String or pathlib based Path
+    :param track:   Relative track number
+    :param type:    TrackType of the requested relative track
+    """
+    return get_absolute_track(file, track, type).track_id

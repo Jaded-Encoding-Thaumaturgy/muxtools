@@ -3,20 +3,19 @@ from shlex import split
 import subprocess
 import os
 
-from .audioutils import ensure_valid_in
 from .tools import Encoder, run_commandline
-from utils.format import *
-from utils.log import warn, crit, debug
-from utils.download import get_executable
-from utils.files import AudioFile, make_output
-from utils.types import DitherType, qAAC_MODE
-from utils.env import get_workdir
+from .audioutils import ensure_valid_in, has_libFDK, has_libFLAC
+from ..utils.env import get_temp_workdir
+from ..utils.download import get_executable
+from ..utils.log import warn, crit, debug, error
+from ..utils.files import AudioFile, make_output
+from ..utils.types import DitherType, qAAC_MODE, PathLike
 
-__all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC", "ensure_valid_in"]
+__all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
 
 
 def clean_temp_files():
-    for f in get_workdir().glob("*tempflac*.flac"):
+    for f in get_temp_workdir().glob("*tempflac*.flac"):
         os.remove(f)
 
 
@@ -29,6 +28,8 @@ class FLAC(Encoder):
     :param dither:              Dithers any input down to 16 bit 48 khz if True
     :param dither_type:         FFMPEG dither_method used for dithering
     :param append:              Any other args one might pass to the encoder
+    :param output:              Custom output. Can be a dir or a file.
+                                Do not specify an extension unless you know what you're doing.
     """
 
     compression_level: int = 8
@@ -70,6 +71,8 @@ class FLACCL(Encoder):
     :param dither:              Dithers any input down to 16 bit 48 khz if True
     :param dither_type:         FFMPEG dither_method used for dithering
     :param append:              Any other args one might pass to the encoder
+    :param output:              Custom output. Can be a dir or a file.
+                                Do not specify an extension unless you know what you're doing.
     """
 
     compression_level: int = 8
@@ -131,6 +134,8 @@ class FF_FLAC(Encoder):
         # fmt: on
 
     def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(input, AudioFile):
+            input = AudioFile.from_file(input, self)
         output = make_output(input.file, "flac", "ffmpeg", self.output)
         if "temp" in kwargs.keys():
             debug(f"Preparing audio for input to other encoder using ffmpeg...", self)
@@ -179,6 +184,8 @@ class Opus(Encoder):
     def encode_audio(self, input: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
+
+        exe = get_executable("opusenc")
         if not self.bitrate:
             info = input.get_mediainfo()
             match (info.channel_s):
@@ -195,7 +202,7 @@ class Opus(Encoder):
         output = make_output(input.file, "opus", "opusenc", self.output)
         source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=True)
 
-        args = [get_executable("opusenc"), "--vbr" if self.vbr else "--cvbr", "--bitrate", str(self.bitrate)]
+        args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(self.bitrate)]
         if self.append:
             args.extend(split(self.append))
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
@@ -234,11 +241,21 @@ class qAAC(Encoder):
     output: PathLike | None = None
 
     def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        #  --no-delay --no-optimize
+        if not isinstance(input, AudioFile):
+            input = AudioFile.from_file(input, self)
         output = make_output(input.file, "aac", "qaac", self.output)
         source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=True)
-        debug(f"Encoding '{input.file.stem}' to AAC using qAAC...", self)
         qaac = get_executable("qaac")
+
+        if not has_libFLAC():
+            raise error(
+                "Your installation of qaac does not have libFLAC.\nIt is needed for proper piping from ffmpeg etc."
+                + "\nYou can download it from https://github.com/xiph/flac/releases"
+                + "\nFor installation check https://github.com/nu774/qaac/wiki/Installation",
+                self,
+            )
+
+        debug(f"Encoding '{input.file.stem}' to AAC using qAAC...", self)
         args = [qaac, "--no-delay", "--no-optimize", "--threading", f"--{self.mode.name.lower()}", str(self.q)]
         if self.append:
             args.extend(split(self.append))
@@ -280,10 +297,17 @@ class FDK_AAC(Encoder):
     output: PathLike | None = None
 
     def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(input, AudioFile):
+            input = AudioFile.from_file(input, self)
+        output = make_output(input.file, "m4a", "fdkaac", self.output)
+        if not has_libFDK():
+            raise error(
+                "Your installation of ffmpeg wasn't compiled with libFDK."
+                + "\nYou can download builds with the non-free flag from https://github.com/AnimMouse/ffmpeg-autobuild/releases",
+                self,
+            )
         if os.name == "nt":
             warn("It is strongly recommended to use qAAC on windows. See docs.", self, 5)
-
-        output = make_output(input.file, "m4a", "fdkaac", self.output)
         debug(f"Encoding '{input.file.stem}' to AAC using libFDK...", self)
         # fmt: off
         args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0", "-c:a", "libfdk_aac"]
@@ -303,6 +327,11 @@ class FDK_AAC(Encoder):
             return AudioFile(output, input.container_delay, input.source)
         else:
             raise crit("Encoding to AAC using libFDK failed!", self)
+
+    def has_libfdk() -> bool:
+        exe = get_executable("ffmpeg")
+
+        return False
 
 
 # TODO: Implement the dolby shit

@@ -1,50 +1,21 @@
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
+import shutil
 import os
 import re
+
+from .audioutils import format_from_track, sanitize_trims, ensure_valid_in
 from .tools import *
-from utils.files import *
-from utils.download import get_executable
-from utils.types import Trim, PathLike, TrackType
-from utils.log import error, debug, info, warn
-from utils.format import get_absolute_track, format_from_track
+from ..utils.files import *
+from ..utils.log import error, warn, debug
+from ..utils.env import get_temp_workdir
+from ..utils.download import get_executable
+from ..utils.files import get_absolute_track
+from ..utils.types import Trim, PathLike, TrackType
+from ..utils.convert import frame_to_timedelta, format_timedelta
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
-
-
-def sanitize_trims(trims: Trim | list[Trim], total_frames: int = 0, uses_frames: bool = True, caller: any = None) -> list[Trim]:
-    caller = caller if caller else sanitize_trims
-    if not isinstance(trims, (list, tuple)):
-        raise error("Trims must be a list of 2-tuples (or just one 2-tuple)", caller)
-    if not isinstance(trims, list):
-        trims = [trims]
-    for trim in trims:
-        if not isinstance(trim, tuple):
-            raise error(f"The trim {trim} is not a tuple", caller)
-        if len(trim) != 2:
-            raise error(f"The trim {trim} needs 2 elements", caller)
-        for i in trim:
-            if not isinstance(i, (int, type(None))):
-                raise error(f"The trim {trim} must have 2 ints or None's", caller)
-        if trim[-1] == 0:
-            raise error("Slices cannot end with 0, if attempting to use an empty slice, use `None`", caller)
-
-        if trim[0] < 0:
-            raise error("The first part of a trim cannot be negative.", caller)
-
-        if trim[1] and uses_frames:
-            if total_frames and trim[1] > total_frames:
-                warn(f"The trim {trim} extends the frame number that was passed. Will be set to max frame.", caller, 5)
-                trim[1] = total_frames - 1
-            if trim[1] < 0:
-                if not total_frames:
-                    raise error("A trim cannot be negative if you're not passing the total frame number.", caller)
-                trim[1] = total_frames + trim[1]
-                if trim[1] < 0:
-                    raise error(f"The negative number of the trim {trim} is out of bounds.", caller)
-
-    return trims
 
 
 class Eac3to(HasExtractor, HasTrimmer):
@@ -161,6 +132,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
         :param trim_use_ms:         Will use milliseconds instead of frame numbers
         :param fps:                 Fps fraction that will be used for the conversion
         :param preserve_delay:      Will preserve existing container delay
+        :param num_frames:          Total number of frames used for calculations
         :param output:              Custom output. Can be a dir or a file.
                                     Do not specify an extension unless you know what you're doing.
         """
@@ -169,24 +141,100 @@ class FFMpeg(HasExtractor, HasTrimmer):
         preserve_delay: bool = False
         trim_use_ms: bool = False
         fps: Fraction = Fraction(24000, 1001)
+        num_frames: int = 0
         output: PathLike | None = None
 
-        def __post_init__(self):
-            self.executable = get_executable("ffmpeg")
+        def _targs(self, trim: Trim) -> str:
+            if trim[0] is not None and trim[0] > 0:
+                args += f" -ss {format_timedelta(frame_to_timedelta(trim[0], self.fps))}"
+            if trim[1] is not None and trim[1] != 0:
+                if trim[1] > 0:
+                    args += f" -to {format_timedelta(frame_to_timedelta(trim[1], self.fps))}"
+                else:
+                    end_frame = self.num_frames + trim[1]
+                    args += f" -to {format_timedelta(frame_to_timedelta(end_frame, self.fps))}"
 
         def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
             pass
 
-    def has_libfdk() -> bool:
-        exe = get_executable("ffmpeg")
-
-        return False
-
 
 @dataclass
 class Sox(Trimmer):
-    trim: Trim
+    """
+    Trim lossless audio using SoX.
+
+    :param trim:                List of Trims or a single Trim, which is a Tuple of two frame numbers or milliseconds
+    :param preserve_delay:      Keeps existing container delay if True
+    :param trim_use_ms:         Will use milliseconds instead of frame numbers
+    :param fps:                 The fps fraction used for the calculations
+    :param num_frames:          Total number of frames used for calculations
+    :param output:              Custom output. Can be a dir or a file.
+                                Do not specify an extension unless you know what you're doing.
+    """
+
+    trim: Trim | list[Trim]
     preserve_delay: bool = False
     trim_use_ms: bool = False
     fps: Fraction = Fraction(24000, 1001)
+    num_frames: int = 0
     output: PathLike | None = None
+
+    def _conv(self, val: int | None):
+        if val is None:
+            return None
+
+        if self.trim_use_ms:
+            return abs(val) / 1000
+        else:
+            return frame_to_timedelta(val, self.fps).total_seconds
+
+    def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
+        import sox
+
+        if not isinstance(input, AudioFile):
+            input = AudioFile.from_file(input, self)
+        out = make_output(input, "flac", f"trimmed", self.output)
+        self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
+        source = ensure_valid_in(input, dither=False, caller=self, supports_pipe=False)
+
+        if len(self.trim) > 1:
+            tempdir = get_temp_workdir()
+            tempdir.mkdir(exist_ok=True)
+            files_to_concat = []
+            first = True
+            debug(f"Generating trimmed tracks for '{input.file.stem}'...", self)
+            for i, t in enumerate(self.trim):
+                soxr = sox.Transformer()
+                soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
+                if t[0] < 0 and first:
+                    soxr.trim(0, self._conv(t[1]))
+                    soxr.pad(self._conv(t[0]))
+                else:
+                    soxr.trim(self._conv(t[0]), self._conv(t[1]))
+                first = False
+                tout = os.path.join(tempdir, f"{input.file.stem}_trimmed_part{i}.wav")
+                soxr.build(str(source.file.resolve()), tout)
+                files_to_concat.append(tout)
+
+            debug("Concatenating the tracks...", self)
+            soxr = sox.Combiner()
+            soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
+            formats = ["wav" for file in files_to_concat]
+            soxr.set_input_format(file_type=formats)
+            soxr.build(files_to_concat, str(out.resolve()), "concatenate")
+            shutil.rmtree(tempdir)
+            debug("Done", self)
+        else:
+            soxr = sox.Transformer()
+            soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
+            debug(f"Applying trim to '{input.file.stem}'", self)
+            t = self.trim[0]
+            if t[0] < 0:
+                soxr.trim(0, self._conv(t[1]))
+                soxr.pad(self._conv(t[0]))
+            else:
+                soxr.trim(self._conv(t[0]), self._conv(t[1]))
+            soxr.build(str(source.file), str(out.resolve()))
+            debug("Done", self)
+
+        return AudioFile(out.resolve(), input.container_delay if self.preserve_delay else 0, input.source)
