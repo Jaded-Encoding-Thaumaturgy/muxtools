@@ -10,7 +10,12 @@ from ..utils.env import get_temp_workdir
 from ..utils.download import get_executable
 from ..utils.types import DitherType, Trim, AudioFormat
 
-__all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
+__all__ = ["ensure_valid_in", "clean_temp_files", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
+
+
+def clean_temp_files():
+    for f in get_temp_workdir().glob("*tempflac*.flac"):
+        os.remove(f)
 
 
 def ensure_valid_in(
@@ -129,7 +134,7 @@ formats = [
     # Lossy
     AudioFormat("AC-3",         "ac3",      "A_AC3"),
     AudioFormat("E-AC-3",       "eac3",     "A_EAC3"),
-    AudioFormat("AAC",          "aac",      "A_AAC*"), # Lots of different AAC formats idk what they mean, don't care either
+    AudioFormat("AAC*",         "m4a",      "A_AAC*"), # Lots of different AAC formats idk what they mean, don't care either
     AudioFormat("Opus",         "opus",     "A_OPUS"),
     AudioFormat("Vorbis",       "ogg",      "A_VORBIS"),
     AudioFormat("/",            "mp3",      "mp4a-6B"), # MP3 has the format name split up into 3 variables so we're gonna ignore this

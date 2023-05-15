@@ -75,7 +75,8 @@ def parse_m2ts_path(dgiFile: Path) -> Path:
     return dgiFile
 
 
-def parse_audioinfo(file: PathLike, track: int = 0) -> AudioInfo:
+def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None) -> AudioInfo:
+    caller = parse_audioinfo if not caller else caller
     f_compiled = re.compile(AUDIOFRAME_REGEX, re.IGNORECASE)
     s_compiled = re.compile(AUDIOSTATS_REGEX, re.IGNORECASE)
     file = ensure_path_exists(file, parse_audioinfo)
@@ -97,7 +98,7 @@ def parse_audioinfo(file: PathLike, track: int = 0) -> AudioInfo:
         "wav",
         out_var,
     ]
-    debug(f"Starting to parse frames and stats for '{file.stem}'", parse_audioinfo)
+    debug(f"Parsing frames and stats for '{file.stem}'", caller)
     out = subprocess.run(args, capture_output=True, text=True)
     frames = []
     stats = AudioStats()
@@ -124,7 +125,7 @@ def parse_audioinfo(file: PathLike, track: int = 0) -> AudioInfo:
                     val = int(val) if isinstance(getattr(stats, attr), int) else val
                     setattr(stats, attr, val)
 
-    debug("Done.", parse_audioinfo)
+    debug("Done", caller)
     return AudioInfo(stats, frames)
 
 

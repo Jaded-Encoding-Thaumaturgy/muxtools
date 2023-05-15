@@ -28,7 +28,9 @@ def get_workdir() -> Path:
 
 
 def get_temp_workdir() -> Path:
-    return Path(get_workdir(), ".temp")
+    wd = Path(get_workdir(), ".temp")
+    wd.mkdir(parents=True, exist_ok=True)
+    return wd
 
 
 def is_debug() -> bool:

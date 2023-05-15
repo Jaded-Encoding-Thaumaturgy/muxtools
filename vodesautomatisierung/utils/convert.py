@@ -9,6 +9,7 @@ __all__: list[str] = [
     "frame_to_timedelta",
     "format_timedelta",
     "timedelta_from_formatted",
+    "frame_to_ms",
 ]
 
 
@@ -56,6 +57,19 @@ def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001)) -> timedel
     fps_dec = _fraction_to_decimal(fps)
     seconds = Decimal(f) / fps_dec
     return timedelta(seconds=float(seconds))
+
+
+def frame_to_ms(f: int, fps: Fraction = Fraction(24000, 1001)) -> timedelta:
+    """
+    Converts a frame number to it's ms value.
+
+    :param f:       The frame number
+    :param fps:     A Fraction containing fps_num and fps_den
+
+    :return:        The resulting ms
+    """
+    td = frame_to_timedelta(f, fps)
+    return td.total_seconds() * 1000
 
 
 def format_timedelta(time: timedelta, precision: int = 3) -> str:

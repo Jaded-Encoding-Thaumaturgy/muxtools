@@ -108,3 +108,8 @@ class AudioStats:
 class AudioInfo:
     stats: AudioStats = None
     frames: list[AudioFrame] | None = None
+
+    def num_samples(self) -> int:
+        for frame in self.frames:
+            if frame.num_samples:
+                return frame.num_samples

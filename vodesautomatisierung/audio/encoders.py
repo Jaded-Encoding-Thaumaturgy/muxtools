@@ -1,10 +1,10 @@
+from shlex import split as splitcommand
 from dataclasses import dataclass
-from shlex import split
 import subprocess
 import os
 
 from .tools import Encoder, run_commandline
-from .audioutils import ensure_valid_in, has_libFDK, has_libFLAC
+from .audioutils import ensure_valid_in, has_libFDK, has_libFLAC, clean_temp_files
 from ..utils.env import get_temp_workdir
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
@@ -12,11 +12,6 @@ from ..utils.files import AudioFile, make_output
 from ..utils.types import DitherType, qAAC_MODE, PathLike
 
 __all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
-
-
-def clean_temp_files():
-    for f in get_temp_workdir().glob("*tempflac*.flac"):
-        os.remove(f)
 
 
 @dataclass
@@ -49,12 +44,12 @@ class FLAC(Encoder):
         args = [flaccl, f"-{self.compression_level}", str(source.file.resolve()) if isinstance(source, AudioFile) else "-"]
         args.extend(["-o", str(output)])
         if self.append:
-            args.extend(split(self.append))
+            args.extend(splitcommand(self.append))
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
         if not run_commandline(args, quiet, False, stdin):
-            debug("Done.", self)
+            debug("Done", self)
             clean_temp_files()
             return AudioFile(output, input.container_delay, input.source)
         else:
@@ -92,12 +87,12 @@ class FLACCL(Encoder):
         args = [flaccl, f"-{self.compression_level}", str(source.file.resolve()) if isinstance(source, AudioFile) else "-"]
         args.extend(["-o", str(output)])
         if self.append:
-            args.extend(split(self.append))
+            args.extend(splitcommand(self.append))
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
         if not run_commandline(args, quiet, False, stdin):
-            debug("Done.", self)
+            debug("Done", self)
             clean_temp_files()
             return AudioFile(output, input.container_delay, input.source)
         else:
@@ -129,7 +124,7 @@ class FF_FLAC(Encoder):
         if self.dither:
             args.extend(['-sample_fmt', 's16', '-ar', '48000', '-resampler', 'soxr', '-precision', '24', '-dither_method', self.dither_type.name.lower()])
         if self.append:
-            args.extend(split(self.append))
+            args.extend(splitcommand(self.append))
         return args
         # fmt: on
 
@@ -144,8 +139,8 @@ class FF_FLAC(Encoder):
         args = self._base_command(input, self.compression_level)
         args.append(str(output.resolve()))
 
-        if run_commandline(args, quiet) == 0:
-            debug("Done.", self)
+        if not run_commandline(args, quiet):
+            debug("Done", self)
             return AudioFile(output, input.container_delay, input.source)
         else:
             raise crit("Encoding to flac using ffmpeg failed!", self)
@@ -204,14 +199,14 @@ class Opus(Encoder):
 
         args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(self.bitrate)]
         if self.append:
-            args.extend(split(self.append))
+            args.extend(splitcommand(self.append))
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
         args.append(str(output))
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
         if not run_commandline(args, quiet, False, stdin):
-            debug("Done.", self)
+            debug("Done", self)
             clean_temp_files()
             return AudioFile(output, input.container_delay, input.source)
         else:
@@ -258,13 +253,13 @@ class qAAC(Encoder):
         debug(f"Encoding '{input.file.stem}' to AAC using qAAC...", self)
         args = [qaac, "--no-delay", "--no-optimize", "--threading", f"--{self.mode.name.lower()}", str(self.q)]
         if self.append:
-            args.extend(split(self.append))
+            args.extend(splitcommand(self.append))
         args.extend(["-o", str(output), str(source.file.resolve()) if isinstance(source, AudioFile) else "-"])
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
         if not run_commandline(args, quiet, False, stdin):
-            debug("Done.", self)
+            debug("Done", self)
             clean_temp_files()
             return AudioFile(output, input.container_delay, input.source)
         else:
@@ -318,20 +313,15 @@ class FDK_AAC(Encoder):
         if self.dither:
             args.extend(['-sample_fmt', 's16', '-ar', '48000', '-resampler', 'soxr', '-precision', '24', '-dither_method', self.dither_type.name.lower()])
         if self.append:
-            args.extend(split(self.append))
+            args.extend(splitcommand(self.append))
         args.append(str(output))
         # fmt: on
         if not run_commandline(args, quiet, False):
-            debug("Done.", self)
+            debug("Done", self)
             clean_temp_files()
             return AudioFile(output, input.container_delay, input.source)
         else:
             raise crit("Encoding to AAC using libFDK failed!", self)
-
-    def has_libfdk() -> bool:
-        exe = get_executable("ffmpeg")
-
-        return False
 
 
 # TODO: Implement the dolby shit

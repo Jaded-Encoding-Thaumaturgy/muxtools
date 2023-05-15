@@ -1,19 +1,22 @@
+from shlex import split as splitcommand
 from dataclasses import dataclass
+from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
 import shutil
 import os
 import re
 
-from .audioutils import format_from_track, sanitize_trims, ensure_valid_in
+from .audioutils import format_from_track, sanitize_trims, ensure_valid_in, clean_temp_files
 from .tools import *
 from ..utils.files import *
 from ..utils.log import error, warn, debug
 from ..utils.env import get_temp_workdir
 from ..utils.download import get_executable
+from ..utils.parsing import parse_audioinfo
 from ..utils.files import get_absolute_track
 from ..utils.types import Trim, PathLike, TrackType
-from ..utils.convert import frame_to_timedelta, format_timedelta
+from ..utils.convert import frame_to_timedelta, format_timedelta, frame_to_ms
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
 
@@ -125,8 +128,6 @@ class FFMpeg(HasExtractor, HasTrimmer):
         """
         Trims audio files using FFMPEG.
         If you're working with lossless files it is strongly recommended to use SoX instead.
-        If you only need a shift at the start and/or removal at the end, you should use eac3to instead.
-        FFMPEG should only be a last resort kind of thing for this.
 
         :param trim:                Can be a single trim or a sequence of trims.
         :param trim_use_ms:         Will use milliseconds instead of frame numbers
@@ -144,18 +145,83 @@ class FFMpeg(HasExtractor, HasTrimmer):
         num_frames: int = 0
         output: PathLike | None = None
 
+        def _calc_delay(self, delay: int = 0, num_samples: int = 0, sample_rate: int = 48000) -> int:
+            """
+            Calculates the delay needed to fix the remaining sync for lossy audio.
+            """
+            from math import ceil, floor
+
+            frame = num_samples * 1000 / sample_rate
+            leftover = (round(delay / frame) * frame) - delay
+            return ceil(leftover) if leftover > 0 else floor(leftover)
+
         def _targs(self, trim: Trim) -> str:
+            """
+            Converts trim to ffmpeg seek args.
+            """
+            arg = ""
+            if trim[1] and trim[1] < 0 and not self.trim_use_ms:
+                raise error("Negative input is not allowed for ms based trims.", FFMpeg())
+
             if trim[0] is not None and trim[0] > 0:
-                args += f" -ss {format_timedelta(frame_to_timedelta(trim[0], self.fps))}"
-            if trim[1] is not None and trim[1] != 0:
-                if trim[1] > 0:
-                    args += f" -to {format_timedelta(frame_to_timedelta(trim[1], self.fps))}"
+                if self.trim_use_ms:
+                    arg += f" -ss {format_timedelta(timedelta(milliseconds=trim[0]))}"
                 else:
-                    end_frame = self.num_frames + trim[1]
-                    args += f" -to {format_timedelta(frame_to_timedelta(end_frame, self.fps))}"
+                    arg += f" -ss {format_timedelta(frame_to_timedelta(trim[0], self.fps))}"
+            if trim[1] is not None and trim[1] != 0:
+                end_frame = self.num_frames + trim[1] if trim[1] < 0 else trim[1]
+                if self.trim_use_ms:
+                    arg += f" -to {format_timedelta(timedelta(milliseconds=trim[1]))}"
+                else:
+                    arg += f" -to {format_timedelta(frame_to_timedelta(end_frame, self.fps))}"
+            return arg
 
         def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
-            pass
+            if not isinstance(input, AudioFile):
+                input = AudioFile.from_file(input, self)
+            self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, caller=self)
+            minfo = input.get_mediainfo()
+            form = format_from_track(minfo)
+            lossy = input.is_lossy()
+            if not form and lossy:
+                raise error(f"Unrecognized lossy format: {minfo.format}", self)
+
+            args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0"]
+            if lossy:
+                args.extend(["-c:a", "copy"])
+                out = make_output(input, form.ext, f"trimmed", self.output)
+            else:
+                args.extend(["-c:a", "flac", "-compression_level", "0"])
+                out = make_output(input, "flac", f"trimmed", self.output)
+
+            ainfo = parse_audioinfo(input.file, caller=self) if not input.info else input.info
+
+            debug(f"Trimming '{input.file.stem}' with ffmpeg...", self)
+
+            if len(self.trim) == 1:
+                tr = self.trim[0]
+                if lossy:
+                    args[2:1] = splitcommand(self._targs(tr))
+                else:
+                    args.extend(splitcommand(self._targs(tr)))
+                args.append(str(out.resolve()))
+                if not run_commandline(args, quiet):
+                    if tr[0] and lossy:
+                        ms = tr[0] if self.trim_use_ms else frame_to_ms(tr[0], self.fps)
+                        cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
+                        debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
+                        if self.preserve_delay:
+                            cont_delay += input.container_delay
+                    else:
+                        cont_delay = input.container_delay if self.preserve_delay else 0
+
+                    debug("Done", self)
+                    return AudioFile(out, cont_delay, input.source)
+                else:
+                    raise error("Failed to trim audio using FFMPEG!", self)
+            else:
+                # Not yet implemented
+                pass
 
 
 @dataclass
@@ -186,7 +252,7 @@ class Sox(Trimmer):
         if self.trim_use_ms:
             return abs(val) / 1000
         else:
-            return frame_to_timedelta(val, self.fps).total_seconds
+            return frame_to_timedelta(abs(val), self.fps).total_seconds()
 
     def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
         import sox
@@ -237,4 +303,5 @@ class Sox(Trimmer):
             soxr.build(str(source.file), str(out.resolve()))
             debug("Done", self)
 
+        clean_temp_files()
         return AudioFile(out.resolve(), input.container_delay if self.preserve_delay else 0, input.source)

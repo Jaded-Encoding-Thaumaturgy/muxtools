@@ -66,14 +66,14 @@ class Setup:
         self.work_dir.mkdir(parents=True, exist_ok=True)
         self.work_dir = str(self.work_dir)
 
-        from utils.env import save_setup
+        from .utils.env import save_setup
 
         save_setup(self)
 
     def edit(self, attr: str, value: any):
         setattr(self, attr, value)
 
-        from utils.env import save_setup
+        from .utils.env import save_setup
 
         save_setup(self)
 

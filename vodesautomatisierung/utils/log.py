@@ -13,7 +13,7 @@ logger = logging.getLogger("vodesauto")
 
 def _format_msg(msg: str, caller: any) -> str:
     if caller and not isinstance(caller, str):
-        caller = caller.__class__.__name__ if hasattr(caller, "__class__") and caller.__class__.__name__ not in ["function", "method"] else caller
+        caller = caller.__class__.__qualname__ if hasattr(caller, "__class__") and caller.__class__.__name__ not in ["function", "method"] else caller
         caller = caller.__name__ if not isinstance(caller, str) else caller
     return msg if caller is None else f"[bold]{caller}:[/] {msg}"
 

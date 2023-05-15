@@ -57,20 +57,6 @@ def ensure_path_exists(pathIn: PathLike, caller: any, allow_dir: bool = False) -
     return path
 
 
-def make_output(source: PathLike, ext: str, suffix: str = "", user_passed: PathLike | None = None) -> Path:
-    workdir = get_workdir()
-    source_stem = Path(source).stem
-
-    if user_passed:
-        user_passed = Path(user_passed)
-        if user_passed.exists() and user_passed.is_dir():
-            return Path(user_passed, f"{source_stem}.{ext}")
-        else:
-            return user_passed.with_suffix(f".{ext}")
-    else:
-        return Path(uniquify_path(os.path.join(workdir, f"{source_stem}{f'_{suffix}' if suffix else ''}.{ext}")))
-
-
 def uniquify_path(path: PathLike) -> str:
     """
     Extends path to not conflict with existing files
@@ -161,6 +147,22 @@ class AudioFile(MuxingFile):
 @dataclass
 class SubtitleFile(MuxingFile):
     pass
+
+
+def make_output(source: PathLike | AudioFile, ext: str, suffix: str = "", user_passed: PathLike | None = None) -> Path:
+    workdir = get_workdir()
+    if isinstance(source, AudioFile):
+        source = source.file
+    source_stem = Path(source).stem
+
+    if user_passed:
+        user_passed = Path(user_passed)
+        if user_passed.exists() and user_passed.is_dir():
+            return Path(user_passed, f"{source_stem}.{ext}")
+        else:
+            return user_passed.with_suffix(f".{ext}")
+    else:
+        return Path(uniquify_path(os.path.join(workdir, f"{source_stem}{f'_{suffix}' if suffix else ''}.{ext}")))
 
 
 def get_absolute_track(file: PathLike, track: int, type: TrackType) -> Track:
