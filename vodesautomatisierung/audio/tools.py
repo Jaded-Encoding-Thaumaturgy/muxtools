@@ -1,19 +1,6 @@
-import os
-import subprocess
 from abc import ABC, abstractmethod
 from ..utils.files import AudioFile
 from ..utils.types import PathLike
-
-
-def run_commandline(command: str | list[str], quiet: bool = True, shell: bool = False, stdin=subprocess.DEVNULL, **kwargs) -> int:
-    if os.name != "nt" and isinstance(command, str):
-        shell = True
-    if quiet:
-        p = subprocess.Popen(command, stdin=stdin, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=shell, **kwargs)
-    else:
-        p = subprocess.Popen(command, stdin=stdin, shell=shell, **kwargs)
-
-    return p.wait()
 
 
 class HasExtractor(ABC):

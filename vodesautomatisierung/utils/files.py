@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import TypeVar
 from dataclasses import dataclass
 from pymediainfo import Track, MediaInfo
-from .env import get_workdir
 from .log import *
+from .env import get_workdir
+from .env import run_commandline
+from .download import get_executable
 from .types import AudioInfo, TrackType
 
 __all__ = [
@@ -124,7 +126,7 @@ class AudioFile(MuxingFile):
         if form:
             return form.lossy
 
-        return getattr(minfo, "compression_mode", True)
+        return getattr(minfo, "compression_mode", "lossless").lower() == "lossy"
 
     def has_multiple_tracks(self, caller: any = None) -> bool:
         fileIn = ensure_path_exists(self.file, caller)
@@ -134,6 +136,27 @@ class AudioFile(MuxingFile):
         elif len(minfo.audio_tracks) == 0:
             raise error(f"'{fileIn.name}' does not contain an audio track!", caller)
         return False
+
+    def to_mka(self, delete: bool = True, quiet: bool = True) -> Path:
+        """
+        Muxes the AudioFile to an MKA file with specified container delay applied.
+
+        :param delete:      Deletes the current file after muxing
+        :return:            Path object of the resulting mka file
+        """
+        mkv = get_executable("mkvmerge")
+        self.file = ensure_path_exists(self.file, self)
+        out = self.file.with_suffix(".mka")
+        args = [mkv, "-o", str(out.resolve()), "--audio-tracks", "0"]
+        if self.container_delay:
+            args.extend(["--sync", f"0:{self.container_delay}"])
+        args.append(str(self.file))
+        if run_commandline(args, quiet) in [0, 1]:
+            if delete:
+                self.file.unlink()
+            return out
+        else:
+            raise error("Failed to mux AudioFile to mka.", self)
 
     @staticmethod
     def from_file(pathIn: PathLike, caller: any):
@@ -165,7 +188,7 @@ def make_output(source: PathLike | AudioFile, ext: str, suffix: str = "", user_p
         return Path(uniquify_path(os.path.join(workdir, f"{source_stem}{f'_{suffix}' if suffix else ''}.{ext}")))
 
 
-def get_absolute_track(file: PathLike, track: int, type: TrackType) -> Track:
+def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: any = None) -> Track:
     """
     Finds the absolute track for a relative track number of a specific type.
 
@@ -173,6 +196,7 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType) -> Track:
     :param track:   Relative track number
     :param type:    TrackType of the requested relative track
     """
+    caller = caller if caller else get_absolute_track
     file = ensure_path_exists(file, get_absolute_track)
     mediainfo = MediaInfo.parse(file)
 
@@ -190,30 +214,30 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType) -> Track:
     match type:
         case TrackType.VIDEO:
             if not videos:
-                raise error(f"No video tracks have been found in '{file.name}'!", get_absolute_track)
+                raise error(f"No video tracks have been found in '{file.name}'!", caller)
             try:
                 return videos[track]
             except:
-                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+                raise error(f"Your requested track doesn't exist.", caller)
         case TrackType.AUDIO:
             if not audios:
-                raise error(f"No audio tracks have been found in '{file.name}'!", get_absolute_track)
+                raise error(f"No audio tracks have been found in '{file.name}'!", caller)
             try:
                 return audios[track]
             except:
-                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+                raise error(f"Your requested track doesn't exist.", caller)
         case TrackType.SUB:
             if not subtitles:
-                raise error(f"No subtitle tracks have been found in '{file.name}'!", get_absolute_track)
+                raise error(f"No subtitle tracks have been found in '{file.name}'!", caller)
             try:
                 return subtitles[track]
             except:
-                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+                raise error(f"Your requested track doesn't exist.", caller)
         case _:
-            raise error("Not implemented for anything other than Video, Audio or Subtitles.", get_absolute_track)
+            raise error("Not implemented for anything other than Video, Audio or Subtitles.", caller)
 
 
-def get_absolute_tracknum(file: PathLike, track: int, type: TrackType) -> int:
+def get_absolute_tracknum(file: PathLike, track: int, type: TrackType, caller: any = None) -> int:
     """
     Finds the absolute track number for a relative track number of a specific type.
 
@@ -221,4 +245,4 @@ def get_absolute_tracknum(file: PathLike, track: int, type: TrackType) -> int:
     :param track:   Relative track number
     :param type:    TrackType of the requested relative track
     """
-    return get_absolute_track(file, track, type).track_id
+    return get_absolute_track(file, track, type, caller).track_id

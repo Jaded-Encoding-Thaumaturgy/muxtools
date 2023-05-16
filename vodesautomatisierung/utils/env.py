@@ -1,7 +1,8 @@
 import os
 import json
+import subprocess
 from pathlib import Path
-from .log import info
+
 from ..main import Setup
 
 __all__ = ["save_setup", "get_setup_attr", "get_workdir", "get_temp_workdir", "is_debug"]
@@ -30,8 +31,19 @@ def get_workdir() -> Path:
 def get_temp_workdir() -> Path:
     wd = Path(get_workdir(), ".temp")
     wd.mkdir(parents=True, exist_ok=True)
-    return wd
+    return wd.resolve()
 
 
 def is_debug() -> bool:
     return get_setup_attr("debug", True)
+
+
+def run_commandline(command: str | list[str], quiet: bool = True, shell: bool = False, stdin=subprocess.DEVNULL, **kwargs) -> int:
+    if os.name != "nt" and isinstance(command, str):
+        shell = True
+    if quiet:
+        p = subprocess.Popen(command, stdin=stdin, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=shell, **kwargs)
+    else:
+        p = subprocess.Popen(command, stdin=stdin, shell=shell, **kwargs)
+
+    return p.wait()

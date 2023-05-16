@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+from shutil import rmtree
 from pymediainfo import Track
 from functools import cmp_to_key
 
@@ -14,8 +15,7 @@ __all__ = ["ensure_valid_in", "clean_temp_files", "sanitize_trims", "format_from
 
 
 def clean_temp_files():
-    for f in get_temp_workdir().glob("*tempflac*.flac"):
-        os.remove(f)
+    rmtree(get_temp_workdir())
 
 
 def ensure_valid_in(
