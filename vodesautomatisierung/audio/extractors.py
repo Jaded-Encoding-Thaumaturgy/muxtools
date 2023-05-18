@@ -102,11 +102,13 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 if lossy:
                     raise error(f"Unrecognized lossy format found: {track.format}", self)
                 else:
+                    extension = "wav"
                     warn("Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
-                    out = make_output(input, "wav", f"extracted_{self.track}", self.output)
+                    out = make_output(input, extension, f"extracted_{self.track}", self.output)
             else:
                 lossy = form.lossy
-                out = make_output(input, form.ext, f"extracted_{self.track}", self.output)
+                extension = form.ext
+                out = make_output(input, extension, f"extracted_{self.track}", self.output)
 
             args = [ffmpeg, "-hide_banner", "-i", str(input.resolve()), "-map", f"0:a:{self.track}"]
 
@@ -119,7 +121,10 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     out = make_output(input, "flac", f"extracted_{self.track}", self.output)
                     args.extend(["-c:a", "flac", "-sample_fmt", "s16"])
             else:
-                args.extend(["-c:a", "copy"])
+                if extension == "wav":
+                    args.extend(["-c:a", "pcm_s16le" if specified_depth == 16 else "pcm_s24le"])
+                else:
+                    args.extend(["-c:a", "copy"])
 
             args.append(str(out))
 
@@ -144,7 +149,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                                     Do not specify an extension unless you know what you're doing.
         """
 
-        trim: Trim | list[Trim]
+        trim: Trim | list[Trim] | None = None
         preserve_delay: bool = False
         trim_use_ms: bool = False
         fps: Fraction = Fraction(24000, 1001)
@@ -260,7 +265,6 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 args[3] = concat_f
                 args[2:1] = ["-f", "concat", "-safe", "0"]
                 args.append(str(out.resolve()))
-                # print(" ".join(args))
 
                 if not run_commandline(args, quiet):
                     debug("Done", self)
@@ -285,7 +289,7 @@ class Sox(Trimmer):
                                 Do not specify an extension unless you know what you're doing.
     """
 
-    trim: Trim | list[Trim]
+    trim: Trim | list[Trim] | None = None
     preserve_delay: bool = False
     trim_use_ms: bool = False
     fps: Fraction = Fraction(24000, 1001)

@@ -27,3 +27,15 @@ class Encoder(ABC):
     @abstractmethod
     def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
         pass
+
+
+class AutoTrimmer(Trimmer):
+    def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
+        # Dummy func
+        ...
+
+
+class AutoEncoder(Encoder):
+    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
+        # Dummy func
+        ...
