@@ -1,7 +1,5 @@
 from fractions import Fraction
 
-from numpy import isin
-
 from .utils.log import warn
 
 from .audio.audioutils import is_fancy_codec
@@ -35,8 +33,10 @@ def do_audio(
     :param extractor:       Tool used to extract the audio
     :param trimmer:         Tool used to trim the audio
                             AutoTrimmer means it will choose ffmpeg for lossy and Sox for lossless
+
     :param encoder:         Tool used to encode the audio
                             AutoEncoder means it won't reencode lossy and choose opus otherwise
+
     :param quiet:           Whether or not the tool output should be visible
     :param output:          Custom output file or directory, extensions will be automatically added
     :return:                AudioFile Object containing file path, delays and source

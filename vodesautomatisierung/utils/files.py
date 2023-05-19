@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import TypeVar
 from dataclasses import dataclass
 from pymediainfo import Track, MediaInfo
+
 from .log import *
 from .env import get_workdir
+from .glob import GlobSearch
 from .env import run_commandline
 from .download import get_executable
 from .types import AudioInfo, TrackType
@@ -14,7 +16,6 @@ from .types import AudioInfo, TrackType
 __all__ = [
     "VideoFile",
     "AudioFile",
-    "SubtitleFile",
     "PathLike",
     "get_path",
     "ensure_path",
@@ -44,13 +45,17 @@ def ensure_path(pathIn: PathLike, caller: any) -> Path:
         return Path(pathIn).resolve()
 
 
-def ensure_path_exists(pathIn: PathLike, caller: any, allow_dir: bool = False) -> Path:
+def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch, caller: any, allow_dir: bool = False) -> Path:
     """
     Utility function for other functions to make sure a path was passed to them and that it exists.
 
     :param pathIn:      Supposed passed Path
     :param caller:      Caller name used for the exception and error message
     """
+    if isinstance(pathIn, GlobSearch):
+        pathIn = pathIn.paths
+    if isinstance(pathIn, list):
+        pathIn = pathIn[0]
     path = ensure_path(pathIn, caller)
     if not path.exists():
         raise crit(f"Path target '{path}' does not exist.", caller)
@@ -96,7 +101,7 @@ def get_crc32(file: PathLike) -> str:
 
 @dataclass
 class FileMixin:
-    file: PathLike
+    file: PathLike | list[PathLike] | GlobSearch
     container_delay: int = 0
     source: PathLike | None = None
 
@@ -114,6 +119,9 @@ class VideoFile(MuxingFile):
 @dataclass
 class AudioFile(MuxingFile):
     info: AudioInfo | None = None
+
+    def __post_init__(self):
+        self.file = ensure_path_exists(self.file, self)
 
     def get_mediainfo(self) -> Track:
         return MediaInfo.parse(self.file).audio_tracks[0]
@@ -165,11 +173,6 @@ class AudioFile(MuxingFile):
         warn("It's strongly recommended to explicitly extract tracks first!", caller, 1)
         file = ensure_path_exists(pathIn, caller)
         return AudioFile(file, 0, file)
-
-
-@dataclass
-class SubtitleFile(MuxingFile):
-    pass
 
 
 def make_output(source: PathLike | AudioFile, ext: str, suffix: str = "", user_passed: PathLike | None = None) -> Path:

@@ -25,8 +25,8 @@ class Tool:
 # fmt: off
 # Feel free to compare the hashes if you don't like the custom files
 tools = [
-    # non-free builds for libfdk_aac if one so desires
     Tool("CUETools.FLACCL.cmd", "https://github.com/gchudov/cuetools.net/releases/download/v2.2.3/CUETools_2.2.3.zip", ["flaccl"]),
+    # non-free builds for libfdk_aac if one so desires
     Tool("ffmpeg", "https://github.com/AnimMouse/ffmpeg-autobuild/releases/download/m-2023-05-08-05-43/ffmpeg-f009f84-3e8c1fa-win64-nonfree.7z"),
     Tool("mkvmerge", "https://www.videohelp.com/download/mkvtoolnix-64-bit-76.0.7z", ['mkvextract', 'mkvinfo', 'mkvpropedit']), 
     Tool("eac3to", "https://files.catbox.moe/k0gzt0.7z"), # Custom package because of removed sounds and updated libFlac
