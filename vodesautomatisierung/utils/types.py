@@ -66,6 +66,7 @@ class AudioFrame:
                         the time base depends on the filter input pad, and is usually 1/sample_rate
 
     :param pts_time:    The presentation timestamp of the input frame in seconds
+    :param num_samples: Number of samples in a frame (can also be refered to as frame length or size)
     """
 
     n: int
