@@ -1,4 +1,5 @@
 from .audio import *
+from .subtitle import *
 from .utils import *
 
 from . import main

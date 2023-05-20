@@ -1,5 +1,5 @@
-from . import aegi, font, sub
+from . import sub
 
-from aegi import *
-from font import *
-from sub import *
+# from aegi import *
+# from font import *
+from .sub import *
