@@ -166,7 +166,7 @@ class AudioFile(MuxingFile):
         else:
             raise error("Failed to mux AudioFile to mka.", self)
 
-    @staticmethod
+    @classmethod
     def from_file(pathIn: PathLike, caller: any):
         from utils.log import warn
 
