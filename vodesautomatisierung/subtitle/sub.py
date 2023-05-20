@@ -10,7 +10,7 @@ from ..utils.convert import frame_to_timedelta, timedelta_to_frame
 from ..utils.glob import GlobSearch
 from ..utils.files import MuxingFile, PathLike, ensure_path_exists, make_output
 
-DEFAULT_DIALOGUE_STYLES = ["Default", "Main", "Alt", "Overlap", "Flashback", "Top", "Italics"]
+DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "top", "italics"]
 
 
 @dataclass
@@ -181,7 +181,7 @@ class SubFile(MuxingFile):
         self.clean_styles()
         return self
 
-    def shift_0(self, fps: Fraction = Fraction(24000, 1001)) -> Self:
+    def shift_0(self, fps: Fraction = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> Self:
         """
         Does the famous shift by 0 frames to fix frame timing issues
         (It's basically just converting time to frame and back)
@@ -191,8 +191,9 @@ class SubFile(MuxingFile):
         doc = self.__read_doc()
         events = []
         for line in doc.events:
-            line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps), fps)
-            line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps), fps)
+            if not allowed_styles or line.style.lower() in allowed_styles:
+                line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps), fps)
+                line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps), fps)
             events.append(line)
         doc.events = events
         self.__update_doc(doc)
