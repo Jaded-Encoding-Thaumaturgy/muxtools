@@ -117,6 +117,11 @@ class VideoFile(MuxingFile):
 
 
 @dataclass
+class FontFile(MuxingFile):
+    pass
+
+
+@dataclass
 class AudioFile(MuxingFile):
     info: AudioInfo | None = None
 

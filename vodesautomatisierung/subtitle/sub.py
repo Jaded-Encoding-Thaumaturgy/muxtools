@@ -1,14 +1,16 @@
 from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
+from pathlib import Path
 from typing import Self
 import re
+import os
 from ass import Document, Comment, Dialogue, parse as parseDoc
 
-from ..utils.log import debug, info, warn
+from ..utils.log import debug, error, info, warn
 from ..utils.convert import frame_to_timedelta, timedelta_to_frame
 from ..utils.glob import GlobSearch
-from ..utils.files import MuxingFile, PathLike, ensure_path_exists, make_output
+from ..utils.files import FontFile, MuxingFile, PathLike, ensure_path_exists, make_output
 
 DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "top", "italics"]
 
@@ -62,10 +64,10 @@ class SubFile(MuxingFile):
             self.file = ensure_path_exists(self.file, self)
             out = make_output(self.file, "ass", "vof")
             with open(out, "w", encoding=self.encoding) as writer:
-                self.__read_doc().dump_file(writer)
+                self._read_doc().dump_file(writer)
             self.file = out
 
-    def __read_doc(self, file: PathLike | None = None) -> Document:
+    def _read_doc(self, file: PathLike | None = None) -> Document:
         with open(self.file if not file else file, "r", encoding=self.encoding) as reader:
             return parseDoc(reader)
 
@@ -77,7 +79,7 @@ class SubFile(MuxingFile):
         """
         Deletes unused styles from the document
         """
-        doc = self.__read_doc()
+        doc = self._read_doc()
         used_styles = {line.style for line in doc.events if line.TYPE == "Dialogue"}
         doc.styles = [style for style in doc.styles if style.name in used_styles]
         self.__update_doc(doc)
@@ -94,7 +96,7 @@ class SubFile(MuxingFile):
 
         :return:                    This SubTrack
         """
-        doc = self.__read_doc()
+        doc = self._read_doc()
 
         events = []
 
@@ -147,7 +149,7 @@ class SubFile(MuxingFile):
         :param top_styles:          Styles that will be set to default_style and an8 added to tags
         :param italics_styles:      Styles that will be set to default_style and i1 added to tags
         """
-        doc = self.__read_doc()
+        doc = self._read_doc()
         events = []
         for line in doc.events:
             add_italics_tag = False
@@ -155,12 +157,20 @@ class SubFile(MuxingFile):
                 for s in italics_styles:
                     if s.casefold() in line.style.casefold():
                         add_italics_tag = True
+                        if "flashback" in line.style.lower():
+                            line.style = default_style if not keep_flashback else "Flashback"
+                        else:
+                            line.style = default_style
                         break
             add_top_tag = False
             if top_styles:
                 for s in top_styles:
                     if s.casefold() in line.style.casefold():
                         add_top_tag = True
+                        if "flashback" in line.style.lower():
+                            line.style = default_style if not keep_flashback else "Flashback"
+                        else:
+                            line.style = default_style
                         break
             if add_italics_tag and add_top_tag:
                 line.text = R"{\i1\an8}" + line.text
@@ -169,8 +179,12 @@ class SubFile(MuxingFile):
             elif add_top_tag:
                 line.text = R"{\an8}" + line.text
 
-            if not keep_flashback and "flashback" in line.style.lower():
-                line.style = default_style
+            if not keep_flashback:
+                if "flashback" in line.style.lower():
+                    line.style = default_style
+            else:
+                if line.style == "flashback":
+                    line.style = "Flashback"
             if dialogue_styles:
                 for s in dialogue_styles:
                     if s.casefold() in line.style.casefold():
@@ -183,12 +197,15 @@ class SubFile(MuxingFile):
 
     def shift_0(self, fps: Fraction = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> Self:
         """
-        Does the famous shift by 0 frames to fix frame timing issues
+        Does the famous shift by 0 frames to fix frame timing issues.
         (It's basically just converting time to frame and back)
 
-        This does not currently exactly reproduce the aegisub behaviour but it should have the same effect
+        This does not currently exactly reproduce the aegisub behaviour but it should have the same effect.
+
+        :param fps:             The fps fraction used for conversions
+        :param allowed_styles:  A list of style names this will run on. Will run on every line if None.
         """
-        doc = self.__read_doc()
+        doc = self._read_doc()
         events = []
         for line in doc.events:
             if not allowed_styles or line.style.lower() in allowed_styles:
@@ -225,8 +242,8 @@ class SubFile(MuxingFile):
         mergefile = ensure_path_exists(mergefile, self)
         was_merged = False
 
-        doc = self.__read_doc()
-        mergedoc = self.__read_doc(mergefile)
+        doc = self._read_doc()
+        mergedoc = self._read_doc(mergefile)
 
         events = []
         tomerge = []
@@ -292,3 +309,35 @@ class SubFile(MuxingFile):
             warn(f"Syncpoint '{syncpoint}' was not found!", self)
 
         return self
+
+    def collect_fonts(self, use_system_fonts: bool = True, search_current_dir: bool = True, additional_fonts: list[PathLike] = []) -> list[FontFile]:
+        """
+        Collects fonts for current subtitle.
+
+        :param use_system_fonts:        Parses and checks against all installed fonts
+        :param search_current_dir:      Recursively checks the current work directory for fonts
+        :param additional_fonts:        Can be a directory or a path to a file directly (or a list of either)
+
+        :return:                        A list of FontFile objects
+        """
+
+        if not isinstance(additional_fonts, list):
+            additional_fonts = [additional_fonts]
+
+        if search_current_dir:
+            additional_fonts.append(os.getcwd())
+
+        resolved_paths: list[Path] = []
+
+        for f in additional_fonts:
+            f = ensure_path_exists(f, self, True)
+            if f.is_dir():
+                resolved_paths.extend([file for file in f.rglob("*.ttf")])
+                resolved_paths.extend([file for file in f.rglob("*.otf")])
+            else:
+                if f.suffix.lower() not in ["ttf", "otf"]:
+                    raise error(f"'{f.name}' is not a font!", self)
+                resolved_paths.append(f)
+        from .font import collect_fonts as collect
+
+        return collect(self, use_system_fonts, resolved_paths)
