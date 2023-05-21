@@ -1,4 +1,8 @@
 import logging
+import os
+import shutil
+
+from ..utils.env import get_workdir
 
 logging.getLogger("matplotlib").setLevel(logging.CRITICAL)
 logging.getLogger("matplotlib.font_manager").setLevel(logging.CRITICAL)
@@ -35,7 +39,14 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
         if not query:
             warn(f"Font '{style.fontname}' was not found!", collect_fonts, 3)
         else:
-            debug(f"Found font '{query.font.exact_names.pop()}'.", collect_fonts)
-            found_fonts.append(FontFile(query.font.filename))
+            fontname = query.font.exact_names.pop()
+            debug(f"Found font '{fontname}'.", collect_fonts)
+            fontpath = Path(query.font.filename)
+            outpath = os.path.join(get_workdir(), f"{fontname}{fontpath.suffix}")
+            shutil.copy(fontpath, outpath)
 
+    for f in get_workdir().glob("*.ttf"):
+        found_fonts.append(FontFile(f))
+    for f in get_workdir().glob("*.otf"):
+        found_fonts.append(FontFile(f))
     return found_fonts
