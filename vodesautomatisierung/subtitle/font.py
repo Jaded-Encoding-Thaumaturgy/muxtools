@@ -43,7 +43,8 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
             debug(f"Found font '{fontname}'.", collect_fonts)
             fontpath = Path(query.font.filename)
             outpath = os.path.join(get_workdir(), f"{fontname}{fontpath.suffix}")
-            shutil.copy(fontpath, outpath)
+            if not Path(outpath).exists:
+                shutil.copy(fontpath, outpath)
 
     for f in get_workdir().glob("*.ttf"):
         found_fonts.append(FontFile(f))
