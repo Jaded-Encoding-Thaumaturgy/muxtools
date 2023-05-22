@@ -1,3 +1,4 @@
+from .env import download_allowed
 from .types import PathLike
 from .log import *
 
@@ -41,7 +42,7 @@ tools = [
 # TODO: check CPU to decide on which x264/5 file to use
 
 
-def get_executable(type: str, can_download: bool = True) -> str:
+def get_executable(type: str, can_download: bool = download_allowed()) -> str:
     type = type.lower()
     path = sh.which(type)
     env = os.environ.get(f"vof_exe_{type}", None)

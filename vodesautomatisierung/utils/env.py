@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..main import Setup
 
-__all__ = ["save_setup", "get_setup_attr", "get_workdir", "get_temp_workdir", "is_debug"]
+__all__ = ["save_setup", "get_setup_attr", "get_workdir", "get_temp_workdir", "is_debug", "download_allowed"]
 
 
 def save_setup(setup: Setup):
@@ -36,6 +36,10 @@ def get_temp_workdir() -> Path:
 
 def is_debug() -> bool:
     return get_setup_attr("debug", True)
+
+
+def download_allowed() -> bool:
+    return get_setup_attr("allow_binary_download", False)
 
 
 def run_commandline(command: str | list[str], quiet: bool = True, shell: bool = False, stdin=subprocess.DEVNULL, **kwargs) -> int:
