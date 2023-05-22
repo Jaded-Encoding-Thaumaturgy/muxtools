@@ -1,0 +1,177 @@
+from datetime import timedelta
+from fractions import Fraction
+from pathlib import Path
+from typing import Self
+import os
+
+from ..utils.log import info
+from ..utils.env import get_workdir
+from ..utils.glob import GlobSearch
+from ..utils.types import Chapter, PathLike
+from ..utils.parsing import parse_ogm, parse_xml
+from ..utils.convert import format_timedelta, frame_to_timedelta, timedelta_to_frame
+
+__all__ = ["Chapters"]
+
+
+class Chapters:
+    chapters: list[Chapter] = []
+    fps: Fraction
+
+    def __init__(
+        self, chapter_source: PathLike | GlobSearch | Chapter | list[Chapter], fps: Fraction = Fraction(24000, 1001), _print: bool = True
+    ) -> None:
+        """
+        Convenience class for chapters
+
+        :param chapter_source:      Input either txt with ogm chapters, xml or (a list of) self defined chapters.
+        :param fps:                 Needed for timestamp convertion. Assumes 24000/1001 by default.
+        :param _print:              Prints chapters after parsing and after trimming.
+        """
+        self.fps = fps
+        if isinstance(chapter_source, tuple):
+            self.chapters = [chapter_source]
+        elif isinstance(chapter_source, list):
+            self.chapters = chapter_source
+        else:
+            # Handle both OGM .txt files and xml files
+            if isinstance(chapter_source, GlobSearch):
+                chapter_source = chapter_source.paths[0] if isinstance(chapter_source.paths, list) else chapter_source.paths
+            chapter_source = chapter_source if isinstance(chapter_source, Path) else Path(chapter_source)
+
+            self.chapters = parse_xml(chapter_source) if chapter_source.suffix.lower() == ".xml" else parse_ogm(chapter_source)
+            if _print:
+                self.print()
+
+        # Convert all framenumbers to timedeltas
+        chapters = []
+        for ch in self.chapters:
+            if isinstance(ch[0], int):
+                current = list(ch)
+                current[0] = frame_to_timedelta(current[0], self.fps)
+                chapters.append(tuple(current))
+            else:
+                chapters.append(ch)
+        self.chapters = chapters
+
+    def trim(self, trim_start: int = 0, trim_end: int = 0, num_frames: int = 0) -> Self:
+        """
+        Trims the chapters
+        """
+        if trim_start > 0:
+            chapters: list[Chapter] = []
+            for chapter in self.chapters:
+                if timedelta_to_frame(chapter[0]) == 0:
+                    chapters.append(chapter)
+                    continue
+                if timedelta_to_frame(chapter[0]) - trim_start < 0:
+                    continue
+                current = list(chapter)
+                current[0] = current[0] - frame_to_timedelta(trim_start, self.fps)
+                if num_frames:
+                    if current[0] > frame_to_timedelta(num_frames - 1, self.fps):
+                        continue
+                chapters.append(tuple(current))
+
+            self.chapters = chapters
+        if trim_end != 0:
+            if trim_end > 0:
+                chapters: list[Chapter] = []
+                for chapter in self.chapters:
+                    if timedelta_to_frame(chapter[0], self.fps) < trim_end:
+                        chapters.append(chapter)
+                self.chapters = chapters
+
+        return self
+
+    def set_names(self, names: list[str | None]) -> Self:
+        """
+        Renames the chapters
+
+        :param names:   List of names
+        """
+        old: list[str] = [chapter[1] for chapter in self.chapters]
+        if len(names) > len(old):
+            raise ValueError(f"Chapters: too many names!")
+        if len(names) < len(old):
+            names += [None] * (len(old) - len(names))
+
+        chapters: list[Chapter] = []
+        for i, name in enumerate(names):
+            current = list(self.chapters[i])
+            current[1] = name
+            chapters.append(tuple(current))
+
+        self.chapters = chapters
+        return self
+
+    def add(self, chapters: Chapter | list[Chapter], index: int = 0) -> Self:
+        """
+        Adds a chapter at the specified index
+        """
+        if isinstance(chapters, tuple):
+            chapters = [chapters]
+        else:
+            chapters = chapters
+
+        converted = []
+        for ch in chapters:
+            if isinstance(ch[0], int):
+                current = list(ch)
+                current[0] = frame_to_timedelta(current[0], self.fps)
+                converted.append(tuple(current))
+            else:
+                converted.append(ch)
+
+        for ch in converted:
+            self.chapters.insert(index, ch)
+            index += 1
+        return self
+
+    def shift_chapter(self, chapter: int = 0, shift_amount: int = 0) -> "Chapters":
+        """
+        Used to shift a single chapter by x frames
+
+        :param chapter:         Chapter number (starting at 0)
+        :param shift_amount:    Frames to shift by
+        """
+        ch = list(self.chapters[chapter])
+        shifted_frame = ch[0] + frame_to_timedelta(shift_amount, self.fps)
+        if shifted_frame.total_seconds() > 0:
+            ch[0] = shifted_frame
+        else:
+            ch[0] = timedelta(seconds=0)
+        self.chapters[chapter] = tuple(ch)
+        return self
+
+    def print(self) -> "Chapters":
+        """
+        Prettier print for these because default timedelta formatting sucks
+        """
+        info("Chapters:")
+        for time, name in self.chapters:
+            print(f"{name}: {format_timedelta(time)} | {timedelta_to_frame(time, self.fps)}")
+        print("", end="\n")
+        return self
+
+    def to_file(self, out: PathLike | None = None) -> str:
+        """
+        Outputs the chapters to an OGM file
+
+        :param out:     Can be either a directory or a full file path
+        """
+        if not out:
+            out = get_workdir()
+        out = out.resolve() if isinstance(out, Path) else Path(out).resolve()
+        if out.is_dir():
+            out_file = os.path.join(out, "chapters.txt")
+        else:
+            out_file = out
+        with open(out_file, "w", encoding="UTF-8") as f:
+            f.writelines(
+                [
+                    f"CHAPTER{i:02d}={format_timedelta(chapter[0])}\nCHAPTER{i:02d}NAME=" f'{chapter[1] if chapter[1] else ""}\n'
+                    for i, chapter in enumerate(self.chapters)
+                ]
+            )
+        return out_file
