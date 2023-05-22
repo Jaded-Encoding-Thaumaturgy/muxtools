@@ -27,7 +27,7 @@ class Tool:
 tools = [
     Tool("CUETools.FLACCL.cmd", "https://github.com/gchudov/cuetools.net/releases/download/v2.2.3/CUETools_2.2.3.zip", ["flaccl"]),
     # non-free builds for libfdk_aac if one so desires
-    Tool("ffmpeg", "https://github.com/AnimMouse/ffmpeg-autobuild/releases/download/m-2023-05-08-05-43/ffmpeg-f009f84-3e8c1fa-win64-nonfree.7z"),
+    Tool("ffmpeg", "https://github.com/AnimMouse/ffmpeg-autobuild/releases/download/m-2023-05-08-05-43/ffmpeg-f009f84-3e8c1fa-win64-nonfree.7z", ["ffprobe"]),
     Tool("mkvmerge", "https://www.videohelp.com/download/mkvtoolnix-64-bit-76.0.7z", ['mkvextract', 'mkvinfo', 'mkvpropedit']), 
     Tool("eac3to", "https://files.catbox.moe/k0gzt0.7z"), # Custom package because of removed sounds and updated libFlac
     Tool("x264", "https://github.com/DJATOM/x264-aMod/releases/download/r3101%2B20/x264-aMod-x64-core164-r3101+20.7z"),
