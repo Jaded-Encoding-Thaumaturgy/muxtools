@@ -1,3 +1,4 @@
+from ass import Document, Comment, Dialogue, Style, parse as parseDoc
 from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
@@ -5,11 +6,10 @@ from pathlib import Path
 from typing import Self
 import re
 import os
-from ass import Document, Comment, Dialogue, parse as parseDoc
 
+from ..utils.glob import GlobSearch
 from ..utils.log import debug, error, info, warn
 from ..utils.convert import frame_to_timedelta, timedelta_to_frame
-from ..utils.glob import GlobSearch
 from ..utils.files import FontFile, MuxingFile, PathLike, ensure_path_exists, make_output
 
 DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "top", "italics"]
@@ -192,8 +192,7 @@ class SubFile(MuxingFile):
             events.append(line)
         doc.events = events
         self.__update_doc(doc)
-        self.clean_styles()
-        return self
+        return self.clean_styles()
 
     def shift_0(self, fps: Fraction = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> Self:
         """
@@ -341,3 +340,29 @@ class SubFile(MuxingFile):
         from .font import collect_fonts as collect
 
         return collect(self, use_system_fonts, resolved_paths)
+
+    def restyle(self, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False) -> Self:
+        """
+        Add (and replace existing) styles to the subtitle file.
+
+        :param styles:          Either a single or a list of ass Styles
+        :param clean_after:     Clean unused styles after
+        :param delete_existing: Delete all existing styles before adding new ones
+        """
+        if not isinstance(styles, list):
+            styles = [styles]
+
+        doc = self._read_doc()
+        if delete_existing:
+            doc.styles = []
+
+        names = [style.name.casefold() for style in styles]
+        existing = [style for style in doc.styles if style.name.casefold() not in names]
+        styles.extend(existing)
+        doc.styles = styles
+
+        self.__update_doc(doc)
+        if clean_after:
+            return self.clean_styles()
+        else:
+            return self
