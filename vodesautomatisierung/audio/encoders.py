@@ -4,10 +4,10 @@ import subprocess
 import os
 
 from .tools import Encoder
-from .audioutils import ensure_valid_in, has_libFDK, has_libFLAC, clean_temp_files
+from .audioutils import ensure_valid_in, has_libFDK, has_libFLAC
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
-from ..utils.files import AudioFile, make_output
+from ..utils.files import AudioFile, make_output, clean_temp_files
 from ..utils.env import get_temp_workdir, run_commandline
 from ..utils.types import DitherType, qAAC_MODE, PathLike
 

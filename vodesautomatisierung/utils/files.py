@@ -2,12 +2,13 @@ import os
 import binascii
 from abc import ABC
 from pathlib import Path
+from shutil import rmtree
 from typing import TypeVar
 from dataclasses import dataclass
 from pymediainfo import Track, MediaInfo
 
 from .log import *
-from .env import get_workdir
+from .env import get_temp_workdir, get_workdir
 from .glob import GlobSearch
 from .env import run_commandline
 from .download import get_executable
@@ -23,6 +24,7 @@ __all__ = [
     "get_crc32",
     "make_output",
     "ensure_path_exists",
+    "clean_temp_files",
 ]
 
 PathLike = TypeVar("PathLike", str, Path, None)
@@ -180,8 +182,12 @@ class AudioFile(MuxingFile):
         return AudioFile(file, 0, file)
 
 
-def make_output(source: PathLike | AudioFile, ext: str, suffix: str = "", user_passed: PathLike | None = None) -> Path:
-    workdir = get_workdir()
+def clean_temp_files():
+    rmtree(get_temp_workdir())
+
+
+def make_output(source: PathLike | AudioFile, ext: str, suffix: str = "", user_passed: PathLike | None = None, temp: bool = False) -> Path:
+    workdir = get_temp_workdir() if temp else get_workdir()
     if isinstance(source, AudioFile):
         source = source.file
     source_stem = Path(source).stem
@@ -189,11 +195,11 @@ def make_output(source: PathLike | AudioFile, ext: str, suffix: str = "", user_p
     if user_passed:
         user_passed = Path(user_passed)
         if user_passed.exists() and user_passed.is_dir():
-            return Path(user_passed, f"{source_stem}.{ext}")
+            return Path(user_passed, f"{source_stem}.{ext}").resolve()
         else:
-            return user_passed.with_suffix(f".{ext}")
+            return user_passed.with_suffix(f".{ext}").resolve()
     else:
-        return Path(uniquify_path(os.path.join(workdir, f"{source_stem}{f'_{suffix}' if suffix else ''}.{ext}")))
+        return Path(uniquify_path(os.path.join(workdir, f"{source_stem}{f'_{suffix}' if suffix else ''}.{ext}"))).resolve()
 
 
 def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: any = None) -> Track:

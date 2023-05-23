@@ -11,11 +11,7 @@ from ..utils.env import get_temp_workdir
 from ..utils.download import get_executable
 from ..utils.types import DitherType, Trim, AudioFormat
 
-__all__ = ["ensure_valid_in", "clean_temp_files", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
-
-
-def clean_temp_files():
-    rmtree(get_temp_workdir())
+__all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
 
 
 def ensure_valid_in(

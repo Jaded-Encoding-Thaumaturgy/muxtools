@@ -1,16 +1,23 @@
+from copy import deepcopy
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc
 from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
 from typing import Self
+import shutil
+import json
 import re
 import os
 
+
+from .subutils import dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
+from ..utils.download import get_executable
 from ..utils.log import debug, error, info, warn
+from ..utils.env import get_temp_workdir, run_commandline
 from ..utils.convert import frame_to_timedelta, timedelta_to_frame
-from ..utils.files import FontFile, MuxingFile, PathLike, ensure_path_exists, make_output
+from ..utils.files import FontFile, MuxingFile, PathLike, ensure_path_exists, make_output, clean_temp_files
 
 DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "top", "italics"]
 
@@ -29,6 +36,8 @@ class SubFile(MuxingFile):
     """
 
     encoding = "utf_8_sig"
+
+    __all__ = ["clean_styles", "autoswapper", "unfuck_cr", "shift_0", "syncpoint_merge", "collect_fonts", "restyle", "resample"]
 
     def __post_init__(self):
         if isinstance(self.file, GlobSearch):
@@ -54,6 +63,7 @@ class SubFile(MuxingFile):
                         continue
                     main.styles.append(style)
 
+            self.source = self.file[0]
             out = make_output(self.file[0], "ass", "merged")
             with open(out, "w", encoding=self.encoding) as writer:
                 main.dump_file(writer)
@@ -62,6 +72,7 @@ class SubFile(MuxingFile):
             debug("Done")
         else:
             self.file = ensure_path_exists(self.file, self)
+            self.source = self.file
             out = make_output(self.file, "ass", "vof")
             with open(out, "w", encoding=self.encoding) as writer:
                 self._read_doc().dump_file(writer)
@@ -352,6 +363,8 @@ class SubFile(MuxingFile):
         if not isinstance(styles, list):
             styles = [styles]
 
+        styles = styles.copy()
+
         doc = self._read_doc()
         if delete_existing:
             doc.styles = []
@@ -366,3 +379,58 @@ class SubFile(MuxingFile):
             return self.clean_styles()
         else:
             return self
+
+    def resample(
+        self,
+        video: PathLike | None = None,
+        src_width: int | None = None,
+        src_height: int | None = None,
+        use_arch: bool | None = None,
+        quiet: bool = True,
+    ) -> Self:
+        """
+        Resample subtitles to match the resolution of the specified video.
+
+        :param video:           Path to a video. Will resort to a 1080p dummy video if None.
+        :param src_width:       The width of the resolution the subs are currently at
+        :param src_height:      The height of the resolution the subs are currently at
+                                Both of the above params will be taken from the sub file if not given.
+                                (Assuming 640 x 360 if nothing is given in the document)
+
+        :param use_arch:        Uses arch1t3cht's perspective resampler script to fix any perspective stuff after resampling.
+                                This requires arch.Resample.moon in either of your autoload folders.
+                                None means it will use it if it can find the script. True will try to force it.
+        """
+        aegicli = get_executable("aegisub-cli", False)
+        video = dummy_video(1920, 1080) if not video else ensure_path_exists(video, self)
+        doc = self._read_doc()
+
+        if not src_width:
+            src_width = doc.info.get("PlayResX", 640)
+
+        if not src_height:
+            src_height = doc.info.get("PlayResY", 360)
+
+        if use_arch is None:
+            use_arch = has_arch_resampler()
+
+        output = Path(get_temp_workdir(), f"{self.file.stem}_resampled.ass")
+        args = [aegicli, "--video", str(video.resolve()), str(self.file.resolve()), str(output), "tool/resampleres"]
+        if run_commandline(args, quiet):
+            raise error("Failed to resample subtitles!", self)
+
+        if use_arch:
+            prevout = output
+            output = Path(get_temp_workdir(), f"{self.file.stem}_resampled_arch.ass")
+
+            # fmt: off
+            dialog_json = json.dumps({"button": 0, "values": {"srcresx": src_width, "srcresy": src_height, "centerorg": "false"}})
+            args = [aegicli, "--video", str(video.resolve()), "--dialog", dialog_json, "--automation", "arch.Resample.moon", str(prevout), str(output), "Resample Perspective"]
+            # fmt: on
+            if run_commandline(args, quiet):
+                raise error("Failed to resample perspective of subtitles!", self)
+
+        self.file.unlink(True)
+        self.file = shutil.copy(output, self.file)
+        clean_temp_files()
+        return self
