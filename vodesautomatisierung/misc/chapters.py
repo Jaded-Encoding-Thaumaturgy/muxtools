@@ -4,11 +4,14 @@ from pathlib import Path
 from typing import Self
 import os
 
-from ..utils.log import info
-from ..utils.env import get_workdir
+
+from ..utils.log import error, info
 from ..utils.glob import GlobSearch
+from ..utils.download import get_executable
 from ..utils.types import Chapter, PathLike
 from ..utils.parsing import parse_ogm, parse_xml
+from ..utils.files import clean_temp_files, ensure_path_exists
+from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.convert import format_timedelta, frame_to_timedelta, timedelta_to_frame
 
 __all__ = ["Chapters"]
@@ -175,3 +178,24 @@ class Chapters:
                 ]
             )
         return out_file
+
+    @staticmethod
+    def from_mkv(file: PathLike, fps: Fraction = Fraction(24000, 1001), _print: bool = True, quiet: bool = True) -> "Chapters":
+        """
+        Extract subtitle from mkv.
+
+        :param file:            Input mkv file
+        :param fps:             FPS passed to the chapter class for further operations
+        :param _print:          Prints the chapters after parsing
+        """
+        caller = "Chapters.from_mkv"
+        file = ensure_path_exists(file, caller)
+
+        mkvextract = get_executable("mkvextract")
+        out = Path(get_temp_workdir(), f"{file.stem}_chapters.txt")
+        args = [mkvextract, str(file), "chapters", "-s", str(out)]
+        if run_commandline(args, quiet):
+            raise error("Failed to extract chapters!", caller)
+        chapters = Chapters(out, fps, _print)
+        clean_temp_files()
+        return chapters

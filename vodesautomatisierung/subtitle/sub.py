@@ -1,4 +1,3 @@
-from copy import deepcopy
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc
 from dataclasses import dataclass
 from datetime import timedelta
@@ -13,11 +12,12 @@ import os
 
 from .subutils import dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
+from ..utils.types import TrackType
 from ..utils.download import get_executable
 from ..utils.log import debug, error, info, warn
-from ..utils.env import get_temp_workdir, run_commandline
+from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.convert import frame_to_timedelta, timedelta_to_frame
-from ..utils.files import FontFile, MuxingFile, PathLike, ensure_path_exists, make_output, clean_temp_files
+from ..utils.files import FontFile, MuxingFile, PathLike, ensure_path_exists, get_absolute_track, make_output, clean_temp_files
 
 DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "top", "italics"]
 
@@ -73,10 +73,11 @@ class SubFile(MuxingFile):
         else:
             self.file = ensure_path_exists(self.file, self)
             self.source = self.file
-            out = make_output(self.file, "ass", "vof")
-            with open(out, "w", encoding=self.encoding) as writer:
-                self._read_doc().dump_file(writer)
-            self.file = out
+            if not os.path.samefile(self.file.parent, get_workdir()):
+                out = make_output(self.file, "ass", "vof")
+                with open(out, "w", encoding=self.encoding) as writer:
+                    self._read_doc().dump_file(writer)
+                self.file = out
 
     def _read_doc(self, file: PathLike | None = None) -> Document:
         with open(self.file if not file else file, "r", encoding=self.encoding) as reader:
@@ -434,3 +435,25 @@ class SubFile(MuxingFile):
         self.file = shutil.copy(output, self.file)
         clean_temp_files()
         return self
+
+    @staticmethod
+    def from_mkv(file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True) -> "SubFile":
+        """
+        Extract subtitle from mkv.
+
+        :param file:            Input mkv file
+        :param track:           Relative track number
+        :param preserve_delay:  Preserve existing container delay
+        """
+        caller = "SubFile.from_mkv"
+        file = ensure_path_exists(file, caller)
+        track = get_absolute_track(file, track, TrackType.SUB, caller)
+        if track.format != "ASS":
+            raise error("The selected track is not an ASS subtitle.", caller)
+
+        mkvextract = get_executable("mkvextract")
+        out = Path(get_workdir(), f"{file.stem}_{track.track_id}.ass")
+        args = [mkvextract, str(file), "tracks", f"{track.track_id}:{str(out)}"]
+        if run_commandline(args, quiet):
+            raise error("Failed to extract subtitle!", caller)
+        return SubFile(out, 0 if not preserve_delay else getattr(track, "delay_relative_to_video", 0))
