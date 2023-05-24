@@ -8,16 +8,15 @@ from dataclasses import dataclass
 from pymediainfo import Track, MediaInfo
 
 from .log import *
-from .env import get_temp_workdir, get_workdir
 from .glob import GlobSearch
 from .env import run_commandline
 from .download import get_executable
-from .types import AudioInfo, TrackType
+from .env import get_temp_workdir, get_workdir
+from .types import AudioInfo, PathLike, TrackType
 
 __all__ = [
     "VideoFile",
     "AudioFile",
-    "PathLike",
     "get_path",
     "ensure_path",
     "uniquify_path",
@@ -27,7 +26,18 @@ __all__ = [
     "clean_temp_files",
 ]
 
-PathLike = TypeVar("PathLike", str, Path, None)
+
+@dataclass
+class FileMixin:
+    file: PathLike | list[PathLike] | GlobSearch
+    container_delay: int = 0
+    source: PathLike | None = None
+
+
+@dataclass
+class MuxingFile(FileMixin):
+    def __post_init__(self):
+        self.file = ensure_path(self.file, self)
 
 
 def get_path(pathIn: PathLike) -> Path | None:
@@ -47,13 +57,15 @@ def ensure_path(pathIn: PathLike, caller: any) -> Path:
         return Path(pathIn).resolve()
 
 
-def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch, caller: any, allow_dir: bool = False) -> Path:
+def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch | MuxingFile, caller: any, allow_dir: bool = False) -> Path:
     """
     Utility function for other functions to make sure a path was passed to them and that it exists.
 
     :param pathIn:      Supposed passed Path
     :param caller:      Caller name used for the exception and error message
     """
+    if isinstance(pathIn, MuxingFile):
+        return ensure_path_exists(pathIn.file)
     if isinstance(pathIn, GlobSearch):
         pathIn = pathIn.paths
     if isinstance(pathIn, list):
@@ -99,18 +111,6 @@ def get_crc32(file: PathLike) -> str:
     buf = open(file, "rb").read()
     buf = binascii.crc32(buf) & 0xFFFFFFFF
     return "%08X" % buf
-
-
-@dataclass
-class FileMixin:
-    file: PathLike | list[PathLike] | GlobSearch
-    container_delay: int = 0
-    source: PathLike | None = None
-
-
-class MuxingFile(ABC, FileMixin):
-    def __post_init__(self):
-        self.file = ensure_path(self.file, self)
 
 
 @dataclass

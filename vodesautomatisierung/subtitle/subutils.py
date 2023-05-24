@@ -2,11 +2,8 @@ import os
 from pathlib import Path
 
 from ..utils.log import error
-
-from ..utils.env import run_commandline
-
 from ..utils.files import make_output
-
+from ..utils.env import run_commandline
 from ..utils.download import get_executable
 
 __all__ = ["dummy_video"]

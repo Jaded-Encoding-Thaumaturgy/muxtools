@@ -157,14 +157,12 @@ class Chapters:
         print("", end="\n")
         return self
 
-    def to_file(self, out: PathLike | None = None) -> str:
+    def to_file(self, out: PathLike = get_workdir()) -> str:
         """
         Outputs the chapters to an OGM file
 
         :param out:     Can be either a directory or a full file path
         """
-        if not out:
-            out = get_workdir()
         out = out.resolve() if isinstance(out, Path) else Path(out).resolve()
         if out.is_dir():
             out_file = os.path.join(out, "chapters.txt")
