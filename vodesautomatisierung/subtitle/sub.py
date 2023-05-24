@@ -37,8 +37,6 @@ class SubFile(MuxingFile):
 
     encoding = "utf_8_sig"
 
-    __all__ = ["clean_styles", "autoswapper", "unfuck_cr", "shift_0", "syncpoint_merge", "collect_fonts", "restyle", "resample"]
-
     def __post_init__(self):
         if isinstance(self.file, GlobSearch):
             self.file = self.file.paths
