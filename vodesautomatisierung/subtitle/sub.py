@@ -146,7 +146,7 @@ class SubFile(MuxingFile):
         self,
         default_style: str = "Default",
         keep_flashback: bool = True,
-        dialogue_styles: list[str] | None = ["main", "default"],
+        dialogue_styles: list[str] | None = ["main", "default", "narrator", "narration"],
         top_styles: list[str] | None = ["top"],
         italics_styles: list[str] | None = ["italics", "internal"],
     ) -> Self:
