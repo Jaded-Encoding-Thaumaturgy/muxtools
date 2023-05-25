@@ -65,7 +65,7 @@ def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch | MuxingFi
     :param caller:      Caller name used for the exception and error message
     """
     if isinstance(pathIn, MuxingFile):
-        return ensure_path_exists(pathIn.file)
+        return ensure_path_exists(pathIn.file, caller)
     if isinstance(pathIn, GlobSearch):
         pathIn = pathIn.paths
     if isinstance(pathIn, list):
