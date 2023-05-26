@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 
 from ..utils.log import error
-from ..utils.files import make_output
 from ..utils.env import run_commandline
 from ..utils.download import get_executable
 
@@ -39,6 +38,8 @@ def dummy_video(width: int = 1920, height: int = 1080, format: str = "yuv420p", 
 
     :return:                Path object of the resulting video
     """
+    from ..utils.files import make_output
+
     ffmpeg = get_executable("ffmpeg")
     out = make_output("dummy_video.mp4", "mp4", temp=True)
     args = [ffmpeg, "-t", "1", "-f", "lavfi", "-i", f"color=c=black:s={width}x{height}", "-c:v", "libx264", "-pix_fmt", format, str(out)]

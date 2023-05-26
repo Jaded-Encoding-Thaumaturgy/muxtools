@@ -5,15 +5,16 @@ import re
 
 
 from .tmdb import TmdbConfig
-from ..subtitle.sub import SubFile
+from .muxfiles import MuxingFile
 from ..utils.types import PathLike
+from ..subtitle.sub import FontFile
 from ..utils.glob import GlobSearch
-from ..utils.log import debug, error, warn
 from ..misc.chapters import Chapters
-from ..utils.env import get_setup_attr, get_workdir, run_commandline
+from .tracks import Attachment, _track
+from ..utils.log import debug, error, warn
 from ..utils.download import get_executable
-from .tracks import Attachment, AudioTrack, SubTrack, VideoTrack, _track
-from ..utils.files import AudioFile, FontFile, MuxingFile, VideoFile, ensure_path, ensure_path_exists, get_crc32
+from ..utils.files import ensure_path, ensure_path_exists, get_crc32
+from ..utils.env import get_setup_attr, get_workdir, run_commandline
 
 
 def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True) -> PathLike:
@@ -69,7 +70,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
         elif isinstance(track, MuxingFile):
             if not isinstance(track, FontFile):
                 warn("It's strongly recommended to pass tracks to ensure naming and tagging instead of MuxingFiles directly!", "Mux", 1)
-            track = track_for_file(track)
+            track = track.to_track()
             args.extend(splitcommand(track.mkvmerge_args()))
             continue
         elif isinstance(track, Chapters):
@@ -96,14 +97,3 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
 
     debug("Done", "Mux")
     return outfile
-
-
-def track_for_file(mf: MuxingFile) -> _track:
-    if isinstance(mf, VideoFile):
-        return VideoTrack(mf)
-    elif isinstance(mf, AudioFile):
-        return AudioTrack(mf)
-    elif isinstance(mf, SubFile):
-        return SubTrack(mf)
-    else:
-        return Attachment(mf)

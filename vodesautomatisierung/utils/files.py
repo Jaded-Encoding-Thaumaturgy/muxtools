@@ -1,23 +1,15 @@
 import os
 import binascii
-from abc import ABC
 from pathlib import Path
 from shutil import rmtree
-from typing import TypeVar
-from dataclasses import dataclass
 from pymediainfo import Track, MediaInfo
 
 from .log import *
 from .glob import GlobSearch
-from .env import run_commandline
-from .download import get_executable
+from .types import PathLike, TrackType
 from .env import get_temp_workdir, get_workdir
-from .types import AudioInfo, PathLike, TrackType
 
 __all__ = [
-    "VideoFile",
-    "AudioFile",
-    "get_path",
     "ensure_path",
     "uniquify_path",
     "get_crc32",
@@ -25,23 +17,6 @@ __all__ = [
     "ensure_path_exists",
     "clean_temp_files",
 ]
-
-
-@dataclass
-class FileMixin:
-    file: PathLike | list[PathLike] | GlobSearch
-    container_delay: int = 0
-    source: PathLike | None = None
-
-
-@dataclass
-class MuxingFile(FileMixin):
-    def __post_init__(self):
-        self.file = ensure_path(self.file, self)
-
-
-def get_path(pathIn: PathLike) -> Path | None:
-    return None if pathIn is None else Path(pathIn).resolve()
 
 
 def ensure_path(pathIn: PathLike, caller: any) -> Path:
@@ -57,13 +32,15 @@ def ensure_path(pathIn: PathLike, caller: any) -> Path:
         return Path(pathIn).resolve()
 
 
-def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch | MuxingFile, caller: any, allow_dir: bool = False) -> Path:
+def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch, caller: any, allow_dir: bool = False) -> Path:
     """
     Utility function for other functions to make sure a path was passed to them and that it exists.
 
     :param pathIn:      Supposed passed Path
     :param caller:      Caller name used for the exception and error message
     """
+    from ..muxing.muxfiles import MuxingFile
+
     if isinstance(pathIn, MuxingFile):
         return ensure_path_exists(pathIn.file, caller)
     if isinstance(pathIn, GlobSearch):
@@ -113,83 +90,12 @@ def get_crc32(file: PathLike) -> str:
     return "%08X" % buf
 
 
-@dataclass
-class VideoFile(MuxingFile):
-    pass
-
-
-@dataclass
-class FontFile(MuxingFile):
-    pass
-
-
-@dataclass
-class AudioFile(MuxingFile):
-    info: AudioInfo | None = None
-
-    def __post_init__(self):
-        self.file = ensure_path_exists(self.file, self)
-
-    def get_mediainfo(self) -> Track:
-        return MediaInfo.parse(self.file).audio_tracks[0]
-
-    def is_lossy(self) -> bool:
-        from ..audio.audioutils import format_from_track
-
-        minfo = self.get_mediainfo()
-        form = format_from_track(minfo)
-        if form:
-            return form.lossy
-
-        return getattr(minfo, "compression_mode", "lossless").lower() == "lossy"
-
-    def has_multiple_tracks(self, caller: any = None) -> bool:
-        fileIn = ensure_path_exists(self.file, caller)
-        minfo = MediaInfo.parse(fileIn)
-        if len(minfo.audio_tracks) > 1 or len(minfo.video_tracks) > 1 or len(minfo.text_tracks) > 1:
-            return True
-        elif len(minfo.audio_tracks) == 0:
-            raise error(f"'{fileIn.name}' does not contain an audio track!", caller)
-        return False
-
-    def to_mka(self, delete: bool = True, quiet: bool = True) -> Path:
-        """
-        Muxes the AudioFile to an MKA file with specified container delay applied.
-
-        :param delete:      Deletes the current file after muxing
-        :return:            Path object of the resulting mka file
-        """
-        mkv = get_executable("mkvmerge")
-        self.file = ensure_path_exists(self.file, self)
-        out = self.file.with_suffix(".mka")
-        args = [mkv, "-o", str(out.resolve()), "--audio-tracks", "0"]
-        if self.container_delay:
-            args.extend(["--sync", f"0:{self.container_delay}"])
-        args.append(str(self.file))
-        if run_commandline(args, quiet) in [0, 1]:
-            if delete:
-                self.file.unlink()
-            return out
-        else:
-            raise error("Failed to mux AudioFile to mka.", self)
-
-    @classmethod
-    def from_file(pathIn: PathLike, caller: any):
-        from utils.log import warn
-
-        warn("It's strongly recommended to explicitly extract tracks first!", caller, 1)
-        file = ensure_path_exists(pathIn, caller)
-        return AudioFile(file, 0, file)
-
-
 def clean_temp_files():
     rmtree(get_temp_workdir())
 
 
-def make_output(source: PathLike | AudioFile, ext: str, suffix: str = "", user_passed: PathLike | None = None, temp: bool = False) -> Path:
+def make_output(source: PathLike, ext: str, suffix: str = "", user_passed: PathLike | None = None, temp: bool = False) -> Path:
     workdir = get_temp_workdir() if temp else get_workdir()
-    if isinstance(source, AudioFile):
-        source = source.file
     source_stem = Path(source).stem
 
     if user_passed:

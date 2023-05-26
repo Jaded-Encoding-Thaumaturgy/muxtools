@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from ..utils.files import AudioFile
+
 from ..utils.types import PathLike
+from ..muxing.muxfiles import AudioFile
 
 
 class HasExtractor(ABC):

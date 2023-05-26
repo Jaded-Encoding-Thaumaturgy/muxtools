@@ -1,12 +1,12 @@
 from fractions import Fraction
 
 from .utils.log import warn
-
+from .muxing.muxfiles import AudioFile
 from .audio.audioutils import is_fancy_codec
 from .audio.encoders import Opus
 from .utils.types import PathLike, Trim
 from .audio.extractors import FFMpeg, Sox
-from .utils.files import AudioFile, ensure_path, ensure_path_exists
+from .utils.files import ensure_path, ensure_path_exists
 from .audio.tools import AutoEncoder, AutoTrimmer, Encoder, Trimmer, Extractor
 
 

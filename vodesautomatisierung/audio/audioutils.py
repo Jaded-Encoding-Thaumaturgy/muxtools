@@ -5,8 +5,9 @@ from shutil import rmtree
 from pymediainfo import Track
 from functools import cmp_to_key
 
+
 from ..utils.log import warn, error
-from ..utils.files import AudioFile
+from ..muxing.muxfiles import AudioFile
 from ..utils.env import get_temp_workdir
 from ..utils.download import get_executable
 from ..utils.types import DitherType, Trim, AudioFormat

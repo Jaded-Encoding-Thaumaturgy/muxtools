@@ -110,7 +110,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 extension = form.ext
                 out = make_output(input, extension, f"extracted_{self.track}", self.output)
 
-            args = [ffmpeg, "-hide_banner", "-i", str(input.resolve()), "-map", f"0:a:{self.track}"]
+            args = [ffmpeg, "-hide_banner", "-i", str(input.resolve()), "-map_chapters", "-1", "-map", f"0:a:{self.track}"]
 
             specified_depth = getattr(track, "bit_depth", 16)
             if str(specified_depth) not in ainfo.stats.bit_depth and not lossy and not is_fancy_codec(track):

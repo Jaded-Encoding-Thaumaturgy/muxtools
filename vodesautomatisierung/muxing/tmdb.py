@@ -6,7 +6,6 @@ import json
 
 from ..utils.types import PathLike
 from ..utils.log import debug, error
-from ..utils.files import make_output
 
 
 # https://github.com/Radarr/Radarr/blob/29ba6fe5563e737f0f87919e48f556e39284e6bb/src/NzbDrone.Common/Cloud/RadarrCloudRequestBuilder.cs#L31
@@ -120,6 +119,8 @@ class TmdbConfig:
         )
 
     def make_xml(self, media: MediaMetadata, episode: EpisodeMetadata | None = None) -> PathLike:
+        from ..utils.files import make_output
+
         tags = dict()
 
         if self.write_title and episode:

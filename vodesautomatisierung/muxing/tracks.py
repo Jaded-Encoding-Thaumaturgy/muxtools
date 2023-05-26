@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from ..subtitle.sub import SubFile
+
 from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType
-from ..utils.files import AudioFile, MuxingFile, VideoFile, ensure_path_exists
+from ..utils.files import ensure_path_exists
 
 
 class _track:
@@ -18,6 +18,8 @@ class _track:
     def __init__(
         self, file: PathLike, type: str | int | TrackType, name: str = "", lang: str = "", default: bool = True, forced: bool = False, delay: int = 0
     ) -> None:
+        from .muxfiles import MuxingFile
+
         """
         :param file:        Filepath as string or Path object
         :param type:        TrackType enum, or int or string (1 = 'video', 2 = 'audio', 3 = 'sub')
@@ -69,7 +71,7 @@ class VideoTrack(_track):
 
     def __init__(
         self,
-        file: PathLike | VideoFile | GlobSearch,
+        file: PathLike | GlobSearch,
         name: str = "",
         lang: str = "ja",
         default: bool = True,
@@ -88,7 +90,7 @@ class AudioTrack(_track):
     """
 
     def __init__(
-        self, file: PathLike | GlobSearch | AudioFile, name: str = "", lang: str = "ja", default: bool = True, forced: bool = False, delay: int = 0
+        self, file: PathLike | GlobSearch, name: str = "", lang: str = "ja", default: bool = True, forced: bool = False, delay: int = 0
     ) -> None:
         if isinstance(file, GlobSearch):
             file = file.paths[0] if isinstance(file.paths, list) else file.paths
@@ -114,7 +116,7 @@ class SubTrack(_track):
 
     def __init__(
         self,
-        file: PathLike | GlobSearch | SubFile,
+        file: PathLike | GlobSearch,
         name: str = "",
         lang: str = "en",
         default: bool = True,

@@ -1,8 +1,8 @@
+from .utils import *
+from .muxing import *
 from .audio import *
 from .subtitle import *
-from .utils import *
 from .misc import *
-from .muxing import *
 
 from . import main
 from . import functions

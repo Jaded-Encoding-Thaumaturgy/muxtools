@@ -15,8 +15,7 @@ from pathlib import Path
 
 
 from ..utils.log import debug, warn
-from ..utils.files import FontFile
-from .sub import SubFile
+from .sub import SubFile, FontFile
 
 
 def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts: list[Path] = []) -> list[FontFile]:

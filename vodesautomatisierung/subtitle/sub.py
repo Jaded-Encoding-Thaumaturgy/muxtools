@@ -17,9 +17,15 @@ from ..utils.types import PathLike, TrackType
 from ..utils.log import debug, error, info, warn
 from ..utils.convert import frame_to_timedelta, timedelta_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
-from ..utils.files import FontFile, MuxingFile, ensure_path_exists, get_absolute_track, make_output, clean_temp_files
+from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files
+from ..muxing.muxfiles import MuxingFile
 
 DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "top", "italics"]
+
+
+@dataclass
+class FontFile(MuxingFile):
+    pass
 
 
 @dataclass
