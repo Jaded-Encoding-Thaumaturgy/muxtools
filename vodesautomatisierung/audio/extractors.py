@@ -209,7 +209,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 args.extend(["-c:a", "flac", "-compression_level", "0"])
                 extension = "flac"
 
-            out = make_output(input, extension, f"trimmed", self.output)
+            out = make_output(input.file, extension, f"trimmed", self.output)
             ainfo = parse_audioinfo(input.file, caller=self) if not input.info else input.info
 
             if len(self.trim) == 1:
@@ -310,7 +310,7 @@ class Sox(Trimmer):
 
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
-        out = make_output(input, "flac", f"trimmed", self.output)
+        out = make_output(input.file, "flac", f"trimmed", self.output)
         self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
         source = ensure_valid_in(input, dither=False, caller=self, supports_pipe=False)
 
