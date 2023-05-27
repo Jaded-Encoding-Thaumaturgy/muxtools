@@ -1,13 +1,11 @@
 import os
 import json
-from pathlib import Path
-from configparser import ConfigParser
 from typing import Self
+from pathlib import Path
+from dataclasses import dataclass
+from configparser import ConfigParser
 
-from attr import dataclass
-
-from .utils.types import PathLike
-from .utils.log import error, warn
+from .utils.log import error
 
 
 @dataclass

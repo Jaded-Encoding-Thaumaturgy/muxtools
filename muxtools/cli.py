@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 import wget
 import shlex
 import shutil
@@ -197,18 +196,3 @@ def _run_powershell(args: str | list[str], quiet: bool = False) -> int:
     p.communicate()
     print("")
     return p.returncode
-
-
-if __name__ == "__main__":
-    if sys.argv:
-        if sys.argv[-1].lower() in ["libs", "libraries"]:
-            install_libraries()
-            exit()
-        elif sys.argv[-1].lower() in ["install", "deps", "dependencies"]:
-            install_dependencies()
-            exit()
-
-    error(
-        "No arguments passed.\nYou can use [b]libs[/] or [b]libraries[/] to install/update libraries of qaac and eac3to."
-        + "\nYou can use [b]install[/], [b]deps[/] or [b]dependencies[/] to install all sorts of executables."
-    )
