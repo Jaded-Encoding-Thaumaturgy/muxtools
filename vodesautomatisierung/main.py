@@ -2,34 +2,55 @@ import os
 import json
 from pathlib import Path
 from configparser import ConfigParser
-from .utils.log import error
+from typing import Self
+
+from attr import dataclass
+
+from .utils.types import PathLike
+from .utils.log import error, warn
 
 
+@dataclass
 class Setup:
     """
-    When you initiate this for the first time in a directory
-    it will create a new config.ini. Set that up and have fun with all the other functions :)
+    Something like an environment used for a lot of functions in this package.
+    Mostly used for muxing and data locations (work directory and what not).
+
+    If you want to change any of the variables AFTER initialization make sure to use the `Setup.edit` function to do so.
+    Read its docstring to get why.
+
+    :param episode:                 Episode identifier used for workdir and muxing
+    :param config_file:             An ini file where the config will be loaded from.
+                                    You can disable this by leaving it empty or setting None.
+                                    Make sure you set the relevant variables in this constructor in that case.
+                                    You can also set other, technically, not existing variables in there and access them from python after.
+
+    :param bdmv_dir:                Convenience path for sources and what not.
+    :param show_name:               The name of the show. Used for the $show$ placeholder in muxing.
+    :param allow_binary_download:   This will download any executables needed for doing what you're requesting to do.
+                                    For example x265, opusenc, etc.
+    :param clean_work_dirs:         Cleanup the work directories after muxing. Might be useful if you're muxing a ton of stuff.
+    :param out_dir:                 The folder the muxed files will go into.
+    :param out_name:                The naming template applied to the muxed files.
+    :param mkv_title_naming:        The naming template applied to the mkv title.
+    :param work_dir:                In case you want to set a custom work directory for all the temp files.
+    :param debug:                   Enable or Disable various, possibly interesting, debug output of all functions in this package.
     """
 
-    bdmv_dir = "BDMV"
-    show_name = "Nice Series"
-    allow_binary_download = True
-    clean_work_dirs = False
-    out_dir = "premux"
-    out_name = "$show$ - $ep$ (premux)"
-    mkv_title_naming = r"$show$ - $ep$"
-    debug = False
-
     episode: str = "01"
-    work_dir: str = None
-    webhook_url: str = None
+    config_file: str = "config.ini"
 
-    def __init__(self, episode: str = "01", config_file: str = "config.ini"):
-        """
-        :param episode:         Episode identifier(?)
-        :param config_file:     Path to config file (defaults to 'config.ini' in current working dir)
-        """
+    bdmv_dir: str = "BDMV"
+    show_name: str = "Nice Series"
+    allow_binary_download: bool = True
+    clean_work_dirs: bool = False
+    out_dir: str = "premux"
+    out_name: str = "$show$ - $ep$ (premux)"
+    mkv_title_naming: str = r"$show$ - $ep$"
+    work_dir: str | None = None
+    debug: bool = True
 
+    def __post_init__(self):
         if config_file:
             config = ConfigParser()
             config_name = config_file
@@ -61,8 +82,9 @@ class Setup:
                 else:
                     setattr(self, key, settings[key])
 
-        self.episode = episode
-        self.work_dir = Path(os.path.join(os.getcwd(), "_workdir", episode))
+        if not self.work_dir:
+            self.work_dir = Path(os.getcwd(), "_workdir", self.episode)
+
         self.work_dir.mkdir(parents=True, exist_ok=True)
         self.work_dir = str(self.work_dir)
 
@@ -70,12 +92,20 @@ class Setup:
 
         save_setup(self)
 
-    def edit(self, attr: str, value: any):
+    def edit(self, attr: str, value: any) -> Self:
+        """
+        Sets a variable inside of Setup and saves it to the environment variables.
+        You should use this to apply any changes because other functions will not make use of them otherwise!
+
+        :param attr:        The name of the variable/attribute you want to change
+        :param value:       The value this variable/attribute will have.
+        """
         setattr(self, attr, value)
 
         from .utils.env import save_setup
 
         save_setup(self)
+        return self
 
-    def toJson(self) -> str:
+    def _toJson(self) -> str:
         return json.dumps(self.__dict__)

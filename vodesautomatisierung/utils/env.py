@@ -9,7 +9,7 @@ __all__ = ["save_setup", "get_setup_attr", "get_workdir", "get_temp_workdir", "i
 
 
 def save_setup(setup: Setup):
-    os.environ["vof_setup"] = setup.toJson()
+    os.environ["vof_setup"] = setup._toJson()
 
 
 def get_setup_attr(attr: str, default: any = None) -> any:
