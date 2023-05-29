@@ -49,9 +49,9 @@ class Setup:
     debug: bool = True
 
     def __post_init__(self):
-        if config_file:
+        if self.config_file:
             config = ConfigParser()
-            config_name = config_file
+            config_name = self.config_file
 
             if not os.path.exists(config_name):
                 config["SETUP"] = {
