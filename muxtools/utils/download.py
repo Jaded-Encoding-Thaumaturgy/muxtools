@@ -31,8 +31,8 @@ tools = [
     Tool("ffmpeg", "https://github.com/AnimMouse/ffmpeg-autobuild/releases/download/m-2023-05-08-05-43/ffmpeg-f009f84-3e8c1fa-win64-nonfree.7z", ["ffprobe"]),
     Tool("mkvmerge", "https://www.videohelp.com/download/mkvtoolnix-64-bit-76.0.7z", ['mkvextract', 'mkvinfo', 'mkvpropedit']), 
     Tool("eac3to", "https://files.catbox.moe/k0gzt0.7z"), # Custom package because of removed sounds and updated libFlac
-    Tool("x264", "https://github.com/DJATOM/x264-aMod/releases/download/r3101%2B20/x264-aMod-x64-core164-r3101+20.7z"),
-    Tool("x265", "https://github.com/DJATOM/x265-aMod/releases/download/3.5%2B67/x265-x64-v3.5+67-aMod-gcc12.2.1+opt.7z"),
+    Tool("x264", "https://github.com/DJATOM/x264-aMod/releases/download/r3101+20/x264-aMod-x64-core164-r3101+20.7z"),
+    Tool("x265", "https://github.com/DJATOM/x265-aMod/releases/download/3.5+67/x265-x64-v3.5+67-aMod-gcc12.2.1+opt.7z"),
     Tool("qaac", "https://files.catbox.moe/cxtxm4.7z"), # 2.79 with flac, w64 and iTunes libraries included
     Tool("opusenc", "https://archive.mozilla.org/pub/opus/win32/opus-tools-0.2-opus-1.3.zip"),
     Tool("flac", "https://github.com/xiph/flac/releases/download/1.4.2/flac-1.4.2-win.zip")
@@ -42,7 +42,9 @@ tools = [
 # TODO: check CPU to decide on which x264/5 file to use
 
 
-def get_executable(type: str, can_download: bool = download_allowed()) -> str:
+def get_executable(type: str, can_download: bool | None = None) -> str:
+    if can_download is None:
+        can_download = download_allowed()
     type = type.lower()
     path = sh.which(type)
     env = os.environ.get(f"vof_exe_{type}", None)
