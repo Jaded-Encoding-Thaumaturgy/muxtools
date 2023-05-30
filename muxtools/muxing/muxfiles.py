@@ -2,6 +2,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from pymediainfo import MediaInfo, Track
 
+from .tracks import VideoTrack
+
 from ..utils.log import error
 from ..utils.glob import GlobSearch
 from ..utils.env import run_commandline
@@ -42,9 +44,7 @@ class MuxingFile(FileMixin):
             default=True if default is None else default,
             forced=False if forced is None else forced,
         )
-        if isinstance(self, VideoFile):
-            return VideoTrack(**args, lang=lang if lang else "ja")
-        elif isinstance(self, AudioFile):
+        if isinstance(self, AudioFile):
             return AudioTrack(**args, lang=lang if lang else "ja")
         elif isinstance(self, SubFile):
             return SubTrack(**args, lang=lang if lang else "en")
@@ -54,7 +54,10 @@ class MuxingFile(FileMixin):
 
 @dataclass
 class VideoFile(MuxingFile):
-    pass
+    def to_track(
+        self, name: str = "", lang: str = "ja", default: bool = True, forced: bool = False, timecode_file: PathLike | GlobSearch | None = None
+    ):
+        return VideoTrack(self.file, name, lang, default, forced, self.container_delay, timecode_file)
 
 
 @dataclass

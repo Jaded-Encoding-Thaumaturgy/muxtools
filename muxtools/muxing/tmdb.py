@@ -16,6 +16,9 @@ BASE_URL = "https://api.themoviedb.org/3/"
 logging.getLogger("urllib3.connectionpool").setLevel(logging.CRITICAL)
 
 
+__all__ = ["TmdbConfig", "TitleTMDB"]
+
+
 @dataclass
 class MediaMetadata:
     tmdb_id: int

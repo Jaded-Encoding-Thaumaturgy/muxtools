@@ -1,9 +1,19 @@
 from pathlib import Path
 
+from pyrsistent import VT
+
 
 from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType
 from ..utils.files import ensure_path_exists
+
+# fmt: off
+__all__ = [
+    "VideoTrack", "AudioTrack", "SubTrack", 
+    "VT", "AT", "ST",
+    "Attachment", "MkvTrack" 
+]
+# fmt: on
 
 
 class _track:
@@ -131,3 +141,8 @@ class MkvTrack(_track):
         if isinstance(file, GlobSearch):
             file = file.paths[0] if isinstance(file.paths, list) else file.paths
         super().__init__(file, TrackType.MKV, mkvmerge_args, "", False, False, 0)
+
+
+VT = VideoTrack
+AT = AudioTrack
+ST = SubTrack

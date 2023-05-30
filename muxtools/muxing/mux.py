@@ -16,6 +16,8 @@ from ..utils.download import get_executable
 from ..utils.files import ensure_path, ensure_path_exists, get_crc32
 from ..utils.env import get_setup_attr, get_workdir, run_commandline
 
+__all__ = ["mux"]
+
 
 def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True) -> PathLike:
     tracks = list(tracks)
