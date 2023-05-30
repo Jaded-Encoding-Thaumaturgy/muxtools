@@ -38,8 +38,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project.urls]
-"Source Code" = "https://github.com/Vodes/muxtools"
-"Contact" = "https://discord.gg/Kf94Nv6WVN"
+"Source Code" = "https://github.com/Irrational-Encoding-Wizardry/muxtools"
+"Contact" = "https://discord.gg/qxTxVJGtst"
 
 [project.scripts]
 muxtools = "muxtools:entry_point"
