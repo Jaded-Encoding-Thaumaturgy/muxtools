@@ -19,12 +19,15 @@ dependencies = [
 classifiers = [
     "Natural Language :: English",
     "Intended Audience :: Developers",
-    "Intended Audience :: Other Audience",
+    "Intended Audience :: End Users/Desktop",
     "Programming Language :: Python :: 3.10",
     "Operating System :: OS Independent",
     "Typing :: Typed",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia :: Sound/Audio :: Conversion",
     "Topic :: Multimedia :: Video",
-    "Topic :: Multimedia :: Video :: Display",
+    "Topic :: Multimedia :: Video :: Conversion",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
 ]
 requires-python = ">=3.10"
 readme = "README.md"
