@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from pyrsistent import VT
-
-
 from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType
 from ..utils.files import ensure_path_exists
