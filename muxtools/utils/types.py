@@ -4,7 +4,7 @@ from typing import TypeVar, Union, Optional
 from datetime import timedelta
 from dataclasses import dataclass
 
-__all__ = ["PathLike", "Paths", "Trim", "TrackType", "AudioFormat", "AudioFrame", "AudioStats", "AudioInfo"]
+__all__ = ["PathLike", "Paths", "Trim", "TrackType", "AudioFormat", "AudioFrame", "AudioStats", "AudioInfo", "Chapter"]
 
 PathLike = TypeVar("PathLike", str, Path, None)
 Trim = tuple[int | None, int | None]
