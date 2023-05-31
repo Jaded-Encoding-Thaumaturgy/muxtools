@@ -113,7 +113,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             args = [ffmpeg, "-hide_banner", "-i", str(input.resolve()), "-map_chapters", "-1", "-map", f"0:a:{self.track}"]
 
             specified_depth = getattr(track, "bit_depth", 16)
-            if str(specified_depth) not in ainfo.stats.bit_depth and not lossy and not is_fancy_codec(track):
+            if str(specified_depth) not in ainfo.stats.bit_depth and not lossy and not is_fancy_codec(track) and specified_depth is not None:
                 actual_depth = int(ainfo.stats.bit_depth) if "/" not in ainfo.stats.bit_depth else int(ainfo.stats.bit_depth.split("/")[0])
                 debug(f"Detected fake/padded {specified_depth} bit. Actual depth is {actual_depth} bit.", self)
                 if specified_depth - actual_depth > 4:
