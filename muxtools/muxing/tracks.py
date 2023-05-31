@@ -2,13 +2,13 @@ from pathlib import Path
 
 from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType
-from ..utils.files import ensure_path_exists
+from ..utils.files import ensure_path_exists, get_absolute_tracknum
 
 # fmt: off
 __all__ = [
     "VideoTrack", "AudioTrack", "SubTrack", 
     "VT", "AT", "ST",
-    "Attachment", "MkvTrack" 
+    "Attachment", "Premux", "MkvTrack" 
 ]
 # fmt: on
 
@@ -99,8 +99,6 @@ class AudioTrack(_track):
     def __init__(
         self, file: PathLike | GlobSearch, name: str = "", lang: str = "ja", default: bool = True, forced: bool = False, delay: int = 0
     ) -> None:
-        if isinstance(file, GlobSearch):
-            file = file.paths[0] if isinstance(file.paths, list) else file.paths
         super().__init__(file, TrackType.AUDIO, name, lang, default, forced, delay)
 
 
@@ -133,13 +131,56 @@ class SubTrack(_track):
         super().__init__(file, TrackType.SUB, name, lang, default, forced, delay)
 
 
-class MkvTrack(_track):
-    def __init__(self, file: PathLike | GlobSearch, mkvmerge_args: str = "--no-global-tags") -> None:
-        if isinstance(file, GlobSearch):
-            file = file.paths[0] if isinstance(file.paths, list) else file.paths
-        super().__init__(file, TrackType.MKV, mkvmerge_args, "", False, False, 0)
+class Premux(_track):
+    def __init__(
+        self,
+        file: PathLike | GlobSearch,
+        video: int | list[int] | None = -1,
+        audio: int | list[int] | None = -1,
+        subtitles: int | list[int] | None = -1,
+        keep_attachments: bool = True,
+        mkvmerge_args: str = "--no-global-tags",
+    ) -> None:
+        args = mkvmerge_args
+        if video is None:
+            args += " -D"
+        elif video != -1:
+            if isinstance(video, list):
+                for num in video:
+                    abso = get_absolute_tracknum(file, num, TrackType.VIDEO)
+                    args += f" -d {abso}"
+            else:
+                abso = get_absolute_tracknum(file, video, TrackType.VIDEO)
+                args += f" -d {abso}"
+
+        if audio is None:
+            args += " -A"
+        else:
+            if isinstance(audio, list):
+                for num in audio:
+                    abso = get_absolute_tracknum(file, num, TrackType.AUDIO)
+                    args += f" -a {abso}"
+            else:
+                abso = get_absolute_tracknum(file, audio, TrackType.AUDIO)
+                args += f" -a {abso}"
+
+        if subtitles is None:
+            args += " -S"
+        else:
+            if isinstance(subtitles, list):
+                for num in audio:
+                    abso = get_absolute_tracknum(file, num, TrackType.SUB)
+                    args += f" -s {abso}"
+            else:
+                abso = get_absolute_tracknum(file, subtitles, TrackType.SUB)
+                args += f" -s {abso}"
+
+        if not keep_attachments:
+            args += " -M"
+        super().__init__(file, TrackType.MKV, args, "", False, False, 0)
 
 
 VT = VideoTrack
 AT = AudioTrack
 ST = SubTrack
+MkvTrack = Premux

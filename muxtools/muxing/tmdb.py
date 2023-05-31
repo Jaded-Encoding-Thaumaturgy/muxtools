@@ -2,7 +2,6 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 import requests
 import logging
-import json
 
 from ..utils.types import PathLike
 from ..utils.log import debug, error
@@ -82,11 +81,11 @@ class TmdbConfig:
             debug(response.text)
             raise ex
 
-        mediajson = json.loads(response.text)
+        mediajson = response.json()
 
         url = f"{BASE_URL}{'movie' if self.movie else 'tv'}/{self.id}/external_ids"
         response = requests.get(url, headers=headers)
-        other_ids = json.loads(response.text)
+        other_ids = response.json()
 
         return MediaMetadata(
             self.id,
@@ -107,7 +106,7 @@ class TmdbConfig:
                 debug(response.text)
                 raise ex
 
-            self.episodes = json.loads(response.text)["episodes"]
+            self.episodes = response.json()["episodes"]
 
         try:
             episode = self.episodes[num - 1]
