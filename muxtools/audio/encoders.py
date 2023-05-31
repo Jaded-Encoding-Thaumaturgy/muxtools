@@ -241,7 +241,7 @@ class qAAC(Encoder):
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
         output = make_output(input.file, "aac", "qaac", self.output)
-        source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=True)
+        source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=False)
         qaac = get_executable("qaac")
 
         if not has_libFLAC():
