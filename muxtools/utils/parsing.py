@@ -88,7 +88,7 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None) -> Audio
         "-i",
         file.resolve(),
         "-t",
-        "120",
+        "10",
         "-map",
         f"0:{track}",
         "-filter:a",

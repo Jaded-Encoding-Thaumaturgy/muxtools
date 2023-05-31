@@ -178,12 +178,16 @@ def is_fancy_codec(track: Track) -> bool:
     :param track:   Input track to check
     """
     codec_id = str(track.codec_id).casefold()
-    if codec_id == "A_TRUEHD".casefold():
-        # If it contains something other than "MLP FBA" it's probably atmos
-        return bool(re.sub("MLP FBA", "", str(track.format).strip(), re.IGNORECASE))
+    if codec_id == "A_TRUEHD".casefold() or "truehd" in track.commercial_name.lower():
+        if "atmos" in track.commercial_name.lower():
+            return True
+        if not hasattr(track, "format_additionalfeatures") or not track.format_additionalfeatures:
+            return False
+        # If it contains something other than the fallback AC-3 track it's probably atmos
+        return "ch" in track.format_additionalfeatures
     elif codec_id == "A_DTS".casefold():
         # Not even lossless if this doesn't exist
-        if not hasattr(track, "format_additionalfeatures"):
+        if not hasattr(track, "format_additionalfeatures") or not track.format_additionalfeatures:
             return False
         # If those additional features contain something after removing "XLL" its some fancy stuff
         return bool(re.sub("XLL", "", str(track.format_additionalfeatures).strip(), re.IGNORECASE))
