@@ -1,7 +1,9 @@
 from shlex import split as splitcommand
+from shutil import rmtree
 from pathlib import Path
 import wget
 import re
+import os
 
 
 from .tmdb import TmdbConfig
@@ -91,11 +93,18 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
         args.extend(["--title", mkvtitle])
 
     debug("Running the mux...", "Mux")
-    result = run_commandline(args, quiet)
+    if run_commandline(args, quiet) > 1:
+        raise error("Muxing failed!", "Mux")
 
     if "#crc32#" in outfile.stem:
         debug("Generating CRC32 for the muxed file...", "Mux")
         outfile = outfile.rename(outfile.with_stem(re.sub(re.escape("#crc32#"), get_crc32(outfile), outfile.stem)))
+
+    if get_setup_attr("clean_work_dirs", False):
+        if os.path.samefile(get_workdir(), os.getcwd()):
+            error("Clearing workdir not supported when your workdir is cwd.", "Mux")
+        else:
+            rmtree(get_workdir())
 
     debug("Done", "Mux")
     return outfile
