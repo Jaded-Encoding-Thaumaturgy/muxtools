@@ -95,9 +95,9 @@ class FFMpeg(HasExtractor, HasTrimmer):
             input = ensure_path_exists(input, self)
             track = get_absolute_track(input, self.track, TrackType.AUDIO, self)
             form = format_from_track(track)
-            ainfo = parse_audioinfo(input, self.track, self)
             debug(f"Extracting audio track from '{input.stem}' using ffmpeg...", self)
             if not form:
+                ainfo = parse_audioinfo(input, self.track, self)
                 lossy = getattr(track, "compression_mode", "lossless").lower() == "lossy"
                 if lossy:
                     raise error(f"Unrecognized lossy format found: {track.format}", self)
@@ -106,6 +106,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     warn("Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
                     out = make_output(input, extension, f"extracted_{self.track}", self.output)
             else:
+                ainfo = parse_audioinfo(input, self.track, self, form.ext == "thd")
                 lossy = form.lossy
                 extension = form.ext
                 out = make_output(input, extension, f"extracted_{self.track}", self.output)

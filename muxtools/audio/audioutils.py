@@ -142,7 +142,7 @@ formats = [
     AudioFormat("PCM*",         "wav",      "A_PCM*", False),
 
     # Disgusting DTS Stuff
-    AudioFormat("DTS XLL",      "dtshd",    "A_DTS", False), # Can be HD-MA or Headphone X or X, who the fuck knows
+    AudioFormat("DTS XLL*",     "dtshd",    "A_DTS", False), # Can be HD-MA or Headphone X or X, who the fuck knows
     AudioFormat("DTS",          "dts",      "A_DTS"), # Can be lossy
 ]
 # fmt: on
@@ -185,7 +185,7 @@ def is_fancy_codec(track: Track) -> bool:
             return False
         # If it contains something other than the fallback AC-3 track it's probably atmos
         return "ch" in track.format_additionalfeatures
-    elif codec_id == "A_DTS".casefold():
+    elif codec_id == "A_DTS".casefold() or "dts" in track.format.lower():
         # Not even lossless if this doesn't exist
         if not hasattr(track, "format_additionalfeatures") or not track.format_additionalfeatures:
             return False

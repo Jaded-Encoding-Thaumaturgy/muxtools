@@ -64,7 +64,7 @@ def do_audio(
             encoder = None
         elif is_fancy_codec(audio.get_mediainfo()):
             encoder = None
-            warn("Audio will be reencoded due to having Atmos or special DTS features.", do_audio, 2)
+            warn("Audio will not be reencoded due to having Atmos or special DTS features.", do_audio, 2)
         else:
             encoder = Opus()
 

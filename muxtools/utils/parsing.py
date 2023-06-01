@@ -75,7 +75,7 @@ def parse_m2ts_path(dgiFile: Path) -> Path:
     return dgiFile
 
 
-def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None) -> AudioInfo:
+def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None, is_thd: bool = False) -> AudioInfo:
     f_compiled = re.compile(AUDIOFRAME_REGEX, re.IGNORECASE)
     s_compiled = re.compile(AUDIOSTATS_REGEX, re.IGNORECASE)
     file = ensure_path_exists(file, parse_audioinfo)
@@ -88,7 +88,7 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None) -> Audio
         "-i",
         file.resolve(),
         "-t",
-        "10",
+        "4" if is_thd else "10",
         "-map",
         f"0:{track}",
         "-filter:a",
