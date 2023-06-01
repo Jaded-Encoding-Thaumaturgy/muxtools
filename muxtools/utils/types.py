@@ -4,7 +4,19 @@ from typing import TypeVar, Union, Optional
 from datetime import timedelta
 from dataclasses import dataclass
 
-__all__ = ["PathLike", "Paths", "Trim", "TrackType", "AudioFormat", "AudioFrame", "AudioStats", "AudioInfo", "Chapter", "DitherType"]
+__all__ = [
+    "PathLike",
+    "Paths",
+    "Trim",
+    "TrackType",
+    "AudioFormat",
+    "AudioFrame",
+    "AudioStats",
+    "AudioInfo",
+    "Chapter",
+    "DitherType",
+    "LossyWavQuality",
+]
 
 PathLike = TypeVar("PathLike", str, Path, None)
 Trim = tuple[int | None, int | None]
@@ -54,6 +66,22 @@ class qAAC_MODE(IntEnum):
     CVBR = 2
     ABR = 3
     CBR = 4
+
+
+class LossyWavQuality(IntEnum):
+    """
+    LossyWAV Quality presets, see https://wiki.hydrogenaud.io/index.php?title=LossyWAV#Quality_presets
+
+    TL;DR: Insane the least lossy, ExtraPortable the most lossy.
+    """
+
+    INSANE = 1
+    EXTREME = 2
+    HIGH = 3
+    STANDARD = 4
+    ECONOMIC = 5
+    PORTABLE = 6
+    EXTRAPORTABLE = 7
 
 
 @dataclass

@@ -25,9 +25,15 @@ class Trimmer(ABC):
 
 
 class Encoder(ABC):
+    lossless = False
+
     @abstractmethod
     def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
         pass
+
+
+class LosslessEncoder(Encoder):
+    lossless = True
 
 
 class AutoTrimmer(Trimmer):

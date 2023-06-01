@@ -218,3 +218,13 @@ def has_libFLAC() -> bool:
         if "libflac" in line.lower():
             return True
     return False
+
+
+def qaac_compatcheck():
+    if not has_libFLAC():
+        raise error(
+            "Your installation of qaac does not have libFLAC.\nIt is needed for proper piping from ffmpeg etc."
+            + "\nYou can download it from https://github.com/xiph/flac/releases"
+            + "\nFor installation check https://github.com/nu774/qaac/wiki/Installation",
+            "QAAC",
+        )

@@ -3,21 +3,20 @@ from dataclasses import dataclass
 import subprocess
 import os
 
-
-from .tools import Encoder
+from .tools import Encoder, LosslessEncoder
 from ..muxing.muxfiles import AudioFile
-from .audioutils import ensure_valid_in, has_libFDK, has_libFLAC
+from ..utils.env import run_commandline
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
 from ..utils.files import make_output, clean_temp_files
-from ..utils.env import get_temp_workdir, run_commandline
 from ..utils.types import DitherType, qAAC_MODE, PathLike
+from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck
 
 __all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
 
 
 @dataclass
-class FLAC(Encoder):
+class FLAC(LosslessEncoder):
     """
     Uses the reference libFLAC encoder to encode audio to flac.
 
@@ -59,7 +58,7 @@ class FLAC(Encoder):
 
 
 @dataclass
-class FLACCL(Encoder):
+class FLACCL(LosslessEncoder):
     """
     Uses the CUETools FLACCL encoder to encode audio to flac.
     This one uses OpenCL or Cuda depending on your GPU and claims to have better compression than libFLAC.
@@ -102,7 +101,7 @@ class FLACCL(Encoder):
 
 
 @dataclass
-class FF_FLAC(Encoder):
+class FF_FLAC(LosslessEncoder):
     """
     Uses the ffmpeg/libav FLAC encoder to encode audio to flac.
 
@@ -243,14 +242,7 @@ class qAAC(Encoder):
         output = make_output(input.file, "aac", "qaac", self.output)
         source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=False)
         qaac = get_executable("qaac")
-
-        if not has_libFLAC():
-            raise error(
-                "Your installation of qaac does not have libFLAC.\nIt is needed for proper piping from ffmpeg etc."
-                + "\nYou can download it from https://github.com/xiph/flac/releases"
-                + "\nFor installation check https://github.com/nu774/qaac/wiki/Installation",
-                self,
-            )
+        qaac_compatcheck()
 
         debug(f"Encoding '{input.file.stem}' to AAC using qAAC...", self)
         args = [qaac, "--no-delay", "--no-optimize", "--threading", f"--{self.mode.name.lower()}", str(self.q)]
