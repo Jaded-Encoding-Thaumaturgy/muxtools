@@ -110,9 +110,9 @@ class AudioFile(MuxingFile):
         else:
             raise error("Failed to mux AudioFile to mka.", self)
 
-    @classmethod
+    @staticmethod
     def from_file(pathIn: PathLike, caller: any):
-        from utils.log import warn
+        from ..utils.log import warn
 
         warn("It's strongly recommended to explicitly extract tracks first!", caller, 1)
         file = ensure_path_exists(pathIn, caller)

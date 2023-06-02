@@ -37,7 +37,7 @@ def ensure_valid_in(
             ).encode_audio(input, temp=True)
 
     if input.has_multiple_tracks(caller):
-        msg = f"'{input.name}' is a container with multiple tracks.\n"
+        msg = f"'{input.file.name}' is a container with multiple tracks.\n"
         msg += f"The first audio track will be {'piped' if supports_pipe else 'extracted'} using default ffmpeg."
         warn(msg, caller, 5)
 

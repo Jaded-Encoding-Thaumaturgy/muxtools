@@ -1,4 +1,6 @@
 # Specific to this package
+_binaries/
+premux/
 _workdir/
 config.ini
 /test.py
