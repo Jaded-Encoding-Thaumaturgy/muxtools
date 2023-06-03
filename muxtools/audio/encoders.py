@@ -9,7 +9,7 @@ from ..utils.env import run_commandline
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
 from ..utils.files import make_output, clean_temp_files
-from ..utils.types import DitherType, qAAC_MODE, PathLike
+from ..utils.types import DitherType, ValidInputType, qAAC_MODE, PathLike
 from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck
 
 __all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
@@ -39,7 +39,9 @@ class FLAC(LosslessEncoder):
             input = AudioFile.from_file(input, self)
         flaccl = get_executable("flac")
         output = make_output(input.file, "flac", "libflac", self.output)
-        source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=False)
+        source = ensure_valid_in(
+            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False
+        )
         debug(f"Encoding '{input.file.stem}' to FLAC using libFLAC...", self)
 
         args = [flaccl, f"-{self.compression_level}", str(source.file.resolve()) if isinstance(source, AudioFile) else "-"]
@@ -82,7 +84,9 @@ class FLACCL(LosslessEncoder):
             input = AudioFile.from_file(input, self)
         flaccl = get_executable("CUETools.FLACCL.cmd")
         output = make_output(input.file, "flac", "flaccl", self.output)
-        source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=False)
+        source = ensure_valid_in(
+            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False
+        )
         debug(f"Encoding '{input.file.stem}' to FLAC using FLACCL...", self)
 
         args = [flaccl, f"-{self.compression_level}", str(source.file.resolve()) if isinstance(source, AudioFile) else "-"]
@@ -196,7 +200,9 @@ class Opus(Encoder):
             debug(f"Encoding '{input.file.stem}' to Opus using opusenc...", self)
 
         output = make_output(input.file, "opus", "opusenc", self.output)
-        source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=True)
+        source = ensure_valid_in(
+            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=True
+        )
 
         args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(self.bitrate)]
         if self.append:
@@ -240,7 +246,9 @@ class qAAC(Encoder):
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
         output = make_output(input.file, "aac", "qaac", self.output)
-        source = ensure_valid_in(input, dither=self.dither, dither_type=self.dither_type, caller=self, supports_pipe=False)
+        source = ensure_valid_in(
+            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False
+        )
         qaac = get_executable("qaac")
         qaac_compatcheck()
 

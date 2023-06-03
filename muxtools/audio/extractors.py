@@ -126,7 +126,9 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     args.extend(["-c:a", "pcm_s16le" if specified_depth == 16 else "pcm_s24le"])
                 else:
                     args.extend(["-c:a", "copy"])
-
+                    if extension == "dtshd" or extension == "dts":
+                        # FFMPEG screams about dtshd not being a known output format but ffmpeg -formats lists it....
+                        args.extend(["-f", "dts"])
             args.append(str(out))
 
             if not run_commandline(args, quiet):

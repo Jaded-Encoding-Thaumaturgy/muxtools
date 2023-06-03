@@ -84,6 +84,13 @@ class LossyWavQuality(IntEnum):
     EXTRAPORTABLE = 7
 
 
+class ValidInputType(IntEnum):
+    FLAC = 1
+    AIFF = 2
+    W64 = 3
+    AIFF_OR_FLAC = 4
+
+
 @dataclass
 class AudioFrame:
     """

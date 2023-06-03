@@ -4,13 +4,14 @@ import subprocess
 from shutil import rmtree
 from pymediainfo import Track
 from functools import cmp_to_key
+from pymediainfo import MediaInfo
 
-
-from ..utils.log import warn, error
+from ..utils.files import make_output
 from ..muxing.muxfiles import AudioFile
-from ..utils.env import get_temp_workdir
+from ..utils.log import debug, warn, error
 from ..utils.download import get_executable
-from ..utils.types import DitherType, Trim, AudioFormat
+from ..utils.env import get_temp_workdir, run_commandline
+from ..utils.types import DitherType, Trim, AudioFormat, ValidInputType
 
 __all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
 
@@ -20,6 +21,7 @@ def ensure_valid_in(
     supports_pipe: bool = True,
     dither: bool = True,
     dither_type: DitherType = DitherType.TRIANGULAR,
+    valid_type: ValidInputType = ValidInputType.FLAC,
     caller: any = None,
 ) -> AudioFile | subprocess.Popen:
     """
@@ -28,7 +30,7 @@ def ensure_valid_in(
     """
     from .encoders import FF_FLAC
 
-    def getflac(input: AudioFile):
+    def get_flac(input: AudioFile):
         if supports_pipe:
             return FF_FLAC(dither=dither, dither_type=dither_type).get_pipe(input)
         else:
@@ -36,23 +38,53 @@ def ensure_valid_in(
                 compression_level=0, dither=dither, dither_type=dither_type, output=os.path.join(get_temp_workdir(), "tempflac")
             ).encode_audio(input, temp=True)
 
+    def get_pcm(input: AudioFile):
+        ffmpeg = get_executable("ffmpeg")
+        minfo = input.get_mediainfo()
+        cope = "pcm_s24be" if valid_type == ValidInputType.AIFF else "pcm_s24le"
+        args = [ffmpeg, "-i", str(input.file), "-map", "0:a:0", "-c:a", "pcm_s16le" if minfo.bit_depth == 16 or dither else cope]
+        if dither:
+            args.extend(["-sample_fmt", "s16", "-ar", "48000", "-resampler", "soxr", "-precision", "24", "-dither_method", dither_type.name.lower()])
+        output = make_output(input.file, "aiff" if valid_type == ValidInputType.AIFF else "w64", "ffmpeg", temp=True)
+
+        if supports_pipe:
+            debug(f"Piping audio to ensure valid input using ffmpeg...", caller)
+            args.extend(["-f", "aiff" if valid_type == ValidInputType.AIFF else "w64", "-"])
+            p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
+            return p
+        else:
+            debug(f"Preparing audio to ensure valid input using ffmpeg...", caller)
+            args.append(str(output))
+            if not run_commandline(args):
+                return AudioFile(output, input.container_delay, input.source)
+            else:
+                raise error("Failed to convert to desired intermediary!", ensure_valid_in)
+
     if input.has_multiple_tracks(caller):
         msg = f"'{input.file.name}' is a container with multiple tracks.\n"
         msg += f"The first audio track will be {'piped' if supports_pipe else 'extracted'} using default ffmpeg."
         warn(msg, caller, 5)
-
-    minfo = input.get_mediainfo()
-    if is_fancy_codec(minfo):
+    minfo = MediaInfo.parse(input.file)
+    trackinfo = input.get_mediainfo(minfo)
+    container = input.get_containerinfo(minfo)
+    if is_fancy_codec(trackinfo):
         warn("Encoding tracks with special DTS Features or Atmos is very much discouraged.", caller, 10)
-    form = minfo.format.lower()
-    if "wav" in form or "flac" in form or "pcm" in form:
-        if minfo.bit_depth > 16 and dither:
-            return getflac(input)
-        return input
+    form = trackinfo.format.lower()
+    if input.is_lossy():
+        warn(f"It's strongly recommended to not reencode lossy audio! ({trackinfo.format})", caller, 5)
+
+    if form == "wave" or container.format.lower() == "wave":
+        if not (trackinfo.bit_depth > 16 and dither):
+            return input
+    if valid_type == ValidInputType.AIFF_OR_FLAC:
+        valid_type = ValidInputType.AIFF
+        if (form == "flac" or container.format.lower() == "flac") and not (trackinfo.bit_depth > 16 and dither):
+            return input
+
+    if valid_type == ValidInputType.FLAC:
+        return get_flac(input)
     else:
-        if input.is_lossy():
-            warn(f"It's strongly recommended to not reencode lossy audio! ({minfo.format})", caller, 5)
-        return getflac(input)
+        return get_pcm(input)
 
 
 def compare_trims(trim: Trim, trim2: Trim):

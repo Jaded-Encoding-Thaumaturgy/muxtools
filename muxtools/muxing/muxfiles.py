@@ -67,8 +67,15 @@ class AudioFile(MuxingFile):
     def __post_init__(self):
         self.file = ensure_path_exists(self.file, self)
 
-    def get_mediainfo(self) -> Track:
-        return MediaInfo.parse(self.file).audio_tracks[0]
+    def get_containerinfo(self, mediainfo: MediaInfo | None = None) -> Track:
+        if not mediainfo:
+            mediainfo = MediaInfo.parse(self.file)
+        return mediainfo.general_tracks[0]
+
+    def get_mediainfo(self, mediainfo: MediaInfo | None = None) -> Track:
+        if not mediainfo:
+            mediainfo = MediaInfo.parse(self.file)
+        return mediainfo.audio_tracks[0]
 
     def is_lossy(self) -> bool:
         from ..audio.audioutils import format_from_track
