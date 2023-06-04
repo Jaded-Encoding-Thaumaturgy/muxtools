@@ -62,7 +62,7 @@ class SubFile(MuxingFile):
             for doc in docs:
                 main.events.extend(doc.events)
                 for style in doc.styles:
-                    if style.name.casefold() in [s.name.casefold() for s in existing_styles]:
+                    if style.name.casefold() in [s.casefold() for s in existing_styles]:
                         warn(f"Ignoring style '{style.name}' due to preexisting style of the same name.", self)
                         continue
                     main.styles.append(style)

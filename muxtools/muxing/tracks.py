@@ -155,7 +155,7 @@ class Premux(_track):
 
         if audio is None:
             args += " -A"
-        else:
+        elif audio != -1:
             if isinstance(audio, list):
                 for num in audio:
                     abso = get_absolute_tracknum(file, num, TrackType.AUDIO)
@@ -166,7 +166,7 @@ class Premux(_track):
 
         if subtitles is None:
             args += " -S"
-        else:
+        elif subtitles != -1:
             if isinstance(subtitles, list):
                 for num in audio:
                     abso = get_absolute_tracknum(file, num, TrackType.SUB)
