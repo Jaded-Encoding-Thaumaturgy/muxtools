@@ -16,7 +16,7 @@ from ..utils.types import PathLike, TrackType
 from ..utils.log import debug, error, info, warn
 from ..utils.convert import frame_to_timedelta, timedelta_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
-from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files
+from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
 from ..muxing.muxfiles import MuxingFile
 
 __all__ = ["FontFile", "SubFile", "DEFAULT_DIALOGUE_STYLES"]
@@ -443,6 +443,40 @@ class SubFile(MuxingFile):
         self.file = shutil.copy(output, self.file)
         clean_temp_files()
         return self
+
+    def separate_signs(self, styles: list[str] = DEFAULT_DIALOGUE_STYLES) -> Self:
+        """
+        Basically deletes lines that have any of the passed styles.
+
+        :param styles:      List of style names to get rid of
+        """
+        doc = self._read_doc()
+        events = []
+        for line in doc.events:
+            skip = False
+            for style in styles:
+                if str(line.style).strip().casefold() == style.strip().casefold():
+                    skip = True
+                    break
+
+            if skip:
+                continue
+            events.append(line)
+        doc.events = events
+        self.__update_doc(doc)
+        return self.clean_styles()
+
+    def copy(self) -> "SubFile":
+        """
+        Creates a new copy of the current SubFile object, including its file.
+        So you can run anything on the new one without impacting the other one.
+        """
+        doc = self._read_doc()
+        new_path = uniquify_path(self.file)
+        with open(new_path, "w", encoding=self.encoding) as writer:
+            doc.dump_file(writer)
+
+        return SubFile(new_path, self.container_delay, self.source)
 
     @staticmethod
     def from_mkv(file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True) -> "SubFile":
