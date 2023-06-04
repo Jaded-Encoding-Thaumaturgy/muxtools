@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..main import Setup
 
-__all__ = ["save_setup", "get_setup_attr", "get_workdir", "get_temp_workdir", "is_debug", "download_allowed"]
+__all__ = ["save_setup", "get_setup_attr", "get_workdir", "get_temp_workdir", "is_debug", "download_allowed", "run_commandline"]
 
 
 def save_setup(setup: Setup):
