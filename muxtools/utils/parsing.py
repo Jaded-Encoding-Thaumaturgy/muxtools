@@ -6,7 +6,7 @@ from fractions import Fraction
 from pyparsebluray import mpls
 from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame, TrackType
 from .files import ensure_path_exists
-from .log import error, warn, debug
+from .log import error, warn, debug, info
 from .download import get_executable
 from .files import get_absolute_tracknum
 from .convert import (
@@ -178,11 +178,11 @@ def parse_chapters_bdmv(
 
         for i, playitem in enumerate(playlist.play_items):
             if (
-                playitem.clip_information_filename == src.file.stem
-                and playitem.clip_codec_identifier.lower() == src.file.suffix.lower().split(".")[1]
+                playitem.clip_information_filename == src.stem
+                and playitem.clip_codec_identifier.lower() == src.suffix.lower().split(".")[1]
             ):
                 if _print:
-                    print(f'Found chapters for "{src.file.name}" in "{f.name}":')
+                    info(f'Found chapters for "{src.name}" in "{f.name}":')
                 linked_marks = [mark for mark in marks if mark.ref_to_play_item_id == i]
                 try:
                     assert playitem.intime
