@@ -10,7 +10,7 @@ from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import Chapter, PathLike
 from ..utils.parsing import parse_ogm, parse_xml
-from ..utils.files import clean_temp_files, ensure_path_exists
+from ..utils.files import clean_temp_files, ensure_path_exists, ensure_path
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.convert import format_timedelta, frame_to_timedelta, timedelta_to_frame
 
@@ -157,13 +157,15 @@ class Chapters:
         print("", end="\n")
         return self
 
-    def to_file(self, out: PathLike = get_workdir()) -> str:
+    def to_file(self, out: PathLike | None = None) -> str:
         """
         Outputs the chapters to an OGM file
 
         :param out:     Can be either a directory or a full file path
         """
-        out = out.resolve() if isinstance(out, Path) else Path(out).resolve()
+        if not out:
+            out = get_workdir()
+        out = ensure_path(out, self)
         if out.is_dir():
             out_file = os.path.join(out, "chapters.txt")
         else:
