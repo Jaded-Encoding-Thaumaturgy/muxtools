@@ -22,6 +22,15 @@ __all__ = ["mux"]
 
 
 def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True) -> PathLike:
+    """
+    Runs the mux.
+
+    :param *tracks:     Any amount of track objects and a Chapters object
+    :param tmdb:        A TMDB Config used for additional tagging if you so desire.
+    :param outfile:     If you want to overwrite the output file path
+    :param quiet:       Whether or not to print the mkvmerge output
+    """
+
     tracks = list(tracks)
     show_name = get_setup_attr("show_name", "Example")
     out_name = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
