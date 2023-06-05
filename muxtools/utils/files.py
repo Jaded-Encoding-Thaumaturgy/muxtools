@@ -16,6 +16,7 @@ __all__ = [
     "make_output",
     "ensure_path_exists",
     "clean_temp_files",
+    "get_absolute_track",
 ]
 
 
