@@ -121,6 +121,8 @@ class AudioFile(MuxingFile):
     def from_file(pathIn: PathLike, caller: any):
         from ..utils.log import warn
 
-        warn("It's strongly recommended to explicitly extract tracks first!", caller, 1)
         file = ensure_path_exists(pathIn, caller)
+        if file.suffix.lower() != ".wav":
+            warn("It's strongly recommended to explicitly extract tracks first!", caller, 1)
+
         return AudioFile(file, 0, file)

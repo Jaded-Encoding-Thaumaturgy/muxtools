@@ -201,7 +201,7 @@ class Opus(Encoder):
 
         output = make_output(input.file, "opus", "opusenc", self.output)
         source = ensure_valid_in(
-            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=True
+            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True
         )
 
         args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(self.bitrate)]
