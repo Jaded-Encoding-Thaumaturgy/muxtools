@@ -47,6 +47,8 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     mkvtitle = re.sub(re.escape(R"$ep$"), episode, mkvtitle)
 
     try:
+        if " " in episode:
+            episode = str(episode).split(" ")[0]
         epint = int(episode)
     except:
         if tmdb and not tmdb.movie:
@@ -89,7 +91,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
         elif isinstance(track, Chapters):
             args.extend(["--chapters", track.to_file()])
             continue
-        elif isinstance(track, PathLike) or isinstance(track, GlobSearch):
+        elif isinstance(track, Path) or isinstance(track, str) or isinstance(track, GlobSearch):
             # Failsave for if someone passes Chapters().to_file() or a txt/xml file
             track = ensure_path_exists(track, "Mux")
             if track.suffix.lower() in [".txt", ".xml"]:
