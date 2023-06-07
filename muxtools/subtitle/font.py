@@ -18,12 +18,41 @@ from ..utils.log import debug, warn
 from .sub import SubFile, FontFile
 
 
+def _weight_to_name(weight: int) -> str:
+    match weight:
+        case 100:
+            return "Thin"
+        case 200:
+            return "ExtraLight"
+        case 300:
+            return "Light"
+        case 500:
+            return "Medium"
+        case 600:
+            return "SemiBold"
+        case 700:
+            return "Bold"
+        case 800:
+            return "ExtraBold"
+    return ""
+
+
 def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts: list[Path] = []) -> list[FontFile]:
     from font_collector import set_loglevel
 
     set_loglevel(logging.CRITICAL)
 
-    from font_collector import AssDocument, FontLoader, Helpers
+    from font_collector import AssDocument, FontLoader, Helpers, Font
+
+    def _get_fontname(font: Font) -> str:
+        familyname = font.family_names.pop()
+        if " " in familyname:
+            familyname = "".join([part.capitalize() for part in familyname.split(" ")])
+        else:
+            familyname.capitalize()
+        weight = _weight_to_name(font.weight)
+        name = f"{familyname}{'-' + weight if weight else ''}{'Italic' if font.italic else ''}"
+        return name
 
     loaded_fonts = FontLoader(additional_fonts, use_system_font=use_system_fonts).fonts
 
@@ -38,7 +67,8 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
         if not query:
             warn(f"Font '{style.fontname}' was not found!", collect_fonts, 3)
         else:
-            fontname = query.font.exact_names.pop()
+            fontname = _get_fontname(query.font)
+
             debug(f"Found font '{fontname}'.", collect_fonts)
             fontpath = Path(query.font.filename)
             outpath = os.path.join(get_workdir(), f"{fontname}{fontpath.suffix}")
