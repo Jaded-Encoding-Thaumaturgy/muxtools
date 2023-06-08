@@ -87,39 +87,6 @@ def ensure_valid_in(
         return get_pcm(input)
 
 
-def compare_trims(trim: Trim, trim2: Trim):
-    if trim[0] is None and trim2[0] is not None:
-        return -1
-    elif trim[0] is not None and trim2[0] is None:
-        return 1
-    else:
-        if trim[0] is None and trim2[0] is None:
-            return trim[1] - trim2[1]
-        else:
-            return trim[0] - trim2[0]
-
-
-def clean_trims(trims: list[Trim]):
-    sorted_trims = sorted(trims, key=cmp_to_key(compare_trims))
-
-    final_trims = []
-    for start, end in sorted_trims:
-        if final_trims:
-            prev_start, prev_end = final_trims[-1]
-            if start is None and prev_end is not None:
-                continue
-            elif prev_end is not None and prev_end >= start:
-                final_trims[-1] = (prev_start, max(prev_end, end))
-            elif prev_end is None and end is None:
-                continue
-            else:
-                final_trims.append((start, end))
-        elif start is not None or end is not None:
-            final_trims.append((start, end))
-
-    return final_trims
-
-
 def sanitize_trims(
     trims: Trim | list[Trim], total_frames: int = 0, uses_frames: bool = True, allow_negative_start: bool = False, caller: any = None
 ) -> list[Trim]:
@@ -139,22 +106,26 @@ def sanitize_trims(
         if trim[-1] == 0:
             raise error("Slices cannot end with 0, if attempting to use an empty slice, use `None`", caller)
 
-        if trim[0] and trim[0] < 0 and not allow_negative_start:
+        if trim[0] and trim[0] < 0 and not allow_negative_start and index == 0:
             raise error("The first part of a trim cannot be negative.", caller)
 
-        if trim[1] and uses_frames:
-            if total_frames and trim[1] > total_frames:
-                warn(f"The trim {trim} extends the frame number that was passed. Will be set to max frame.", caller, 5)
-                trims[index] = (trim[0], total_frames - 1)
-            if trim[1] < 0:
-                if not total_frames:
-                    raise error("A trim cannot be negative if you're not passing the total frame number.", caller)
-                new_val = total_frames + trim[1]
-                trims[index] = (trim[0], new_val)
-                if new_val < 0:
-                    raise error(f"The negative number of the trim {trim} is out of bounds.", caller)
+        has_negative = (trim[1] is not None and trim[1] < 0) or (trim[0] is not None and trim[0] < 0)
+        if not uses_frames and has_negative:
+            raise error(f"If you use milliseconds to trim you cannot use negative values.")
 
-    return clean_trims(trims)
+        if not total_frames and has_negative:
+            raise error(f"If you want to use negative trims you gotta pass a total frame number.")
+
+        if trim[1] is not None and trim[1] < 0:
+            trim = (trim[0], total_frames + trim[1])
+            trims[index] = trim
+
+        if trim[0] is not None and trim[0] < 0:
+            if allow_negative_start and index == 0:
+                continue
+            trims[index] = (total_frames + trim[0], trim[1])
+
+    return trims
 
 
 # Of course these are not all of the formats possible but those are the most common from what I know.

@@ -45,13 +45,16 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
     from font_collector import AssDocument, FontLoader, Helpers, Font
 
     def _get_fontname(font: Font) -> str:
-        familyname = font.family_names.pop()
-        if " " in familyname:
-            familyname = "".join([part.capitalize() for part in familyname.split(" ")])
-        else:
-            familyname.capitalize()
-        weight = _weight_to_name(font.weight)
-        name = f"{familyname}{'-' + weight if weight else ''}{'Italic' if font.italic else ''}"
+        try:
+            familyname = font.family_names.pop()
+            if " " in familyname:
+                familyname = "".join([part.capitalize() for part in familyname.split(" ")])
+            else:
+                familyname.capitalize()
+            weight = _weight_to_name(font.weight)
+            name = f"{familyname}{'-' + weight if weight else ''}{'Italic' if font.italic else ''}"
+        except:
+            name = Path(font.filename).name
         return name
 
     loaded_fonts = FontLoader(additional_fonts, use_system_font=use_system_fonts).fonts
