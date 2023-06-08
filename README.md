@@ -10,6 +10,6 @@ You might wanna check out the [wiki](https://github.com/Irrational-Encoding-Wiza
 
 Git is always the most updated one obviously but I can't guarantee that everything is in a working state.
 
-You can also grab the lastest stable ish versions from pip.
+You can also grab the latest stable ish versions from pip.
 
 [![PyPI version](https://badge.fury.io/py/muxtools.svg)](https://badge.fury.io/py/muxtools)
