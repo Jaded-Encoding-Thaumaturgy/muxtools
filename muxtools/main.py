@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from configparser import ConfigParser
 
 from .utils.log import error
-from .utils.files import ensure_path
-
 
 @dataclass
 class Setup:
@@ -84,7 +82,7 @@ class Setup:
         if not self.work_dir:
             self.work_dir = Path(os.getcwd(), "_workdir", self.episode)
 
-        self.work_dir = ensure_path(self.work_dir)
+        self.work_dir = Path(self.work_dir)
         self.work_dir.mkdir(parents=True, exist_ok=True)
         self.work_dir = str(self.work_dir)
 
