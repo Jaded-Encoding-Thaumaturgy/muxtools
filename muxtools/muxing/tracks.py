@@ -141,14 +141,16 @@ class Premux(_track):
         keep_attachments: bool = True,
         mkvmerge_args: str = "--no-global-tags",
     ) -> None:
-        args = mkvmerge_args
+        args = ""
         if video is None:
             args += " -D"
         elif video != -1:
             if isinstance(video, list):
+                lv = []
                 for num in video:
                     abso = get_absolute_tracknum(file, num, TrackType.VIDEO)
-                    args += f" -d {abso}"
+                    lv.append(abso)
+                args += f" -d {','.join(str(i) for i in lv)}"
             else:
                 abso = get_absolute_tracknum(file, video, TrackType.VIDEO)
                 args += f" -d {abso}"
@@ -157,9 +159,11 @@ class Premux(_track):
             args += " -A"
         elif audio != -1:
             if isinstance(audio, list):
+                la = []
                 for num in audio:
                     abso = get_absolute_tracknum(file, num, TrackType.AUDIO)
-                    args += f" -a {abso}"
+                    la.append(abso)
+                args += f" -a {','.join(str(i) for i in la)}"
             else:
                 abso = get_absolute_tracknum(file, audio, TrackType.AUDIO)
                 args += f" -a {abso}"
@@ -168,15 +172,19 @@ class Premux(_track):
             args += " -S"
         elif subtitles != -1:
             if isinstance(subtitles, list):
-                for num in audio:
+                ls = []
+                for num in subtitles:
                     abso = get_absolute_tracknum(file, num, TrackType.SUB)
-                    args += f" -s {abso}"
+                    ls.append(abso)
+                args += f" -s {','.join(str(i) for i in ls)}"
             else:
                 abso = get_absolute_tracknum(file, subtitles, TrackType.SUB)
                 args += f" -s {abso}"
 
         if not keep_attachments:
             args += " -M"
+
+        args = f" {args.strip()} {mkvmerge_args.strip()}"
         super().__init__(file, TrackType.MKV, args, "", False, False, 0)
 
 
