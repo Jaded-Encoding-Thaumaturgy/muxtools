@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 import json
-from typing import Self
+from typing import TypeVar
 from pathlib import Path
 from dataclasses import dataclass
 from configparser import ConfigParser
@@ -92,7 +94,7 @@ class Setup:
 
         save_setup(self)
 
-    def edit(self, attr: str, value: any) -> Self:
+    def edit(self: SetupSelf, attr: str, value: any) -> SetupSelf:
         """
         Sets a variable inside of Setup and saves it to the environment variables.
         You should use this to apply any changes because other functions will not make use of them otherwise!
@@ -109,3 +111,6 @@ class Setup:
 
     def _toJson(self) -> str:
         return json.dumps(self.__dict__)
+
+
+SetupSelf = TypeVar('SetupSelf', bound=Setup)

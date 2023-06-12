@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
-from typing import Self
+from typing import TypeVar
 import os
 
 
@@ -57,7 +59,7 @@ class Chapters:
                 chapters.append(ch)
         self.chapters = chapters
 
-    def trim(self, trim_start: int = 0, trim_end: int = 0, num_frames: int = 0) -> Self:
+    def trim(self: ChaptersSelf, trim_start: int = 0, trim_end: int = 0, num_frames: int = 0) -> ChaptersSelf:
         """
         Trims the chapters
         """
@@ -87,7 +89,7 @@ class Chapters:
 
         return self
 
-    def set_names(self, names: list[str | None]) -> Self:
+    def set_names(self: ChaptersSelf, names: list[str | None]) -> ChaptersSelf:
         """
         Renames the chapters
 
@@ -108,7 +110,7 @@ class Chapters:
         self.chapters = chapters
         return self
 
-    def add(self, chapters: Chapter | list[Chapter], index: int = 0) -> Self:
+    def add(self: ChaptersSelf, chapters: Chapter | list[Chapter], index: int = 0) -> ChaptersSelf:
         """
         Adds a chapter at the specified index
         """
@@ -199,3 +201,6 @@ class Chapters:
         chapters = Chapters(out, fps, _print)
         clean_temp_files()
         return chapters
+
+
+ChaptersSelf = TypeVar('ChaptersSelf', bound=Chapters)
