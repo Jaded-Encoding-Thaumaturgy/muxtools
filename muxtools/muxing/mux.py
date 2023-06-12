@@ -89,7 +89,9 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
             args.extend(splitcommand(track.mkvmerge_args()))
             continue
         elif isinstance(track, Chapters):
-            args.extend(["--chapters", track.to_file()])
+            if track.chapters:
+                warn("Chapters are None or empty!", "Mux")
+                args.extend(["--chapters", track.to_file()])
             continue
         elif isinstance(track, Path) or isinstance(track, str) or isinstance(track, GlobSearch):
             # Failsave for if someone passes Chapters().to_file() or a txt/xml file
@@ -97,6 +99,8 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
             if track.suffix.lower() in [".txt", ".xml"]:
                 args.extend(["--chapters", track.resolve()])
                 continue
+        elif track is None:
+            continue
 
         raise error("Only _track, MuxingFiles or Chapters types are supported as muxing input!", "Mux")
 

@@ -53,7 +53,7 @@ class TmdbConfig:
     :param write_date:      Writes the episode release date to the `DATE_RELEASED` mkv tag if True
     :param write_cover:     Download episode thumbnail from TMDB to use as cover art attachment for the MKV.
     :param write_summary:   Writes the series summary/synopsis to the `SUMMARY` mkv tag if True
-    :param write_synposis:  Writes the individual episode synopsis to the `SYNOPSIS` mkv tag if True
+    :param write_synopsis:  Writes the individual episode synopsis to the `SYNOPSIS` mkv tag if True
     """
 
     id: int
@@ -66,10 +66,10 @@ class TmdbConfig:
     write_title: bool = False
     write_cover: bool = False
     write_summary: bool = False
-    write_synposis: bool = False
+    write_synopsis: bool = False
 
     def needs_xml(self) -> bool:
-        return self.write_ids or self.write_date or self.write_title or self.write_summary or self.write_synposis
+        return self.write_ids or self.write_date or self.write_title or self.write_summary or self.write_synopsis
 
     def get_media_meta(self) -> MediaMetadata:
         url = f"{BASE_URL}/{'movie' if self.movie else 'tv'}/{self.id}?language={self.language}"
@@ -141,7 +141,7 @@ class TmdbConfig:
                 tags.update(DATE_RELEASED=episode.release_date)
         if self.write_summary:
             tags.update(SUMMARY=media.summary)
-        if self.write_synposis and not self.movie:
+        if self.write_synopsis and not self.movie:
             tags.update(SYNOPSIS=episode.synopsis)
 
         outfile = make_output("tags", "xml")

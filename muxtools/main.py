@@ -9,7 +9,6 @@ from configparser import ConfigParser
 
 from .utils.log import error
 
-
 @dataclass
 class Setup:
     """
@@ -87,6 +86,7 @@ class Setup:
         else:
             self.work_dir = Path(self.work_dir)
 
+        self.work_dir = Path(self.work_dir)
         self.work_dir.mkdir(parents=True, exist_ok=True)
         self.work_dir = str(self.work_dir)
 
