@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc
 from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
-from typing import Self
+from typing import TypeVar
 import shutil
 import json
 import re
@@ -93,7 +95,7 @@ class SubFile(MuxingFile):
         with open(self.file, "w", encoding=self.encoding) as writer:
             doc.dump_file(writer)
 
-    def clean_styles(self) -> Self:
+    def clean_styles(self: SubFileSelf) -> SubFileSelf:
         """
         Deletes unused styles from the document
         """
@@ -103,7 +105,7 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self
 
-    def autoswapper(self, allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES, print_swaps: bool = False) -> Self:
+    def autoswapper(self: SubFileSelf, allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES, print_swaps: bool = False) -> SubFileSelf:
         """
         autoswapper does the swapping.
         Too lazy to explain
@@ -151,13 +153,13 @@ class SubFile(MuxingFile):
         return self
 
     def unfuck_cr(
-        self,
+        self: SubFileSelf,
         default_style: str = "Default",
         keep_flashback: bool = True,
         dialogue_styles: list[str] | None = ["main", "default", "narrator", "narration"],
         top_styles: list[str] | None = ["top"],
         italics_styles: list[str] | None = ["italics", "internal"],
-    ) -> Self:
+    ) -> SubFileSelf:
         """
         Removes any top and italics styles and replaces them with tags.
 
@@ -212,7 +214,7 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self.clean_styles()
 
-    def shift_0(self, fps: Fraction = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> Self:
+    def shift_0(self: SubFileSelf, fps: Fraction = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> SubFileSelf:
         """
         Does the famous shift by 0 frames to fix frame timing issues.
         (It's basically just converting time to frame and back)
@@ -234,7 +236,7 @@ class SubFile(MuxingFile):
         return self
 
     def syncpoint_merge(
-        self,
+        self: SubFileSelf,
         syncpoint: str,
         mergefile: PathLike | GlobSearch,
         use_actor_field: bool = False,
@@ -242,7 +244,7 @@ class SubFile(MuxingFile):
         fps: Fraction = Fraction(24000, 1001),
         override_p1: int | timedelta = None,
         add_offset: int | timedelta = None,
-    ) -> Self:
+    ) -> SubFileSelf:
         """
         Merge other sub files (Opening/Ending kfx for example) with offsetting by syncpoints
 
@@ -361,7 +363,7 @@ class SubFile(MuxingFile):
 
         return collect(self, use_system_fonts, resolved_paths)
 
-    def restyle(self, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False) -> Self:
+    def restyle(self: SubFileSelf, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False) -> SubFileSelf:
         """
         Add (and replace existing) styles to the subtitle file.
 
@@ -390,13 +392,13 @@ class SubFile(MuxingFile):
             return self
 
     def resample(
-        self,
+        self: SubFileSelf,
         video: PathLike | None = None,
         src_width: int | None = None,
         src_height: int | None = None,
         use_arch: bool | None = None,
         quiet: bool = True,
-    ) -> Self:
+    ) -> SubFileSelf:
         """
         Resample subtitles to match the resolution of the specified video.
 
@@ -444,7 +446,7 @@ class SubFile(MuxingFile):
         clean_temp_files()
         return self
 
-    def separate_signs(self, styles: list[str] = DEFAULT_DIALOGUE_STYLES) -> Self:
+    def separate_signs(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES) -> SubFileSelf:
         """
         Basically deletes lines that have any of the passed styles.
 
@@ -499,3 +501,6 @@ class SubFile(MuxingFile):
         if run_commandline(args, quiet):
             raise error("Failed to extract subtitle!", caller)
         return SubFile(out, 0 if not preserve_delay else getattr(track, "delay_relative_to_video", 0))
+
+
+SubFileSelf = TypeVar('SubFileSelf', bound=SubFile)
