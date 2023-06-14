@@ -89,10 +89,11 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
             args.extend(splitcommand(track.mkvmerge_args()))
             continue
         elif isinstance(track, Chapters):
-            if track.chapters:
+            if not track.chapters:
                 warn("Chapters are None or empty!", "Mux")
-                args.extend(["--chapters", track.to_file()])
-            continue
+                continue
+
+            args.extend(["--chapters", track.to_file()])
         elif isinstance(track, Path) or isinstance(track, str) or isinstance(track, GlobSearch):
             # Failsave for if someone passes Chapters().to_file() or a txt/xml file
             track = ensure_path_exists(track, "Mux")
