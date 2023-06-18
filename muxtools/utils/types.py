@@ -89,6 +89,7 @@ class ValidInputType(IntEnum):
     AIFF = 2
     W64 = 3
     AIFF_OR_FLAC = 4
+    W64_OR_FLAC = 5
 
 
 @dataclass

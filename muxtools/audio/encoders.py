@@ -40,7 +40,7 @@ class FLAC(LosslessEncoder):
         flaccl = get_executable("flac")
         output = make_output(input.file, "flac", "libflac", self.output)
         source = ensure_valid_in(
-            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False
+            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False
         )
         debug(f"Encoding '{input.file.stem}' to FLAC using libFLAC...", self)
 

@@ -1,9 +1,7 @@
 import os
 import re
 import subprocess
-from shutil import rmtree
 from pymediainfo import Track
-from functools import cmp_to_key
 from pymediainfo import MediaInfo
 
 from ..utils.files import make_output
@@ -76,8 +74,8 @@ def ensure_valid_in(
     if form == "wave" or container.format.lower() == "wave":
         if not (trackinfo.bit_depth > 16 and dither):
             return input
-    if valid_type == ValidInputType.AIFF_OR_FLAC:
-        valid_type = ValidInputType.AIFF
+    if valid_type == ValidInputType.AIFF_OR_FLAC or ValidInputType.W64_OR_FLAC:
+        valid_type = ValidInputType.AIFF if valid_type == ValidInputType.AIFF_OR_FLAC else ValidInputType.W64
         if (form == "flac" or container.format.lower() == "flac") and not (trackinfo.bit_depth > 16 and dither):
             return input
 
