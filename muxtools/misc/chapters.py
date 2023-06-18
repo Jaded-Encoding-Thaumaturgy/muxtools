@@ -5,9 +5,10 @@ from fractions import Fraction
 from pathlib import Path
 from typing import TypeVar
 import os
+import re
 
-
-from ..utils.log import error, info
+from ..subtitle.sub import SubFile
+from ..utils.log import error, info, warn
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import Chapter, PathLike
@@ -182,9 +183,49 @@ class Chapters:
         return out_file
 
     @staticmethod
+    def from_sub(file: PathLike | SubFile, fps: Fraction = Fraction(24000, 1001), _print: bool = True, encoding: str = "utf_8_sig") -> "Chapters":
+        """
+        Extract chapters from an ass file or a SubFile.
+
+        :param file:            Input ass file or SubFile
+        :param fps:             FPS passed to the chapter class for further operations
+        :param _print:          Prints the chapters after parsing
+        :param encoding:        Encoding used to read the ass file if need be
+        """
+        from ass import parse_file, Comment
+
+        if isinstance(file, SubFile):
+            doc = file._read_doc()
+        else:
+            file = ensure_path_exists(file, "Chapters")
+            with open(file if not file else file, "r", encoding=encoding) as reader:
+                doc = parse_file(reader)
+
+        pattern = re.compile(r"\{([^\\].+?)\}")
+        chapters = list[Chapter]()
+        for line in doc.events:
+            effect = str(line.effect).lower()
+            if "chapter" in effect or "chptr" in effect:
+                match = pattern.search(line.text)
+                if match:
+                    chapters.append((line.start, match.group(1)))
+                elif isinstance(line, Comment) and line.text:
+                    chapters.append((line.start, str(line.text).strip()))
+                else:
+                    warn(f"Chapter {(len(chapters) + 1):02.0f} does not have a name!", "Chapters")
+                    chapters.append((line.start, ""))
+
+        if not chapters:
+            warn(f"Could not find any chapters in subtitle!", "Chapters")
+        ch = Chapters(chapters, fps)
+        if _print and chapters:
+            ch.print()
+        return ch
+
+    @staticmethod
     def from_mkv(file: PathLike, fps: Fraction = Fraction(24000, 1001), _print: bool = True, quiet: bool = True) -> "Chapters":
         """
-        Extract subtitle from mkv.
+        Extract chapters from mkv.
 
         :param file:            Input mkv file
         :param fps:             FPS passed to the chapter class for further operations
@@ -203,4 +244,4 @@ class Chapters:
         return chapters
 
 
-ChaptersSelf = TypeVar('ChaptersSelf', bound=Chapters)
+ChaptersSelf = TypeVar("ChaptersSelf", bound=Chapters)
