@@ -1,21 +1,11 @@
-import logging
 import os
 import shutil
-
-from ..utils.env import get_workdir
-
-logging.getLogger("matplotlib").setLevel(logging.CRITICAL)
-logging.getLogger("matplotlib.font_manager").setLevel(logging.CRITICAL)
-
-import matplotlib
-
-matplotlib.use("agg", force=True)
-
+import logging
 from pathlib import Path
 
-
-from ..utils.log import debug, warn
 from .sub import SubFile, FontFile
+from ..utils.env import get_workdir
+from ..utils.log import debug, warn
 
 
 def _weight_to_name(weight: int) -> str:
