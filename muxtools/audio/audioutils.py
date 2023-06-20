@@ -202,7 +202,8 @@ def has_libFDK() -> bool:
     """
     exe = get_executable("ffmpeg")
     p = subprocess.run([exe, "-encoders"], capture_output=True, text=True)
-    for line in p.stderr.splitlines():
+    output = p.stderr + p.stdout
+    for line in output.splitlines():
         if "libfdk_aac" in line.lower():
             return True
     return False
@@ -215,7 +216,8 @@ def has_libFLAC() -> bool:
     """
     exe = get_executable("qaac")
     p = subprocess.run([exe, "--check"], capture_output=True, text=True)
-    for line in p.stderr.splitlines():
+    output = p.stderr + p.stdout
+    for line in output.splitlines():
         if "libflac" in line.lower():
             return True
     return False
