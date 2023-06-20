@@ -3,7 +3,7 @@ from rich.logging import RichHandler
 import time
 import inspect
 
-__all__ = ["crit", "debug", "error", "exit", "info", "logger"]
+__all__ = ["crit", "debug", "error", "exit", "info", "warn", "logger"]
 
 FORMAT = "%(name)s | %(message)s"  #
 logging.basicConfig(format=FORMAT, datefmt="[%X]", handlers=[RichHandler(markup=True, omit_repeated_times=False, show_path=False)])
