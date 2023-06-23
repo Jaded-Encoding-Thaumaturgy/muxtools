@@ -468,7 +468,7 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self.clean_styles()
 
-    def copy(self) -> "SubFile":
+    def copy(self: SubFileSelf) -> SubFileSelf:
         """
         Creates a new copy of the current SubFile object, including its file.
         So you can run anything on the new one without impacting the other one.
@@ -478,10 +478,12 @@ class SubFile(MuxingFile):
         with open(new_path, "w", encoding=self.encoding) as writer:
             doc.dump_file(writer)
 
-        return SubFile(new_path, self.container_delay, self.source)
+        new = self.__class__(new_path, self.container_delay, self.source)
+        new.encoding = self.encoding
+        return new
 
-    @staticmethod
-    def from_mkv(file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True) -> "SubFile":
+    @classmethod
+    def from_mkv(cls: type[SubFileSelf], file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True) -> SubFileSelf:
         """
         Extract subtitle from mkv.
 
@@ -500,7 +502,8 @@ class SubFile(MuxingFile):
         args = [mkvextract, str(file), "tracks", f"{track.track_id}:{str(out)}"]
         if run_commandline(args, quiet):
             raise error("Failed to extract subtitle!", caller)
-        return SubFile(out, 0 if not preserve_delay else getattr(track, "delay_relative_to_video", 0))
+        
+        return cls(out, 0 if not preserve_delay else getattr(track, "delay_relative_to_video", 0), file)
 
 
 SubFileSelf = TypeVar('SubFileSelf', bound=SubFile)
