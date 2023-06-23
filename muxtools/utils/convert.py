@@ -38,10 +38,16 @@ def timedelta_to_frame(time: timedelta, fps: Fraction = Fraction(24000, 1001)) -
 
     :return:        The resulting frame number
     """
-
-    s = Decimal(time.total_seconds())
+    ms = Decimal(time.total_seconds()) * 1000
     fps_dec = _fraction_to_decimal(fps)
-    return round((s * fps_dec))
+
+    upper_bound = (ms + Decimal(0.5)) * fps_dec / 1000
+    trunc_frame = int(upper_bound)
+
+    if upper_bound == trunc_frame:
+        return trunc_frame - 1
+
+    return trunc_frame
 
 
 def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001)) -> timedelta:
