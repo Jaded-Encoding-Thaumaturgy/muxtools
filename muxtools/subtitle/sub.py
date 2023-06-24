@@ -104,7 +104,7 @@ class SubFile(MuxingFile):
         doc.styles = [style for style in doc.styles if style.name in used_styles]
         self.__update_doc(doc)
         return self
-    
+
     def clean_garbage(self: SubFileSelf) -> SubFileSelf:
         """
         Removes the "Aegisub Project Garbage" section from the file
@@ -455,19 +455,20 @@ class SubFile(MuxingFile):
         clean_temp_files()
         return self
 
-    def separate_signs(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES) -> SubFileSelf:
+    def separate_signs(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, inverse: bool = False) -> SubFileSelf:
         """
         Basically deletes lines that have any of the passed styles.
 
         :param styles:      List of style names to get rid of
+        :param inverse:     Treat the list as the opposite. Will remove lines that *don't* have any of those steals.
         """
         doc = self._read_doc()
         events = []
         for line in doc.events:
-            skip = False
+            skip = inverse
             for style in styles:
                 if str(line.style).strip().casefold() == style.strip().casefold():
-                    skip = True
+                    skip = not inverse
                     break
 
             if skip:
@@ -511,8 +512,8 @@ class SubFile(MuxingFile):
         args = [mkvextract, str(file), "tracks", f"{track.track_id}:{str(out)}"]
         if run_commandline(args, quiet):
             raise error("Failed to extract subtitle!", caller)
-        
+
         return cls(out, 0 if not preserve_delay else getattr(track, "delay_relative_to_video", 0), file)
 
 
-SubFileSelf = TypeVar('SubFileSelf', bound=SubFile)
+SubFileSelf = TypeVar("SubFileSelf", bound=SubFile)
