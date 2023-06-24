@@ -14,8 +14,8 @@ from .utils.files import clean_temp_files
 CONF = "([green bold]Y[/] | [red]n[/])"
 
 LINKS = [
-    "https://www.rarewares.org/files/lossless/flac_dll-1.4.2-x86-nonXP.zip",
-    "https://github.com/xiph/flac/releases/download/1.4.2/flac-1.4.2-win.zip",
+    "https://www.rarewares.org/files/lossless/flac_dll-1.4.3-x86.zip",
+    "https://github.com/xiph/flac/releases/download/1.4.3/flac-1.4.3-win.zip",
     "https://github.com/dbry/WavPack/releases/download/5.6.0/wavpack-5.6.0-dll.zip",
     "https://github.com/libsndfile/libsndfile/releases/download/1.2.0/libsndfile-1.2.0-win64.zip",
     "https://files.catbox.moe/bkj665.7z",  # Sourced from https://github.com/AnimMouse/QTFiles/ but the file there can't be extracted by py7zr
