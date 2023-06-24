@@ -237,8 +237,8 @@ class SubFile(MuxingFile):
         events = []
         for line in doc.events:
             if not allowed_styles or line.style.lower() in allowed_styles:
-                line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps), fps)
-                line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps), fps)
+                line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps), fps, True)
+                line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps), fps, True)
             events.append(line)
         doc.events = events
         self.__update_doc(doc)
@@ -278,7 +278,7 @@ class SubFile(MuxingFile):
         existing_styles = [style.name for style in doc.styles]
 
         if isinstance(add_offset, int) and not use_frames:
-            add_offset = frame_to_timedelta(add_offset, fps)
+            add_offset = frame_to_timedelta(add_offset, fps, True)
 
         for line in doc.events:
             events.append(line)
@@ -317,10 +317,10 @@ class SubFile(MuxingFile):
                             offset += add_offset
 
                         l.start = start
-                        l.end = l.end + (frame_to_timedelta(offset, fps) if use_frames else offset)
+                        l.end = l.end + (frame_to_timedelta(offset, fps, True) if use_frames else offset)
                     else:
-                        l.start = l.start + (frame_to_timedelta(offset, fps) if use_frames else offset)
-                        l.end = l.end + (frame_to_timedelta(offset, fps) if use_frames else offset)
+                        l.start = l.start + (frame_to_timedelta(offset, fps, True) if use_frames else offset)
+                        l.end = l.end + (frame_to_timedelta(offset, fps, True) if use_frames else offset)
                     tomerge.append(l)
 
         if was_merged:

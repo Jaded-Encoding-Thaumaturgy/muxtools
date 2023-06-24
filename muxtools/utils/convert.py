@@ -50,31 +50,42 @@ def timedelta_to_frame(time: timedelta, fps: Fraction = Fraction(24000, 1001)) -
     return trunc_frame
 
 
-def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001)) -> timedelta:
+def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False) -> timedelta:
     """
     Converts a frame number to a timedelta.
     Mostly used in the conversion for manually defined chapters.
 
-    :param f:       The frame number
-    :param fps:     A Fraction containing fps_num and fps_den
+    :param f:           The frame number
+    :param fps:         A Fraction containing fps_num and fps_den
+    :param compensate:  Whether or not to place the the timestamp in the middle of said frame
+                        Useful for subtitles, not so much for audio where you'd wanna be accurate
 
-    :return:        The resulting timedelta
+    :return:            The resulting timedelta
     """
+    if not f:
+        return timedelta(seconds=0)
     fps_dec = _fraction_to_decimal(fps)
     seconds = Decimal(f) / fps_dec
-    return timedelta(seconds=float(seconds))
+    if not compensate:
+        return timedelta(seconds=float(seconds))
+    else:
+        t1 = timedelta(seconds=float(seconds))
+        t2 = timedelta(seconds=float(Decimal(f + 1) / fps_dec))
+        return t1 + (t2 - t1) / 2
 
 
-def frame_to_ms(f: int, fps: Fraction = Fraction(24000, 1001)) -> timedelta:
+def frame_to_ms(f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False) -> timedelta:
     """
     Converts a frame number to it's ms value.
 
-    :param f:       The frame number
-    :param fps:     A Fraction containing fps_num and fps_den
+    :param f:           The frame number
+    :param fps:         A Fraction containing fps_num and fps_den
+    :param compensate:  Whether or not to place the the timestamp in the middle of said frame
+                        Useful for subtitles, not so much for audio where you'd wanna be accurate
 
-    :return:        The resulting ms
+    :return:            The resulting ms
     """
-    td = frame_to_timedelta(f, fps)
+    td = frame_to_timedelta(f, fps, compensate)
     return td.total_seconds() * 1000
 
 
