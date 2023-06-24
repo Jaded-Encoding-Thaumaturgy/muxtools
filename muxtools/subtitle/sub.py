@@ -104,6 +104,15 @@ class SubFile(MuxingFile):
         doc.styles = [style for style in doc.styles if style.name in used_styles]
         self.__update_doc(doc)
         return self
+    
+    def clean_garbage(self: SubFileSelf) -> SubFileSelf:
+        """
+        Removes the "Aegisub Project Garbage" section from the file
+        """
+        doc = self._read_doc()
+        doc.sections.pop("Aegisub Project Garbage", None)
+        self.__update_doc(doc)
+        return self
 
     def autoswapper(self: SubFileSelf, allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES, print_swaps: bool = False) -> SubFileSelf:
         """
