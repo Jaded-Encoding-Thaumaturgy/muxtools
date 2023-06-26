@@ -50,7 +50,7 @@ def timedelta_to_frame(time: timedelta, fps: Fraction = Fraction(24000, 1001)) -
     return trunc_frame
 
 
-def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False) -> timedelta:
+def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False, rounding: bool = True) -> timedelta:
     """
     Converts a frame number to a timedelta.
     Mostly used in the conversion for manually defined chapters.
@@ -59,7 +59,7 @@ def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate
     :param fps:         A Fraction containing fps_num and fps_den
     :param compensate:  Whether or not to place the the timestamp in the middle of said frame
                         Useful for subtitles, not so much for audio where you'd wanna be accurate
-
+    :param rounding:    Round compensated value to centiseconds if True
     :return:            The resulting timedelta
     """
     if not f:
@@ -71,7 +71,12 @@ def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate
     else:
         t1 = timedelta(seconds=float(seconds))
         t2 = timedelta(seconds=float(Decimal(f + 1) / fps_dec))
-        return t1 + (t2 - t1) / 2
+        result = t1 + (t2 - t1) / 2
+        if not rounding:
+            return result
+        rounded = round(result.total_seconds(), 2)
+        return timedelta(seconds=rounded)
+
 
 
 def frame_to_ms(f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False) -> timedelta:
