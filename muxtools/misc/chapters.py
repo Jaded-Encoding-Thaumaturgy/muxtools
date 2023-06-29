@@ -98,7 +98,8 @@ class Chapters:
         """
         old: list[str] = [chapter[1] for chapter in self.chapters]
         if len(names) > len(old):
-            raise ValueError(f"Chapters: too many names!")
+            self.print()
+            raise error(f"Chapters: too many names!", self)
         if len(names) < len(old):
             names += [None] * (len(old) - len(names))
 
