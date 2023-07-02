@@ -87,7 +87,7 @@ class VideoTrack(_track):
         timecode_file: PathLike | GlobSearch = None,
     ) -> None:
         if timecode_file is not None:
-            self.timecode_file = ensure_path_exists(timecode_file)
+            self.timecode_file = ensure_path_exists(timecode_file, self)
         super().__init__(file, TrackType.VIDEO, name, lang, default, forced, delay)
 
 
