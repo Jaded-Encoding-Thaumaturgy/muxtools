@@ -341,6 +341,7 @@ class SubFile(MuxingFile):
     def collect_fonts(self, use_system_fonts: bool = True, search_current_dir: bool = True, additional_fonts: list[PathLike] = []) -> list[FontFile]:
         """
         Collects fonts for current subtitle.
+        Note that this places all fonts into the workdir for the episode/Setup and all fonts in it.
 
         :param use_system_fonts:        Parses and checks against all installed fonts
         :param search_current_dir:      Recursively checks the current work directory for fonts
