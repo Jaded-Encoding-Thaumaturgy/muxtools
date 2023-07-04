@@ -23,6 +23,7 @@ class FLAC(LosslessEncoder):
     :param compression_level:   Any int value from 0 to 8 (Higher = better but slower)
     :param dither:              Dithers any input down to 16 bit 48 khz if True
     :param dither_type:         FFMPEG dither_method used for dithering
+    :param verify:              Make the encoder verify each encoded sample while encoding to ensure valid output.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
@@ -31,23 +32,26 @@ class FLAC(LosslessEncoder):
     compression_level: int = 8
     dither: bool = True
     dither_type: DitherType = DitherType.TRIANGULAR
+    verify: bool = True
     append: str = ""
     output: PathLike | None = None
 
     def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
-        flaccl = get_executable("flac")
+        flac = get_executable("flac")
         output = make_output(input.file, "flac", "libflac", self.output)
         source = ensure_valid_in(
             input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False
         )
         debug(f"Encoding '{input.file.stem}' to FLAC using libFLAC...", self)
 
-        args = [flaccl, f"-{self.compression_level}", str(source.file.resolve()) if isinstance(source, AudioFile) else "-"]
-        args.extend(["-o", str(output)])
+        args = [flac, f"-{self.compression_level}", "-o", str(output)]
+        if self.verify:
+            args.append("--verify")
         if self.append:
             args.extend(splitcommand(self.append))
+        args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
@@ -65,9 +69,11 @@ class FLACCL(LosslessEncoder):
     Uses the CUETools FLACCL encoder to encode audio to flac.
     This one uses OpenCL or Cuda depending on your GPU and claims to have better compression than libFLAC.
 
-    :param compression_level:   Any int value from 0 to 8 (Higher = better but slower)
+    :param compression_level:   Any int value from 0 to 11 (Higher = better but slower)
+                                Keep in mind that over 8 is technically out of spec so we default to 8 here.
     :param dither:              Dithers any input down to 16 bit 48 khz if True
     :param dither_type:         FFMPEG dither_method used for dithering
+    :param verify:              Make the encoder verify each encoded sample while encoding to ensure valid output.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
@@ -76,6 +82,7 @@ class FLACCL(LosslessEncoder):
     compression_level: int = 8
     dither: bool = True
     dither_type: DitherType = DitherType.TRIANGULAR
+    verify: bool = True
     append: str = ""
     output: PathLike | None = None
 
@@ -89,10 +96,14 @@ class FLACCL(LosslessEncoder):
         )
         debug(f"Encoding '{input.file.stem}' to FLAC using FLACCL...", self)
 
-        args = [flaccl, f"-{self.compression_level}", str(source.file.resolve()) if isinstance(source, AudioFile) else "-"]
-        args.extend(["-o", str(output)])
+        args = [flaccl, f"-{self.compression_level}", "-o", str(output)]
+        if self.compression_level > 8:
+            args.append("--lax")
+        if self.verify:
+            args.append("--verify")
         if self.append:
             args.extend(splitcommand(self.append))
+        args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
