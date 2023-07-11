@@ -123,7 +123,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     args.extend(["-c:a", "flac", "-sample_fmt", "s16"])
             else:
                 if extension == "wav":
-                    args.extend(["-c:a", "pcm_s16le" if specified_depth == 16 else "pcm_s24le"])
+                    args.extend(["-c:a", "pcm_s16le" if specified_depth == 16 else "pcm_s24le", "-rf64", "auto"])
                 else:
                     args.extend(["-c:a", "copy"])
                     if extension == "dtshd" or extension == "dts":

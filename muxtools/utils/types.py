@@ -88,8 +88,24 @@ class ValidInputType(IntEnum):
     FLAC = 1
     AIFF = 2
     W64 = 3
-    AIFF_OR_FLAC = 4
-    W64_OR_FLAC = 5
+    RF64 = 4
+    AIFF_OR_FLAC = 5
+    W64_OR_FLAC = 6
+    RF64_OR_FLAC = 7
+
+    def allows_flac(self) -> bool:
+        return "_OR_FLAC" in str(self.name)
+
+    def remove_flac(self):
+        match self:
+            case ValidInputType.AIFF_OR_FLAC:
+                return ValidInputType.AIFF
+            case ValidInputType.RF64_OR_FLAC:
+                return ValidInputType.RF64
+            case ValidInputType.W64_OR_FLAC:
+                return ValidInputType.W64
+
+        return ValidInputType.AIFF
 
 
 @dataclass

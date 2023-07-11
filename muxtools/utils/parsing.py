@@ -84,9 +84,10 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None, is_thd: 
     out_var = "NUL" if os.name == "nt" else "/dev/null"
     args = [
         ffmpeg,
+        "-y",
         "-hide_banner",
         "-i",
-        file.resolve(),
+        str(file.resolve()),
         "-t",
         "4" if is_thd else "10",
         "-map",
@@ -106,7 +107,8 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None, is_thd: 
     frames = []
     stats = AudioStats()
     is_overall = False
-    for line in out.stderr.splitlines():
+    output = out.stderr + out.stdout
+    for line in output.splitlines():
         if not line.strip().startswith("["):
             continue
         match = f_compiled.match(line)

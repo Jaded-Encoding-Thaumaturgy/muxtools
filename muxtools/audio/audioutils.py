@@ -43,9 +43,13 @@ def ensure_valid_in(
         args = [ffmpeg, "-i", str(input.file), "-map", "0:a:0", "-c:a", "pcm_s16le" if minfo.bit_depth == 16 or dither else cope]
         if dither:
             args.extend(["-sample_fmt", "s16", "-ar", "48000", "-resampler", "soxr", "-precision", "24", "-dither_method", dither_type.name.lower()])
-        output = make_output(input.file, "aiff" if valid_type == ValidInputType.AIFF else "w64", "ffmpeg", temp=True)
+        if valid_type == ValidInputType.RF64:
+            args.extend(["-rf64", "auto"])
+            output = make_output(input.file, "wav", "ffmpeg", temp=True)    
+        else:
+            output = make_output(input.file, "aiff" if valid_type == ValidInputType.AIFF else "w64", "ffmpeg", temp=True)
 
-        if supports_pipe:
+        if supports_pipe and valid_type != ValidInputType.RF64:
             debug(f"Piping audio to ensure valid input using ffmpeg...", caller)
             args.extend(["-f", "aiff" if valid_type == ValidInputType.AIFF else "w64", "-"])
             p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
@@ -74,8 +78,8 @@ def ensure_valid_in(
     if form == "wave" or container.format.lower() == "wave":
         if not (trackinfo.bit_depth > 16 and dither):
             return input
-    if valid_type == ValidInputType.AIFF_OR_FLAC or ValidInputType.W64_OR_FLAC:
-        valid_type = ValidInputType.AIFF if valid_type == ValidInputType.AIFF_OR_FLAC else ValidInputType.W64
+    if valid_type.allows_flac():
+        valid_type = valid_type.remove_flac()
         if (form == "flac" or container.format.lower() == "flac") and not (trackinfo.bit_depth > 16 and dither):
             return input
 

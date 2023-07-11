@@ -290,8 +290,11 @@ class FDK_AAC(Encoder):
                                 See https://wiki.hydrogenaud.io/index.php?title=Fraunhofer_FDK_AAC#Bitrate_Modes
 
     :param bitrate:             Any int value representing kbps
+    :param cutoff:              Hard frequency cutoff. 20 kHz is a good default and setting it to 0 will let it choose automatically.
     :param dither:              Dithers any input down to 16 bit 48 khz if True, lets the encoder handle it if False
     :param dither_type:         FFMPEG dither_method used for dithering
+    :param use_binary:          Whether or not to use the fdkaac encoder binary or ffmpeg.
+                                If you don't have ffmpeg compiled with libfdk it will try to fallback to the binary.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
@@ -299,8 +302,10 @@ class FDK_AAC(Encoder):
 
     bitrate_mode: int = 5
     bitrate: int = 256
+    cutoff: int = 20000
     dither: bool = False
     dither_type: DitherType = DitherType.TRIANGULAR
+    use_binary: bool = False
     append: str = ""
     output: PathLike | None = None
 
@@ -309,25 +314,43 @@ class FDK_AAC(Encoder):
             input = AudioFile.from_file(input, self)
         output = make_output(input.file, "m4a", "fdkaac", self.output)
         if not has_libFDK():
-            raise error(
-                "Your installation of ffmpeg wasn't compiled with libFDK."
-                + "\nYou can download builds with the non-free flag from https://github.com/AnimMouse/ffmpeg-autobuild/releases",
-                self,
-            )
+            exe = get_executable("fdkaac", False, False)
+            if not exe:
+                raise error(
+                    "Your installation of ffmpeg wasn't compiled with libFDK."
+                    + "\nYou can download builds with the non-free flag from https://github.com/AnimMouse/ffmpeg-autobuild/releases"
+                    + "\nYou can also use the FDKAAC binary if you can find a built version.",
+                    self,
+                )
+            self.use_binary = True
+        else:
+            exe = get_executable("ffmpeg") if not self.use_binary else get_executable("fdkaac")
+            
         if os.name == "nt":
             warn("It is strongly recommended to use qAAC on windows. See docs.", self, 5)
         debug(f"Encoding '{input.file.stem}' to AAC using libFDK...", self)
         # fmt: off
-        args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0", "-c:a", "libfdk_aac"]
-        if self.bitrate_mode > 0:
-            args.extend(['-vbr', str(self.bitrate_mode)])
+        if self.use_binary:
+            source = ensure_valid_in(
+                input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.RF64, supports_pipe=False
+            )
+            args = [exe, "-m", str(self.bitrate_mode), "-w", str(self.cutoff), "-a", "1"]
+            if self.bitrate_mode == 0:
+                args.extend(["-b", str(self.bitrate)])
+            if self.append:
+                args.extend(splitcommand(self.append))
+            args.extend(["-o", str(output), str(source.file)])
         else:
-            args.extend(['-b:a', f'{self.bitrate}k'])
-        if self.dither:
-            args.extend(['-sample_fmt', 's16', '-ar', '48000', '-resampler', 'soxr', '-precision', '24', '-dither_method', self.dither_type.name.lower()])
-        if self.append:
-            args.extend(splitcommand(self.append))
-        args.append(str(output))
+            args = [exe, "-hide_banner", "-i", str(input.file), "-map", "0:a:0", "-c:a", "libfdk_aac", "-cutoff", str(self.cutoff)]
+            if self.bitrate_mode > 0:
+                args.extend(['-vbr', str(self.bitrate_mode)])
+            else:
+                args.extend(['-b:a', f'{self.bitrate}k'])
+            if self.dither:
+                args.extend(['-sample_fmt', 's16', '-ar', '48000', '-resampler', 'soxr', '-precision', '24', '-dither_method', self.dither_type.name.lower()])
+            if self.append:
+                args.extend(splitcommand(self.append))
+            args.append(str(output))
         # fmt: on
         if not run_commandline(args, quiet, False):
             debug("Done", self)

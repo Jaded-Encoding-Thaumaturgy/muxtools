@@ -43,7 +43,7 @@ tools = [
 # TODO: check CPU to decide on which x264/5 file to use
 
 
-def get_executable(type: str, can_download: bool | None = None) -> str:
+def get_executable(type: str, can_download: bool | None = None, can_error: bool = True) -> str:
     if can_download is None:
         can_download = download_allowed()
     type = type.lower()
@@ -54,10 +54,14 @@ def get_executable(type: str, can_download: bool | None = None) -> str:
         if path.exists():
             return str(path.resolve())
         else:
+            if not can_error:
+                return None
             raise error(f"Custom executable for {type} not found!", get_executable)
 
     if path is None:
         if not can_download or can_download == False:
+            if not can_error:
+                return None
             raise crit(f"{type.lower()} executable not found in path!", get_executable)
         else:
             path = download_binary(type)
