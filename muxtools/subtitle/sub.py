@@ -5,13 +5,15 @@ from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 import shutil
 import json
 import re
 import os
 
-from .subutils import dummy_video, has_arch_resampler
+from .styles import GJM_GANDHI_PRESET
+
+from .subutils import create_document, dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import PathLike, TrackType
@@ -25,6 +27,7 @@ __all__ = ["FontFile", "SubFile", "DEFAULT_DIALOGUE_STYLES"]
 
 
 DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "top", "italics"]
+SRT_REGEX = r"\d+[\r\n](?:(?P<start>\d+:\d+:\d+,\d+) --> (?P<end>\d+:\d+:\d+,\d+))[\r\n](?P<text>(?:.+\r?\n)+(?=(\r?\n)?))"
 
 
 @dataclass
@@ -494,27 +497,93 @@ class SubFile(MuxingFile):
         return new
 
     @classmethod
-    def from_mkv(cls: type[SubFileSelf], file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True) -> SubFileSelf:
+    def from_srt(
+        cls: type[SubFileSelf], file: PathLike, an8_all_caps: bool = True, fps: Fraction = Fraction(24000, 1001), encoding: str = "UTF8"
+    ) -> SubFileSelf:
+        """
+        Convert srt subtitles to an ass SubFile.
+        Automatically applies Gandhi styling. Feel free to restyle.
+        Also worth noting that this creates a file that assumes 1920x1080. Use the resample function if you need something else.
+
+        :param file:            Input srt file
+        :param an8_all_caps:    Automatically an8 every full caps line with over 7 characters because they're usually signs
+        :param fps:             FPS needed for the time conversion
+        :param encoding:        Encoding used to read the file. Defaults to UTF8.
+        """
+        caller = "SubFile.from_srt"
+        file = ensure_path_exists(file, caller)
+
+        compiled = re.compile(SRT_REGEX, re.MULTILINE)
+
+        def srt_timedelta(timestamp: str) -> timedelta:
+            args = timestamp.split(",")[0].split(":")
+            parsed = timedelta(hours=int(args[0]), minutes=int(args[1]), seconds=int(args[2]), milliseconds=int(timestamp.split(",")[1]))
+            cope = timedelta_to_frame(parsed, fps)
+            cope = frame_to_timedelta(cope, fps, compensate=True)
+            return cope
+
+        def convert_tags(text: str) -> str:
+            text = text.strip().replace("\n", "\\N")
+            if an8_all_caps and text.upper() == text and len(text) > 7:
+                text = R"{\an8}" + text
+            text = re.sub(r"[\<|{]i[\>|}]", "{\\\i1}", text)
+            text = re.sub(r"[\<|{]\/i[\>|}]", "{\\\i}", text)
+            text = re.sub(r"[\<|{]b[\>|}]", "{\\b1}", text)
+            text = re.sub(r"[\<|{]\/b[\>|}]", "{\\b}", text)
+            text = re.sub(r"[\<|{]u[\>|}]", R"{\\u1}", text)
+            text = re.sub(r"[\<|{]\/u[\>|}]", R"{\\u}", text)
+            return text
+
+        doc = create_document()
+
+        with open(file, "r", encoding="UTF8") as reader:
+            content = reader.read() + "\n"
+            for match in compiled.finditer(content):
+                start = srt_timedelta(match["start"])
+                end = srt_timedelta(match["end"])
+                text = convert_tags(match["text"])
+                doc.events.append(Dialogue(layer=99, start=start, end=end, text=text))
+
+        out = file.with_suffix(".ass")
+        with open(out, "w", encoding="utf_8_sig") as writer:
+            doc.dump_file(writer)
+        out = cls(out, 0, file)
+        return out.restyle(GJM_GANDHI_PRESET)
+
+    @classmethod
+    def from_mkv(
+        cls: type[SubFileSelf], file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True, **kwargs: Any
+    ) -> SubFileSelf:
         """
         Extract subtitle from mkv.
 
         :param file:            Input mkv file
         :param track:           Relative track number
         :param preserve_delay:  Preserve existing container delay
+        :param kwargs:          Other args to pass to `from_srt` if trying to extract srt subtitles
         """
         caller = "SubFile.from_mkv"
         file = ensure_path_exists(file, caller)
         track = get_absolute_track(file, track, TrackType.SUB, caller)
-        if track.format != "ASS":
-            raise error("The selected track is not an ASS subtitle.", caller)
+
+        if track.format not in ["ASS", "UTF-8"]:
+            raise error("The selected track is not an ASS or SRT subtitle.", caller)
 
         mkvextract = get_executable("mkvextract")
-        out = Path(get_workdir(), f"{file.stem}_{track.track_id}.ass")
+        out = Path(get_workdir(), f"{file.stem}_{track.track_id}.{'ass' if track.format == 'ASS' else 'srt'}")
         args = [mkvextract, str(file), "tracks", f"{track.track_id}:{str(out)}"]
         if run_commandline(args, quiet):
             raise error("Failed to extract subtitle!", caller)
 
-        return cls(out, 0 if not preserve_delay else getattr(track, "delay_relative_to_video", 0), file)
+        delay = 0 if not preserve_delay else getattr(track, "delay_relative_to_video", 0)
+
+        if track.format == "UTF-8":
+            subfile = cls.from_srt(out, **kwargs)
+            subfile.container_delay = delay
+            subfile.source = file
+            return subfile
+
+        return cls(out, delay, file)
 
 
 SubFileSelf = TypeVar("SubFileSelf", bound=SubFile)

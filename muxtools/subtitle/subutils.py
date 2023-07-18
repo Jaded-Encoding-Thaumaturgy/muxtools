@@ -1,11 +1,26 @@
 import os
 from pathlib import Path
+from ass import Document
 
 from ..utils.log import error
 from ..utils.env import run_commandline
 from ..utils.download import get_executable
 
 __all__ = ["dummy_video"]
+
+
+def create_document() -> Document:
+    """
+    Convenience function to create a new ASS Document.
+    With relevant fields already filled in.
+    """
+    doc = Document()
+    doc.play_res_x = 1920
+    doc.play_res_y = 1080
+    doc.wrap_style = 0
+    doc.scaled_border_and_shadow = "yes"
+    doc.script_type = "v4.00+"
+    return doc
 
 
 def has_arch_resampler() -> bool:
