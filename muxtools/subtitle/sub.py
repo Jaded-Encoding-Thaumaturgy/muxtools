@@ -482,6 +482,32 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self.clean_styles()
 
+    def shift(self: SubFileSelf, frames: int, fps: Fraction = Fraction(24000, 1001)) -> SubFileSelf:
+        """
+        Shifts all lines by any frame number.
+
+        :param frames:      Number of frames to shift by
+        :param fps:         FPS needed for the timing calculations
+        """
+        doc = self._read_doc()
+        events = []
+        for line in doc.events:
+            start = timedelta_to_frame(line.start, fps) + frames
+            if start < 0:
+                start = 0
+            start = frame_to_timedelta(start, fps, compensate=True)
+            end = timedelta_to_frame(line.end, fps) + frames
+            if end < 0:
+                continue
+            end = frame_to_timedelta(end, fps, compensate=True)
+            line.start = start
+            line.end = end
+            events.append(line)
+
+        doc.events = events
+        self.__update_doc(doc)
+        return self
+
     def copy(self: SubFileSelf) -> SubFileSelf:
         """
         Creates a new copy of the current SubFile object, including its file.
