@@ -9,6 +9,9 @@ from configparser import ConfigParser
 
 from .utils.log import error
 
+__all__ = ["Setup"]
+
+
 @dataclass
 class Setup:
     """
@@ -111,4 +114,4 @@ class Setup:
         return json.dumps(self.__dict__)
 
 
-SetupSelf = TypeVar('SetupSelf', bound=Setup)
+SetupSelf = TypeVar("SetupSelf", bound=Setup)

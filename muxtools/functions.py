@@ -9,6 +9,8 @@ from .audio.extractors import FFMpeg, Sox
 from .utils.files import ensure_path, ensure_path_exists
 from .audio.tools import AutoEncoder, AutoTrimmer, Encoder, Trimmer, Extractor
 
+__all__ = ["do_audio"]
+
 
 def do_audio(
     fileIn: PathLike,
