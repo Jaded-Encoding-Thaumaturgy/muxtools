@@ -367,7 +367,7 @@ class SubFile(MuxingFile):
                 resolved_paths.extend([file for file in f.rglob("*.ttf")])
                 resolved_paths.extend([file for file in f.rglob("*.otf")])
             else:
-                if f.suffix.lower() not in ["ttf", "otf"]:
+                if f.suffix.lower() not in [".ttf", ".otf"]:
                     raise error(f"'{f.name}' is not a font!", self)
                 resolved_paths.append(f)
         from .font import collect_fonts as collect
