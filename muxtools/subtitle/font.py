@@ -9,6 +9,7 @@ from ..utils.log import debug, warn
 
 
 def _weight_to_name(weight: int) -> str:
+    # https://learn.microsoft.com/en-us/typography/opentype/spec/os2#usweightclass
     match weight:
         case 100:
             return "Thin"
@@ -24,6 +25,8 @@ def _weight_to_name(weight: int) -> str:
             return "Bold"
         case 800:
             return "ExtraBold"
+        case 900:
+            return "Black"
     return ""
 
 

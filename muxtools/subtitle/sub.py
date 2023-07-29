@@ -104,6 +104,10 @@ class SubFile(MuxingFile):
         """
         doc = self._read_doc()
         used_styles = {line.style for line in doc.events if line.TYPE == "Dialogue"}
+        regex = re.compile(r"\{.*?\\r([^\\]+)\}")
+        for line in [line for line in doc.events if line.TYPE == "Dialogue"]:
+            for match in regex.finditer(line.text):
+                used_styles.add(match.group(1))
         doc.styles = [style for style in doc.styles if style.name in used_styles]
         self.__update_doc(doc)
         return self
