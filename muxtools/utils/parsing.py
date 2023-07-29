@@ -79,7 +79,6 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None, is_thd: 
     f_compiled = re.compile(AUDIOFRAME_REGEX, re.IGNORECASE)
     s_compiled = re.compile(AUDIOSTATS_REGEX, re.IGNORECASE)
     file = ensure_path_exists(file, parse_audioinfo)
-    track = get_absolute_tracknum(file, track, TrackType.AUDIO)
     ffmpeg = get_executable("ffmpeg")
     out_var = "NUL" if os.name == "nt" else "/dev/null"
     args = [
@@ -91,7 +90,7 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None, is_thd: 
         "-t",
         "4" if is_thd else "10",
         "-map",
-        f"0:{track}",
+        f"0:a:{track}",
         "-filter:a",
         "astats=metadata=1,ashowinfo",
         "-f",
@@ -179,10 +178,7 @@ def parse_chapters_bdmv(
                 raise error("There are no playlist marks in this file!", parse_chapters_bdmv)
 
         for i, playitem in enumerate(playlist.play_items):
-            if (
-                playitem.clip_information_filename == src.stem
-                and playitem.clip_codec_identifier.lower() == src.suffix.lower().split(".")[1]
-            ):
+            if playitem.clip_information_filename == src.stem and playitem.clip_codec_identifier.lower() == src.suffix.lower().split(".")[1]:
                 if _print:
                     info(f'Found chapters for "{src.name}" in "{f.name}":')
                 linked_marks = [mark for mark in marks if mark.ref_to_play_item_id == i]
