@@ -60,7 +60,7 @@ class _track:
             return f' --chapters "{self.file.resolve()}"'
         name_args = f' --track-name 0:"{self.name}"' if self.name else ""
         lang_args = f" --language 0:{self.lang}" if self.lang else ""
-        delay_args = f" --sync 0:{self.delay}" if self.delay != 0 else ""
+        delay_args = f" --sync 0:{self.delay}" if self.delay else ""
         default_args = f' --default-track-flag 0:{"yes" if self.default else "no"}'
         forced_args = f' --forced-display-flag 0:{"yes" if self.forced else "no"}'
         timecode_args = ""
