@@ -345,7 +345,9 @@ class SubFile(MuxingFile):
 
         return self
 
-    def collect_fonts(self, use_system_fonts: bool = True, search_current_dir: bool = True, additional_fonts: list[PathLike] = []) -> list[FontFile]:
+    def collect_fonts(
+        self, use_system_fonts: bool = True, search_current_dir: bool = True, additional_fonts: list[PathLike] = [], collect_draw_fonts: bool = True
+    ) -> list[FontFile]:
         """
         Collects fonts for current subtitle.
         Note that this places all fonts into the workdir for the episode/Setup and all fonts in it.
@@ -353,6 +355,8 @@ class SubFile(MuxingFile):
         :param use_system_fonts:        Parses and checks against all installed fonts
         :param search_current_dir:      Recursively checks the current work directory for fonts
         :param additional_fonts:        Can be a directory or a path to a file directly (or a list of either)
+        :param collect_draw_fonts:      Whether or not to include fonts used for drawing (usually Arial)
+                                        See https://github.com/libass/libass/issues/617 for details.
 
         :return:                        A list of FontFile objects
         """
@@ -378,7 +382,7 @@ class SubFile(MuxingFile):
 
         debug(f"Collecting fonts for '{self.file.stem}'...", self)
 
-        return collect(self, use_system_fonts, resolved_paths)
+        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts)
 
     def restyle(self: SubFileSelf, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False) -> SubFileSelf:
         """

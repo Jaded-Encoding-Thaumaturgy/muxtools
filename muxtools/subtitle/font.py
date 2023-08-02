@@ -30,7 +30,7 @@ def _weight_to_name(weight: int) -> str:
     return ""
 
 
-def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts: list[Path] = []) -> list[FontFile]:
+def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts: list[Path] = [], collect_draw_fonts: bool = True) -> list[FontFile]:
     from font_collector import set_loglevel
 
     set_loglevel(logging.CRITICAL)
@@ -53,7 +53,7 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
     loaded_fonts = FontLoader(additional_fonts, use_system_font=use_system_fonts).fonts
 
     doc = AssDocument(sub._read_doc())
-    styles = doc.get_used_style()
+    styles = doc.get_used_style(collect_draw_fonts)
 
     found_fonts: list[FontFile] = []
 
