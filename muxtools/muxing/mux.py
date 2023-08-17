@@ -1,4 +1,4 @@
-from shlex import split as splitcommand
+from shlex import split as splitcommand, join as joincommand
 from shutil import rmtree
 from pathlib import Path
 import wget
@@ -13,7 +13,7 @@ from ..subtitle.sub import FontFile
 from ..utils.glob import GlobSearch
 from ..misc.chapters import Chapters
 from .tracks import Attachment, _track
-from ..utils.log import debug, error, warn
+from ..utils.log import debug, error, info, warn
 from ..utils.download import get_executable
 from ..utils.files import ensure_path, ensure_path_exists, get_crc32
 from ..utils.env import get_setup_attr, get_workdir, run_commandline
@@ -21,7 +21,7 @@ from ..utils.env import get_setup_attr, get_workdir, run_commandline
 __all__ = ["mux"]
 
 
-def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True) -> PathLike:
+def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True, print_cli: bool = False) -> PathLike:
     """
     Runs the mux.
 
@@ -29,6 +29,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     :param tmdb:        A TMDB Config used for additional tagging if you so desire.
     :param outfile:     If you want to overwrite the output file path
     :param quiet:       Whether or not to print the mkvmerge output
+    :param print_cli:   Print the final muxing command before running it if True
     """
 
     tracks = list(tracks)
@@ -103,11 +104,14 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
                 continue
         elif track is None:
             continue
-        
+
         raise error("Only _track, MuxingFiles or Chapters types are supported as muxing input!", "Mux")
 
     if mkvtitle:
         args.extend(["--title", mkvtitle])
+
+    if print_cli:
+        info(joincommand(args), "Mux")
 
     debug("Running the mux...", "Mux")
     if run_commandline(args, quiet) > 1:
