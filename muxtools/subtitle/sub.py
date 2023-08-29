@@ -472,7 +472,7 @@ class SubFile(MuxingFile):
         Basically deletes lines that have any of the passed styles.
 
         :param styles:      List of style names to get rid of
-        :param inverse:     Treat the list as the opposite. Will remove lines that *don't* have any of those steals.
+        :param inverse:     Treat the list as the opposite. Will remove lines that *don't* have any of those styles.
         """
         doc = self._read_doc()
         events = []
@@ -489,6 +489,24 @@ class SubFile(MuxingFile):
         doc.events = events
         self.__update_doc(doc)
         return self.clean_styles()
+
+    def change_layers(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, layer: int = 99) -> SubFileSelf:
+        """
+        Set layer to the specified number on every line with a style you selected.
+
+        :param styles:      List of styles to look for
+        :param layer:       The layer you want
+        """
+        doc = self._read_doc()
+        events = []
+        for line in doc.events:
+            for style in styles:
+                if str(line.style).strip().casefold() == style.strip().casefold():
+                    line.layer = layer
+            events.append(line)
+        doc.events = events
+        self.__update_doc(doc)
+        return self
 
     def shift(self: SubFileSelf, frames: int, fps: Fraction = Fraction(24000, 1001)) -> SubFileSelf:
         """
