@@ -102,11 +102,11 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None, is_thd: 
         debug(f"Parsing frames and stats for '{file.stem}'", caller)
     else:
         debug(f"Parsing frames and stats...", caller)
-    out = subprocess.run(args, capture_output=True, text=True)
+    out = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="ignore")
     frames = []
     stats = AudioStats()
     is_overall = False
-    output = out.stderr + out.stdout
+    output = (out.stderr or "") + (out.stdout or "")
     for line in output.splitlines():
         if not line.strip().startswith("["):
             continue
