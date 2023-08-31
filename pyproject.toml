@@ -13,6 +13,7 @@ dependencies = [
     "pymediainfo>=6.0.1",
     "rich>=13.1.0",
     "pyparsebluray>=0.1.4",
+    "python-rclone @ git+https://github.com/ditsuke/python-rclone.git"
 ]
 classifiers = [
     "Natural Language :: English",
