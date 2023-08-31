@@ -1,8 +1,8 @@
-from enum import IntEnum, Enum
-from pathlib import Path
-from typing import TypeVar, Union, Optional
-from datetime import timedelta
 from dataclasses import dataclass
+from datetime import timedelta
+from enum import IntEnum
+from pathlib import Path
+from typing import Optional, TypeVar, Union
 
 __all__ = [
     "PathLike",
@@ -16,6 +16,7 @@ __all__ = [
     "Chapter",
     "DitherType",
     "LossyWavQuality",
+    "TrueInputs",
 ]
 
 PathLike = TypeVar("PathLike", str, Path, None)
@@ -166,3 +167,7 @@ class AudioInfo:
         for frame in self.frames:
             if frame.num_samples:
                 return frame.num_samples
+
+
+TrueInputs = ["true", "1", "t", "y", "yes"]
+"""Inputs that should be resolved to \"True\" when asking for user input."""

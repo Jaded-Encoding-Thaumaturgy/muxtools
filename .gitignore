@@ -1,9 +1,10 @@
 # Specific to this package
 _binaries/
-premux/
 _workdir/
-config.ini
 /test.py
+auth.ini
+config.ini
+premux/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
