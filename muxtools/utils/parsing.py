@@ -201,7 +201,7 @@ def parse_chapters_bdmv(
 
                     for i, lmark in enumerate(linked_marks, start=1):
                         time = mpls_timestamp_to_timedelta(lmark.mark_timestamp - offset)
-                        if clip_frames > 0 and time > frame_to_timedelta(clip_frames - 2, fps):
+                        if clip_frames > 0 and time > frame_to_timedelta(clip_frames - 50, fps):
                             continue
                         chapters.append((time, f"Chapter {i:02.0f}"))
                     if chapters and _print:
