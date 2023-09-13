@@ -2,6 +2,7 @@ import os
 import binascii
 from pathlib import Path
 from shutil import rmtree
+from copy import deepcopy
 from pymediainfo import Track, MediaInfo
 
 from .log import *
@@ -122,13 +123,26 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: any 
     mediainfo = MediaInfo.parse(file)
 
     current = 0
+    sanitized_list = []
     # Weird mediainfo quirks
     for t in mediainfo.tracks:
+        sanitized_list.append(t)
         if t.track_type.lower() not in ["video", "audio", "text"]:
             continue
         t.track_id = current
+        if "truehd" in (getattr(t, "commercial_name", "") or "").lower() and "extension" in (getattr(t, "muxing_mode", "") or "").lower():
+            current += 1
+            identifier = getattr(t, "format_identifier", "AC-3") or "AC-3"
+            compat_track = deepcopy(t)
+            compat_track.format = identifier
+            compat_track.codec_id = f"A_{identifier.replace('-', '')}"
+            compat_track.commercial_name = ""
+            compat_track.compression_mode = "Lossy"
+            compat_track.track_id = current
+            sanitized_list.append(compat_track)
         current += 1
 
+    mediainfo.tracks = sanitized_list
     videos = mediainfo.video_tracks
     audios = mediainfo.audio_tracks
     subtitles = mediainfo.text_tracks
