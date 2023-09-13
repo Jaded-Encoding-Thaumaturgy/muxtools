@@ -508,6 +508,29 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self
 
+    def purge_macrons(self: SubFileSelf, styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> SubFileSelf:
+        """
+        Removes romaji macrons from every dialogue line.
+        German subs use this a lot and a lot of fonts don't support it so I like to purge them.
+
+        :param styles:      List of styles to look for
+        """
+        macrons: list[tuple[str, str]] = [("ā", "a"), ("ē", "e"), ("Ī", "i"), ("ō", "o"), ("ū", "u")]
+        doc = self._read_doc()
+        events = []
+        for line in doc.events:
+            process = not styles
+            for style in styles or []:
+                if str(line.style).strip().casefold() == style.strip().casefold():
+                    process = True
+            if process:
+                for macron in macrons + [(m[0].upper(), m[1].upper()) for m in macrons]:
+                    line.text: str = line.text.replace(macron[0], macron[1])
+            events.append(line)
+        doc.events = events
+        self.__update_doc(doc)
+        return self
+
     def shift(self: SubFileSelf, frames: int, fps: Fraction = Fraction(24000, 1001)) -> SubFileSelf:
         """
         Shifts all lines by any frame number.
