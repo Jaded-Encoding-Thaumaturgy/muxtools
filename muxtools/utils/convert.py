@@ -62,7 +62,7 @@ def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate
     :param rounding:    Round compensated value to centiseconds if True
     :return:            The resulting timedelta
     """
-    if not f:
+    if not f or f < 0:
         return timedelta(seconds=0)
     fps_dec = _fraction_to_decimal(fps)
     seconds = Decimal(f) / fps_dec
@@ -76,7 +76,6 @@ def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate
             return result
         rounded = round(result.total_seconds(), 2)
         return timedelta(seconds=rounded)
-
 
 
 def frame_to_ms(f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False) -> timedelta:
