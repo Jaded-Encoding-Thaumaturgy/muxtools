@@ -1,4 +1,5 @@
 from __future__ import annotations
+from heapq import merge
 
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc
 from dataclasses import dataclass
@@ -10,6 +11,8 @@ import shutil
 import json
 import re
 import os
+
+import frame
 
 from .styles import GJM_GANDHI_PRESET
 
@@ -248,6 +251,71 @@ class SubFile(MuxingFile):
                 line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps), fps, True)
             events.append(line)
         doc.events = events
+        self.__update_doc(doc)
+        return self
+
+    def merge(
+        self: SubFileSelf,
+        file: PathLike | GlobSearch,
+        sync: None | int | str = None,
+        fps: Fraction = Fraction(24000, 1001),
+        use_actor_field: bool = False,
+    ) -> SubFileSelf:
+        file = ensure_path_exists(file, self)
+        mergedoc = self._read_doc(file)
+        doc = self._read_doc()
+
+        events = []
+        tomerge = []
+        existing_styles = [style.name for style in doc.styles]
+        target = None if not isinstance(sync, int) else sync
+
+        # Find syncpoint in current document if sync is a string
+        for line in doc.events:
+            events.append(line)
+            if target == None and isinstance(sync, str):
+                field = line.name if use_actor_field else line.effect
+                if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
+                    target = timedelta_to_frame(line.start, fps)
+
+        if target == None and isinstance(sync, str):
+            raise error(f"Syncpoint '{sync}' was not found.", self)
+
+        # Find second syncpoint if any
+        second_sync: int | None = None
+        for line in mergedoc.events:
+            field = line.name if use_actor_field else line.effect
+            if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
+                second_sync = timedelta_to_frame(line.start, fps)
+                break
+
+        # Merge lines from file
+        for line in sorted(mergedoc.events, key=lambda event: event.start):
+            # Don't apply any offset if sync=None for plain merging
+            if target == None:
+                tomerge.append(line)
+                continue
+
+            # Assume the first line to be the second syncpoint if none was found
+            if second_sync == None:
+                second_sync = timedelta_to_frame(line.start, fps)
+
+            # Apply frame offset
+            offset = (target - 1) - second_sync
+            # print(f"{line.start} - {timedelta_to_frame(line.start, fps)}\n{line.end} - {timedelta_to_frame(line.end, fps)}")
+            line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps) + offset, fps, True)
+            line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps) + offset, fps, True)
+            # print(f"{line.start} - {timedelta_to_frame(line.start, fps)}\n{line.end} - {timedelta_to_frame(line.end, fps)}\n")
+            tomerge.append(line)
+
+        if tomerge:
+            events.extend(tomerge)
+            doc.events = events
+            for style in mergedoc.styles:
+                if style.name in existing_styles:
+                    continue
+                doc.styles.append(style)
+
         self.__update_doc(doc)
         return self
 
