@@ -1,22 +1,16 @@
 from __future__ import annotations
-from heapq import merge
-
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc
 from dataclasses import dataclass
+from typing import Any, TypeVar
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, TypeVar
 import shutil
 import json
 import re
 import os
 
-import frame
-from numpy import isin
-
 from .styles import GJM_GANDHI_PRESET
-
 from .subutils import create_document, dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
