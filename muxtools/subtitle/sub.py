@@ -289,16 +289,20 @@ class SubFile(MuxingFile):
                 second_sync = timedelta_to_frame(line.start, fps)
                 break
 
+        sorted_lines = sorted(mergedoc.events, key=lambda event: event.start)
+
+        # Assume the first line to be the second syncpoint if none was found
+        if second_sync == None:
+            for l in filter(lambda event: event.TYPE != "Comment", sorted_lines):
+                second_sync = timedelta_to_frame(l.start, fps)
+                break
+
         # Merge lines from file
-        for line in sorted(mergedoc.events, key=lambda event: event.start):
+        for line in sorted_lines:
             # Don't apply any offset if sync=None for plain merging
             if target == None:
                 tomerge.append(line)
                 continue
-
-            # Assume the first line to be the second syncpoint if none was found
-            if second_sync == None:
-                second_sync = timedelta_to_frame(line.start, fps)
 
             # Apply frame offset
             offset = (target - 1) - second_sync
