@@ -256,6 +256,7 @@ class SubFile(MuxingFile):
         sync2: None | str = None,
         fps: Fraction = Fraction(24000, 1001),
         use_actor_field: bool = False,
+        no_error: bool = False
     ) -> SubFileSelf:
         """
         Merge another subtitle file with syncing if needed.
@@ -266,6 +267,7 @@ class SubFile(MuxingFile):
                                 This is needed if you specified a frame for sync and still want to use a specific syncpoint.
         :param fps:             The fps used for time calculations.
         :param use_actor_field: Checks the actor field instead of effect for the names if True.
+        :param no_error:        Don't error and warn instead if syncpoint not found.
         """
 
         file = ensure_path_exists(file, self)
@@ -286,7 +288,11 @@ class SubFile(MuxingFile):
                     target = timedelta_to_frame(line.start, fps)
 
         if target == None and isinstance(sync, str):
-            raise error(f"Syncpoint '{sync}' was not found.", self)
+            msg = f"Syncpoint '{sync}' was not found."
+            if no_error:
+                warn(msg, self)
+                return self
+            raise error(msg, self)
 
         # Find second syncpoint if any
         second_sync: int | None = None
