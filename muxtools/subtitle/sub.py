@@ -287,9 +287,6 @@ class SubFile(MuxingFile):
 
         if target == None and isinstance(sync, str):
             raise error(f"Syncpoint '{sync}' was not found.", self)
-        
-        if target == 0:
-            target = -1
 
         # Find second syncpoint if any
         second_sync: int | None = None
@@ -301,6 +298,7 @@ class SubFile(MuxingFile):
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
                 second_sync = timedelta_to_frame(line.start, fps)
+                mergedoc.events.remove(line)
                 break
 
         sorted_lines = sorted(mergedoc.events, key=lambda event: event.start)
@@ -319,7 +317,7 @@ class SubFile(MuxingFile):
                 continue
 
             # Apply frame offset
-            offset = target - second_sync
+            offset = (target or -1) - second_sync
             # print(f"{line.start} - {timedelta_to_frame(line.start, fps)}\n{line.end} - {timedelta_to_frame(line.end, fps)}")
             line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps) + offset, fps, True)
             line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps) + offset, fps, True)
