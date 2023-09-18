@@ -287,6 +287,9 @@ class SubFile(MuxingFile):
 
         if target == None and isinstance(sync, str):
             raise error(f"Syncpoint '{sync}' was not found.", self)
+        
+        if target == 0:
+            target = -1
 
         # Find second syncpoint if any
         second_sync: int | None = None
@@ -316,7 +319,7 @@ class SubFile(MuxingFile):
                 continue
 
             # Apply frame offset
-            offset = (target - 1) - second_sync
+            offset = target - second_sync
             # print(f"{line.start} - {timedelta_to_frame(line.start, fps)}\n{line.end} - {timedelta_to_frame(line.end, fps)}")
             line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps) + offset, fps, True)
             line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps) + offset, fps, True)
