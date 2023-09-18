@@ -13,6 +13,7 @@ import re
 import os
 
 import frame
+from numpy import isin
 
 from .styles import GJM_GANDHI_PRESET
 
@@ -258,9 +259,21 @@ class SubFile(MuxingFile):
         self: SubFileSelf,
         file: PathLike | GlobSearch,
         sync: None | int | str = None,
+        sync2: None | str = None,
         fps: Fraction = Fraction(24000, 1001),
         use_actor_field: bool = False,
     ) -> SubFileSelf:
+        """
+        Merge another subtitle file with syncing if needed.
+
+        :param file:            The file to be merged.
+        :param sync:            Can be None to not adjust timing at all, an int for a frame number or a string for a syncpoint name.
+        :param sync2:           The syncpoint you want to use for the second file.
+                                This is needed if you specified a frame for sync and still want to use a specific syncpoint.
+        :param fps:             The fps used for time calculations.
+        :param use_actor_field: Checks the actor field instead of effect for the names if True.
+        """
+
         file = ensure_path_exists(file, self)
         mergedoc = self._read_doc(file)
         doc = self._read_doc()
@@ -284,8 +297,12 @@ class SubFile(MuxingFile):
         # Find second syncpoint if any
         second_sync: int | None = None
         for line in mergedoc.events:
+            if not isinstance(sync, str) and not sync2:
+                break
+            else:
+                sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
-            if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
+            if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
                 second_sync = timedelta_to_frame(line.start, fps)
                 break
 
