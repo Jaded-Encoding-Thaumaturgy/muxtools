@@ -256,7 +256,7 @@ class SubFile(MuxingFile):
         sync2: None | str = None,
         fps: Fraction = Fraction(24000, 1001),
         use_actor_field: bool = False,
-        no_error: bool = False
+        no_error: bool = False,
     ) -> SubFileSelf:
         """
         Merge another subtitle file with syncing if needed.
@@ -317,17 +317,15 @@ class SubFile(MuxingFile):
 
         # Merge lines from file
         for line in sorted_lines:
-            # Don't apply any offset if sync=None for plain merging
-            if target == None:
+            # Don't apply any offset if sync=None for plain merging or if target == source
+            if target == None or target == second_sync:
                 tomerge.append(line)
                 continue
 
             # Apply frame offset
             offset = (target or -1) - second_sync
-            # print(f"{line.start} - {timedelta_to_frame(line.start, fps)}\n{line.end} - {timedelta_to_frame(line.end, fps)}")
             line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps) + offset, fps, True)
             line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps) + offset, fps, True)
-            # print(f"{line.start} - {timedelta_to_frame(line.start, fps)}\n{line.end} - {timedelta_to_frame(line.end, fps)}\n")
             tomerge.append(line)
 
         if tomerge:
