@@ -141,6 +141,19 @@ class Premux(_track):
         keep_attachments: bool = True,
         mkvmerge_args: str = "--no-global-tags",
     ) -> None:
+        """
+        Custom Track object to arbitrarily grab tracks from an existing file.
+
+        For all track params:
+        `None` means there won't be any chosen and `-1` means all will be chosen.
+        You can also specify a single or multiple *relative* track numbers to choose any.
+
+        :param video:               Video Track(s) to choose
+        :param audio:               Audio Track(s) to choose
+        :param subtitles:           Subtitle Track(s) to choose
+        :param keep_attachments:    Whether to keep attachments from the file. Fonts for example.
+        :param mkvmerge_args:       Any other args you may want to pass.
+        """
         args = ""
         if video is None:
             args += " -D"
