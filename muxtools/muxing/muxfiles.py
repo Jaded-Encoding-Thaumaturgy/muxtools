@@ -33,21 +33,24 @@ class MuxingFile(FileMixin):
     def __post_init__(self):
         self.file = ensure_path(self.file, self)
 
-    def to_track(self, name: str = "", lang: str = "", default: bool | None = None, forced: bool | None = None) -> _track:
-        from ..muxing.tracks import VideoTrack, AudioTrack, SubTrack, Attachment
+    def to_track(
+        self, name: str = "", lang: str = "", default: bool | None = None, forced: bool | None = None, args: list[str] | None = None
+    ) -> _track:
+        from ..muxing.tracks import AudioTrack, SubTrack, Attachment
         from ..subtitle.sub import SubFile
 
-        args = dict(
+        new_args = dict(
             file=self.file,
             name=name,
             delay=self.container_delay,
             default=True if default is None else default,
             forced=False if forced is None else forced,
+            args=args,
         )
         if isinstance(self, AudioFile):
-            return AudioTrack(**args, lang=lang if lang else "ja")
+            return AudioTrack(**new_args, lang=lang if lang else "ja")
         elif isinstance(self, SubFile):
-            return SubTrack(**args, lang=lang if lang else "en")
+            return SubTrack(**new_args, lang=lang if lang else "en")
         else:
             return Attachment(self.file)
 
@@ -55,9 +58,16 @@ class MuxingFile(FileMixin):
 @dataclass
 class VideoFile(MuxingFile):
     def to_track(
-        self, name: str = "", lang: str = "ja", default: bool = True, forced: bool = False, timecode_file: PathLike | GlobSearch | None = None
+        self,
+        name: str = "",
+        lang: str = "ja",
+        default: bool = True,
+        forced: bool = False,
+        timecode_file: PathLike | GlobSearch | None = None,
+        crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
+        args: list[str] = [],
     ):
-        return VideoTrack(self.file, name, lang, default, forced, self.container_delay, timecode_file)
+        return VideoTrack(self.file, name, lang, default, forced, self.container_delay, timecode_file, crop, args)
 
 
 @dataclass
