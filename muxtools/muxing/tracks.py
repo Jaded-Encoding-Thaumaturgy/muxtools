@@ -1,4 +1,5 @@
 from pathlib import Path
+from shlex import join as join_args, split as split_args
 
 from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType
@@ -6,10 +7,12 @@ from ..utils.files import ensure_path_exists, get_absolute_tracknum
 
 # fmt: off
 __all__ = [
-    "VideoTrack", "AudioTrack", "SubTrack", 
+    "VideoTrack", "AudioTrack", "SubTrack",
     "VT", "AT", "ST",
-    "Attachment", "Premux", "MkvTrack" 
+    "Attachment", "Premux", "MkvTrack"
 ]
+
+
 # fmt: on
 
 
@@ -21,9 +24,18 @@ class _track:
     name: str
     lang: str
     delay: int
+    args: list[str] | None
 
     def __init__(
-        self, file: PathLike, type: str | int | TrackType, name: str = "", lang: str = "", default: bool = True, forced: bool = False, delay: int = 0
+        self,
+        file: PathLike,
+        type: str | int | TrackType,
+        name: str = "",
+        lang: str = "",
+        default: bool = True,
+        forced: bool = False,
+        delay: int = 0,
+        args: list[str] | None = None,
     ) -> None:
         from .muxfiles import MuxingFile
 
@@ -43,6 +55,7 @@ class _track:
         self.delay = file.container_delay if isinstance(file, MuxingFile) else delay
         self.lang = lang
         self.type = type if isinstance(type, TrackType) else (TrackType(type) if isinstance(type, int) else TrackType[type.upper()])
+        self.args = args
 
     def mkvmerge_args(self) -> str:
         self.file = self.file if isinstance(self.file, Path) else Path(self.file)
@@ -55,26 +68,29 @@ class _track:
             else:
                 return f' --attachment-mime-type {"font/ttf" if self.file.suffix.lower() == ".ttf" else "font/otf"} --attach-file "{self.file.resolve()}"'
         elif self.type == TrackType.MKV:
-            return f' {self.name.strip()} "{self.file.resolve()}"'
+            return f' {join_args(self.args)} "{self.file.resolve()}"'
         elif self.type == TrackType.CHAPTERS:
             return f' --chapters "{self.file.resolve()}"'
-        name_args = f' --track-name 0:"{self.name}"' if self.name else ""
+        name_args = f' --track-name "0:{self.name}"' if self.name else ""
         lang_args = f" --language 0:{self.lang}" if self.lang else ""
         delay_args = f" --sync 0:{self.delay}" if self.delay else ""
         default_args = f' --default-track-flag 0:{"yes" if self.default else "no"}'
         forced_args = f' --forced-display-flag 0:{"yes" if self.forced else "no"}'
-        timecode_args = ""
-        if isinstance(self, VideoTrack) and self.timecode_file is not None:
-            timecode_args = f' --timestamps 0:"{self.timecode_file.resolve()}"'
-        return f'{timecode_args}{name_args}{lang_args}{default_args}{forced_args}{delay_args} "{self.file.resolve()}"'
+        if self.args:
+            other_args = join_args(self.args)
+        else:
+            other_args = ""
+        return f'{other_args}{name_args}{lang_args}{default_args}{forced_args}{delay_args} "{self.file.resolve()}"'
 
 
 class VideoTrack(_track):
     """
     _track object with VIDEO type preselected and japanese language default
-    """
 
-    timecode_file: PathLike | None = None
+    :param timecode_file:       Pass a path for proper vfr playback if needed.
+    :param crop:                Container based cropping with (horizontal, vertical) or (left, top, right, bottom).
+                                Will crop the same on all sides if passed a single integer.
+    """
 
     def __init__(
         self,
@@ -84,11 +100,19 @@ class VideoTrack(_track):
         default: bool = True,
         forced: bool = False,
         delay: int = 0,
-        timecode_file: PathLike | GlobSearch = None,
+        timecode_file: PathLike | GlobSearch | None = None,
+        crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
+        args: list[str] = [],
     ) -> None:
         if timecode_file is not None:
-            self.timecode_file = ensure_path_exists(timecode_file, self)
-        super().__init__(file, TrackType.VIDEO, name, lang, default, forced, delay)
+            args.extend(["--timestamps", f"0:{ensure_path_exists(timecode_file, self).resolve()}"])
+        if crop:
+            if isinstance(crop, int):
+                crop = tuple([crop] * 4)
+            elif len(crop) == 2:
+                crop = crop * 2
+            args.extend(["--cropping", f"0:{crop[0]},{crop[1]},{crop[2]},{crop[3]}"])
+        super().__init__(file, TrackType.VIDEO, name, lang, default, forced, delay, args)
 
 
 class AudioTrack(_track):
@@ -97,9 +121,16 @@ class AudioTrack(_track):
     """
 
     def __init__(
-        self, file: PathLike | GlobSearch, name: str = "", lang: str = "ja", default: bool = True, forced: bool = False, delay: int = 0
+        self,
+        file: PathLike | GlobSearch,
+        name: str = "",
+        lang: str = "ja",
+        default: bool = True,
+        forced: bool = False,
+        delay: int = 0,
+        args: list[str] | None = None,
     ) -> None:
-        super().__init__(file, TrackType.AUDIO, name, lang, default, forced, delay)
+        super().__init__(file, TrackType.AUDIO, name, lang, default, forced, delay, args)
 
 
 class Attachment(_track):
@@ -108,7 +139,7 @@ class Attachment(_track):
     """
 
     def __init__(self, file: str | Path, mimetype: str = "") -> None:
-        super().__init__(file, TrackType.ATTACHMENT, "", mimetype, False, False, 0)
+        super().__init__(file, TrackType.ATTACHMENT, lang=mimetype)
 
 
 class SubTrack(_track):
@@ -127,8 +158,9 @@ class SubTrack(_track):
         default: bool = True,
         forced: bool = False,
         delay: int = 0,
+        args: list[str] | None = None,
     ) -> None:
-        super().__init__(file, TrackType.SUB, name, lang, default, forced, delay)
+        super().__init__(file, TrackType.SUB, name, lang, default, forced, delay, args)
 
 
 class Premux(_track):
@@ -198,7 +230,7 @@ class Premux(_track):
             args += " -M"
 
         args = f" {args.strip()} {mkvmerge_args.strip()}"
-        super().__init__(file, TrackType.MKV, args, "", False, False, 0)
+        super().__init__(file, TrackType.MKV, args=split_args(args))
 
 
 VT = VideoTrack
