@@ -135,7 +135,7 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None, is_thd: 
 
 def parse_chapters_bdmv(
     src: PathLike,
-    clip_fps: Fraction = Fraction(24000, 1001),
+    clip_fps: Fraction | PathLike = Fraction(24000, 1001),
     clip_frames: int = -1,
     _print: bool = False,
 ) -> list[Chapter]:
@@ -143,7 +143,7 @@ def parse_chapters_bdmv(
     Attempts to parse chapters from the bluray metadata
 
     :param src:         The m2ts file you're currently using
-    :param clip_fps:    The fps of the clip
+    :param clip_fps:    The fps of the clip. Also accepts a timecode (v2) file.
     :param clip_frames: Total frames of the clip
     :param _print:      Prints the chapters after parsing if true
 

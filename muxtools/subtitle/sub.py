@@ -228,14 +228,16 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self.clean_styles()
 
-    def shift_0(self: SubFileSelf, fps: Fraction = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> SubFileSelf:
+    def shift_0(
+        self: SubFileSelf, fps: Fraction | PathLike = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES
+    ) -> SubFileSelf:
         """
         Does the famous shift by 0 frames to fix frame timing issues.
         (It's basically just converting time to frame and back)
 
         This does not currently exactly reproduce the aegisub behaviour but it should have the same effect.
 
-        :param fps:             The fps fraction used for conversions
+        :param fps:             The fps fraction used for conversions. Also accepts a timecode (v2) file.
         :param allowed_styles:  A list of style names this will run on. Will run on every line if None.
         """
         doc = self._read_doc()
@@ -254,7 +256,7 @@ class SubFile(MuxingFile):
         file: PathLike | GlobSearch,
         sync: None | int | str = None,
         sync2: None | str = None,
-        fps: Fraction = Fraction(24000, 1001),
+        fps: Fraction | PathLike = Fraction(24000, 1001),
         use_actor_field: bool = False,
         no_error: bool = False,
     ) -> SubFileSelf:
@@ -265,7 +267,7 @@ class SubFile(MuxingFile):
         :param sync:            Can be None to not adjust timing at all, an int for a frame number or a string for a syncpoint name.
         :param sync2:           The syncpoint you want to use for the second file.
                                 This is needed if you specified a frame for sync and still want to use a specific syncpoint.
-        :param fps:             The fps used for time calculations.
+        :param fps:             The fps used for time calculations. Also accepts a timecode (v2) file.
         :param use_actor_field: Checks the actor field instead of effect for the names if True.
         :param no_error:        Don't error and warn instead if syncpoint not found.
         """
@@ -345,7 +347,7 @@ class SubFile(MuxingFile):
         mergefile: PathLike | GlobSearch,
         use_actor_field: bool = False,
         use_frames: bool = False,
-        fps: Fraction = Fraction(24000, 1001),
+        fps: Fraction | PathLike = Fraction(24000, 1001),
         override_p1: int | timedelta = None,
         add_offset: int | timedelta = None,
     ) -> SubFileSelf:
@@ -356,7 +358,7 @@ class SubFile(MuxingFile):
         :param mergefile:           The file to be merged
         :param use_actor_field:     Search the actor field instead of the effect field for the syncpoint
         :param use_frames:          Uses frames to shift lines instead of direct timestamps
-        :param fps:                 The fps to go off of for the conversion
+        :param fps:                 The fps to go off of for the conversion. Also accepts a timecode (v2) file.
         :param override_p1:         A manual override of the initial syncpoint
                                     Obviously either a frame number or timedelta
 
@@ -599,7 +601,7 @@ class SubFile(MuxingFile):
     def purge_macrons(self: SubFileSelf, styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> SubFileSelf:
         """
         Removes romaji macrons from every dialogue line.
-        German subs use this a lot and a lot of fonts don't support it so I like to purge them.
+        German subs use this a lot and a lot of fonts don't support it, so I like to purge them.
 
         :param styles:      List of styles to look for
         """
@@ -619,12 +621,12 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self
 
-    def shift(self: SubFileSelf, frames: int, fps: Fraction = Fraction(24000, 1001)) -> SubFileSelf:
+    def shift(self: SubFileSelf, frames: int, fps: Fraction | PathLike = Fraction(24000, 1001)) -> SubFileSelf:
         """
         Shifts all lines by any frame number.
 
         :param frames:      Number of frames to shift by
-        :param fps:         FPS needed for the timing calculations
+        :param fps:         FPS needed for the timing calculations. Also accepts a timecode (v2) file.
         """
         doc = self._read_doc()
         events = []
@@ -661,7 +663,7 @@ class SubFile(MuxingFile):
 
     @classmethod
     def from_srt(
-        cls: type[SubFileSelf], file: PathLike, an8_all_caps: bool = True, fps: Fraction = Fraction(24000, 1001), encoding: str = "UTF8"
+        cls: type[SubFileSelf], file: PathLike, an8_all_caps: bool = True, fps: Fraction | PathLike = Fraction(24000, 1001), encoding: str = "UTF8"
     ) -> SubFileSelf:
         """
         Convert srt subtitles to an ass SubFile.
@@ -670,7 +672,7 @@ class SubFile(MuxingFile):
 
         :param file:            Input srt file
         :param an8_all_caps:    Automatically an8 every full caps line with over 7 characters because they're usually signs
-        :param fps:             FPS needed for the time conversion
+        :param fps:             FPS needed for the time conversion. Also accepts a timecode (v2) file.
         :param encoding:        Encoding used to read the file. Defaults to UTF8.
         """
         caller = "SubFile.from_srt"
@@ -699,7 +701,7 @@ class SubFile(MuxingFile):
 
         doc = create_document()
 
-        with open(file, "r", encoding="UTF8") as reader:
+        with open(file, "r", encoding=encoding) as reader:
             content = reader.read() + "\n"
             for match in compiled.finditer(content):
                 start = srt_timedelta(match["start"])

@@ -1,7 +1,13 @@
+import os
 from math import trunc
 from decimal import ROUND_HALF_DOWN, Decimal
 from fractions import Fraction
 from datetime import timedelta
+from typing import Any
+
+from ..utils.types import PathLike
+from ..utils.files import ensure_path_exists
+from ..utils.log import error
 
 __all__: list[str] = [
     "mpls_timestamp_to_timedelta",
@@ -29,15 +35,40 @@ def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
     return timedelta(seconds=float(seconds))
 
 
-def timedelta_to_frame(time: timedelta, fps: Fraction = Fraction(24000, 1001)) -> int:
+def _timedelta_from_timecodes(timecodes: PathLike, frame: int, compensate: bool = False, rounding: bool = False) -> timedelta:
+    timecode_file = ensure_path_exists(timecodes, _timedelta_from_timecodes)
+    parsed = [float(x) / 1000 for x in open(timecode_file, "r").read().splitlines()[1:]]
+    if len(parsed) <= frame:
+        raise error(f"Frame {frame} is out of range for the given timecode file!", _timedelta_from_timecodes)
+
+    target = timedelta(seconds=parsed[frame])
+    if compensate and len(parsed) - 1 >= frame + 1:
+        next = timedelta(seconds=parsed[frame + 1])
+        target = target + (next - target) / 2
+        if rounding:
+            return timedelta(seconds=round(target.total_seconds(), 2))
+    return target
+
+
+def _frame_from_timecodes(timecodes: PathLike, time: timedelta) -> int:
+    timecode_file = ensure_path_exists(timecodes, _frame_from_timecodes)
+    parsed = [float(x) / 1000 for x in open(timecode_file, "r").read().splitlines()[1:]]
+
+    nearest_frame = min(parsed, key=lambda val: abs(val - time.total_seconds()))
+    return parsed.index(nearest_frame)
+
+
+def timedelta_to_frame(time: timedelta, fps: Fraction | PathLike = Fraction(24000, 1001)) -> int:
     """
     Converts a timedelta to a frame number.
 
     :param time:    The timedelta
-    :param fps:     A Fraction containing fps_num and fps_den
+    :param fps:     A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
 
     :return:        The resulting frame number
     """
+    if not isinstance(fps, Fraction):
+        return _frame_from_timecodes(fps, time)
     ms = Decimal(time.total_seconds()) * 1000
     fps_dec = _fraction_to_decimal(fps)
 
@@ -50,20 +81,24 @@ def timedelta_to_frame(time: timedelta, fps: Fraction = Fraction(24000, 1001)) -
     return trunc_frame
 
 
-def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False, rounding: bool = True) -> timedelta:
+def frame_to_timedelta(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False, rounding: bool = True) -> timedelta:
     """
     Converts a frame number to a timedelta.
     Mostly used in the conversion for manually defined chapters.
 
     :param f:           The frame number
-    :param fps:         A Fraction containing fps_num and fps_den
-    :param compensate:  Whether or not to place the the timestamp in the middle of said frame
-                        Useful for subtitles, not so much for audio where you'd wanna be accurate
-    :param rounding:    Round compensated value to centiseconds if True
+    :param fps:         A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
+    :param compensate:  Whether to place the timestamp in the middle of said frame
+                        Useful for subtitles, not so much for audio where you'd want to be accurate
+    :param rounding:    Round compensated value to centi seconds if True
     :return:            The resulting timedelta
     """
     if not f or f < 0:
         return timedelta(seconds=0)
+
+    if not isinstance(fps, Fraction):
+        return _timedelta_from_timecodes(fps, f, compensate, rounding)
+
     fps_dec = _fraction_to_decimal(fps)
     seconds = Decimal(f) / fps_dec
     if not compensate:
@@ -78,14 +113,14 @@ def frame_to_timedelta(f: int, fps: Fraction = Fraction(24000, 1001), compensate
         return timedelta(seconds=rounded)
 
 
-def frame_to_ms(f: int, fps: Fraction = Fraction(24000, 1001), compensate: bool = False) -> timedelta:
+def frame_to_ms(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False) -> float:
     """
     Converts a frame number to it's ms value.
 
     :param f:           The frame number
-    :param fps:         A Fraction containing fps_num and fps_den
-    :param compensate:  Whether or not to place the the timestamp in the middle of said frame
-                        Useful for subtitles, not so much for audio where you'd wanna be accurate
+    :param fps:         A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
+    :param compensate:  Whether to place the timestamp in the middle of said frame
+                        Useful for subtitles, not so much for audio where you'd want to be accurate
 
     :return:            The resulting ms
     """

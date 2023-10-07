@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from fractions import Fraction
+from os import PathLike
 from pathlib import Path
 from typing import TypeVar
 import os
@@ -22,16 +23,16 @@ __all__ = ["Chapters"]
 
 class Chapters:
     chapters: list[Chapter] = []
-    fps: Fraction
+    fps: Fraction | PathLike
 
     def __init__(
-        self, chapter_source: PathLike | GlobSearch | Chapter | list[Chapter], fps: Fraction = Fraction(24000, 1001), _print: bool = True
+        self, chapter_source: PathLike | GlobSearch | Chapter | list[Chapter], fps: Fraction | PathLike = Fraction(24000, 1001), _print: bool = True
     ) -> None:
         """
         Convenience class for chapters
 
         :param chapter_source:      Input either txt with ogm chapters, xml or (a list of) self defined chapters.
-        :param fps:                 Needed for timestamp convertion. Assumes 24000/1001 by default.
+        :param fps:                 Needed for timestamp convertion. Assumes 24000/1001 by default. Also accepts a timecode (v2) file.
         :param _print:              Prints chapters after parsing and after trimming.
         """
         self.fps = fps
@@ -184,12 +185,14 @@ class Chapters:
         return out_file
 
     @staticmethod
-    def from_sub(file: PathLike | SubFile, fps: Fraction = Fraction(24000, 1001), _print: bool = True, encoding: str = "utf_8_sig") -> "Chapters":
+    def from_sub(
+        file: PathLike | SubFile, fps: Fraction | PathLike = Fraction(24000, 1001), _print: bool = True, encoding: str = "utf_8_sig"
+    ) -> "Chapters":
         """
         Extract chapters from an ass file or a SubFile.
 
         :param file:            Input ass file or SubFile
-        :param fps:             FPS passed to the chapter class for further operations
+        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
         :param _print:          Prints the chapters after parsing
         :param encoding:        Encoding used to read the ass file if need be
         """
@@ -224,12 +227,12 @@ class Chapters:
         return ch
 
     @staticmethod
-    def from_mkv(file: PathLike, fps: Fraction = Fraction(24000, 1001), _print: bool = True, quiet: bool = True) -> "Chapters":
+    def from_mkv(file: PathLike, fps: Fraction | PathLike = Fraction(24000, 1001), _print: bool = True, quiet: bool = True) -> "Chapters":
         """
         Extract chapters from mkv.
 
         :param file:            Input mkv file
-        :param fps:             FPS passed to the chapter class for further operations
+        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
         :param _print:          Prints the chapters after parsing
         """
         caller = "Chapters.from_mkv"

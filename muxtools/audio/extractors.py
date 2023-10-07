@@ -145,7 +145,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
 
         :param trim:                Can be a single trim or a sequence of trims.
         :param trim_use_ms:         Will use milliseconds instead of frame numbers
-        :param fps:                 Fps fraction that will be used for the conversion
+        :param fps:                 Fps fraction that will be used for the conversion. Also accepts a timecode (v2) file.
         :param preserve_delay:      Will preserve existing container delay
         :param num_frames:          Total number of frames used for calculations
         :param output:              Custom output. Can be a dir or a file.
@@ -155,7 +155,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
         trim: Trim | list[Trim] | None = None
         preserve_delay: bool = False
         trim_use_ms: bool = False
-        fps: Fraction = Fraction(24000, 1001)
+        fps: Fraction | PathLike = Fraction(24000, 1001)
         num_frames: int = 0
         output: PathLike | None = None
 
@@ -286,7 +286,7 @@ class Sox(Trimmer):
     :param trim:                List of Trims or a single Trim, which is a Tuple of two frame numbers or milliseconds
     :param preserve_delay:      Keeps existing container delay if True
     :param trim_use_ms:         Will use milliseconds instead of frame numbers
-    :param fps:                 The fps fraction used for the calculations
+    :param fps:                 The fps fraction used for the calculations. Also accepts a timecode (v2) file.
     :param num_frames:          Total number of frames used for calculations
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
@@ -295,7 +295,7 @@ class Sox(Trimmer):
     trim: Trim | list[Trim] | None = None
     preserve_delay: bool = False
     trim_use_ms: bool = False
-    fps: Fraction = Fraction(24000, 1001)
+    fps: Fraction | PathLike = Fraction(24000, 1001)
     num_frames: int = 0
     output: PathLike | None = None
 
