@@ -67,6 +67,11 @@ class VideoFile(MuxingFile):
         crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
         args: list[str] = [],
     ):
+        """
+        :param timecode_file:       Pass a path for proper vfr playback if needed.
+        :param crop:                Container based cropping with (horizontal, vertical) or (left, top, right, bottom).
+                                    Will crop the same on all sides if passed a single integer.
+        """
         return VideoTrack(self.file, name, lang, default, forced, self.container_delay, timecode_file, crop, args)
 
 
