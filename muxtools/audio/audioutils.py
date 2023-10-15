@@ -1,9 +1,11 @@
 import os
 import re
 import subprocess
-from pymediainfo import Track
-from pymediainfo import MediaInfo
+from typing import Sequence
 
+from pymediainfo import Track, MediaInfo
+
+from .preprocess import Preprocessor, Resample
 from ..utils.files import make_output
 from ..muxing.muxfiles import AudioFile
 from ..utils.log import debug, warn, error
@@ -14,11 +16,16 @@ from ..utils.types import DitherType, Trim, AudioFormat, ValidInputType
 __all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
 
 
+def sanitize_pre(preprocess: Preprocessor | Sequence[Preprocessor] | None = None) -> list[Preprocessor]:
+    if not preprocess:
+        return []
+    return list(preprocess) if isinstance(preprocess, Sequence) else [preprocess]
+
+
 def ensure_valid_in(
-    input: AudioFile,
+    fileIn: AudioFile,
     supports_pipe: bool = True,
-    dither: bool = True,
-    dither_type: DitherType = DitherType.TRIANGULAR,
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = None,
     valid_type: ValidInputType = ValidInputType.FLAC,
     caller: any = None,
 ) -> AudioFile | subprocess.Popen:
@@ -26,67 +33,88 @@ def ensure_valid_in(
     Ensures valid input for any encoder that accepts flac (all of them).
     Passes existing file if no need to dither and is either wav or flac.
     """
-    from .encoders import FF_FLAC
-
-    def get_flac(input: AudioFile):
-        if supports_pipe:
-            return FF_FLAC(dither=dither, dither_type=dither_type).get_pipe(input)
-        else:
-            return FF_FLAC(
-                compression_level=0, dither=dither, dither_type=dither_type, output=os.path.join(get_temp_workdir(), "tempflac")
-            ).encode_audio(input, temp=True)
-
-    def get_pcm(input: AudioFile):
-        ffmpeg = get_executable("ffmpeg")
-        minfo = input.get_mediainfo()
-        cope = "pcm_s24be" if valid_type == ValidInputType.AIFF else "pcm_s24le"
-        args = [ffmpeg, "-i", str(input.file), "-map", "0:a:0", "-c:a", "pcm_s16le" if minfo.bit_depth == 16 or dither else cope]
-        if dither:
-            args.extend(["-sample_fmt", "s16", "-ar", "48000", "-resampler", "soxr", "-precision", "24", "-dither_method", dither_type.name.lower()])
-        if valid_type == ValidInputType.RF64:
-            args.extend(["-rf64", "auto"])
-            output = make_output(input.file, "wav", "ffmpeg", temp=True)    
-        else:
-            output = make_output(input.file, "aiff" if valid_type == ValidInputType.AIFF else "w64", "ffmpeg", temp=True)
-
-        if supports_pipe and valid_type != ValidInputType.RF64:
-            debug(f"Piping audio to ensure valid input using ffmpeg...", caller)
-            args.extend(["-f", "aiff" if valid_type == ValidInputType.AIFF else "w64", "-"])
-            p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
-            return p
-        else:
-            debug(f"Preparing audio to ensure valid input using ffmpeg...", caller)
-            args.append(str(output))
-            if not run_commandline(args):
-                return AudioFile(output, input.container_delay, input.source)
-            else:
-                raise error("Failed to convert to desired intermediary!", ensure_valid_in)
-
-    if input.has_multiple_tracks(caller):
-        msg = f"'{input.file.name}' is a container with multiple tracks.\n"
+    if fileIn.has_multiple_tracks(caller):
+        msg = f"'{fileIn.file.name}' is a container with multiple tracks.\n"
         msg += f"The first audio track will be {'piped' if supports_pipe else 'extracted'} using default ffmpeg."
         warn(msg, caller, 5)
-    minfo = MediaInfo.parse(input.file)
-    trackinfo = input.get_mediainfo(minfo)
-    container = input.get_containerinfo(minfo)
+    minfo = MediaInfo.parse(fileIn.file)
+    trackinfo = fileIn.get_mediainfo(minfo)
+    container = fileIn.get_containerinfo(minfo)
+    preprocess = sanitize_pre(preprocess)
+
     if is_fancy_codec(trackinfo):
         warn("Encoding tracks with special DTS Features or Atmos is very much discouraged.", caller, 10)
     form = trackinfo.format.lower()
-    if input.is_lossy():
+    if fileIn.is_lossy():
         warn(f"It's strongly recommended to not reencode lossy audio! ({trackinfo.format})", caller, 5)
 
-    if form == "wave" or container.format.lower() == "wave":
-        if not (trackinfo.bit_depth > 16 and dither):
-            return input
+    wont_process = not any([p.can_run(trackinfo, preprocess) for p in preprocess])
+
+    if (form == "wave" or container.format.lower() == "wave") and wont_process:
+        return fileIn
     if valid_type.allows_flac():
         valid_type = valid_type.remove_flac()
-        if (form == "flac" or container.format.lower() == "flac") and not (trackinfo.bit_depth > 16 and dither):
-            return input
+        if (form == "flac" or container.format.lower() == "flac") and wont_process:
+            return fileIn
 
     if valid_type == ValidInputType.FLAC:
-        return get_flac(input)
+        from .encoders import FF_FLAC
+
+        if supports_pipe:
+            return FF_FLAC(preprocess=preprocess).get_pipe(fileIn)
+        else:
+            return FF_FLAC(compression_level=0, preprocess=preprocess, output=os.path.join(get_temp_workdir(), "tempflac")).encode_audio(
+                fileIn, temp=True
+            )
     else:
-        return get_pcm(input)
+        return get_pcm(fileIn, trackinfo, supports_pipe, preprocess, valid_type, caller)
+
+
+def get_pcm(
+    fileIn: AudioFile,
+    minfo: Track,
+    supports_pipe: bool = True,
+    preprocess: Sequence[Preprocessor] | None = None,
+    valid_type: ValidInputType = ValidInputType.FLAC,
+    caller: any = None,
+) -> AudioFile | subprocess.Popen:
+    ffmpeg = get_executable("ffmpeg")
+    args = [ffmpeg, "-i", str(fileIn.file), "-map", "0:a:0"]
+    cope = "pcm_s24be" if valid_type == ValidInputType.AIFF else "pcm_s24le"
+    codec = "pcm_s16le" if getattr(minfo, "bit_depth", 16) == 16 else cope
+    filters = list[str]()
+    preprocess = sanitize_pre(preprocess)
+    for pre in preprocess:
+        can_run = pre.can_run(minfo, preprocess)
+        if can_run:
+            pre.analyze(fileIn)
+            args.extend(pre.get_args(caller=caller))
+            filt = pre.get_filter(caller=caller)
+            if filt:
+                filters.append(filt)
+        if isinstance(pre, Resample):
+            codec = "pcm_s16le" if can_run and (pre.depth or getattr(minfo, "bit_depth", 16)) == 16 else cope
+    if filters:
+        args.extend(["-filter:a", ",".join(filters)])
+    args.extend(["-c:a", codec])
+    if valid_type == ValidInputType.RF64:
+        args.extend(["-rf64", "auto"])
+        output = make_output(fileIn.file, "wav", "ffmpeg", temp=True)
+    else:
+        output = make_output(fileIn.file, "aiff" if valid_type == ValidInputType.AIFF else "w64", "ffmpeg", temp=True)
+
+    if supports_pipe and valid_type != ValidInputType.RF64:
+        debug(f"Piping audio to ensure valid input using ffmpeg...", caller)
+        args.extend(["-f", "aiff" if valid_type == ValidInputType.AIFF else "w64", "-"])
+        p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
+        return p
+    else:
+        debug(f"Preparing audio to ensure valid input using ffmpeg...", caller)
+        args.append(str(output))
+        if not run_commandline(args):
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
+        else:
+            raise error("Failed to convert to desired intermediary!", ensure_valid_in)
 
 
 def sanitize_trims(

@@ -5,10 +5,13 @@ Thought they might be cool to have atleast.
 """
 
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from shlex import split as splitcommand
+from typing import Sequence
+
 
 from .encoders import FLAC
+from .preprocess import Preprocessor, Resample
 from .tools import Encoder, LosslessEncoder
 from ..utils.log import crit, debug, error
 from ..muxing.muxfiles import AudioFile
@@ -27,16 +30,13 @@ class qALAC(Encoder):
     Uses qAAC encoder to encode audio to ALAC.
     This is basically just worse FLAC and the only real use is good Apple hardware support.
 
-    :param dither:              Dithers any input down to 16 bit 48 khz if True
-    :param dither_type:         FFMPEG dither_method used for dithering
-    :param append:              Any other args one might pass to the encoder
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
+    :param append:              Any other args one might pass to the encoder.
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
-
     """
 
-    dither: bool = True
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     append: str = ""
     output: PathLike | None = None
 
@@ -44,9 +44,7 @@ class qALAC(Encoder):
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
         output = make_output(input.file, "alac", "qaac", self.output)
-        source = ensure_valid_in(
-            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False
-        )
+        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
         qaac = get_executable("qaac")
         qaac_compatcheck()
 
@@ -119,16 +117,14 @@ class Wavpack(LosslessEncoder):
     Compression seems to be ever so slightly worse than FLAC from my very scarce testing.
 
     :param fast:                Use either fast or high quality modes. Obviously fast means less compression.
-    :param dither:              Dithers any input down to 16 bit 48 khz if True
-    :param dither_type:         FFMPEG dither_method used for dithering
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
     fast: bool = False
-    dither: bool = True
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     append: str = ""
     output: PathLike | None = None
 
@@ -136,7 +132,7 @@ class Wavpack(LosslessEncoder):
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
 
-        valid_in = ensure_valid_in(input, False, self.dither, self.dither_type, valid_type=ValidInputType.AIFF, caller=self)
+        valid_in = ensure_valid_in(input, False, self.preprocess, valid_type=ValidInputType.AIFF, caller=self)
         output = make_output(input.file, "wv", "wavpack", self.output)
 
         wavpack = get_executable("wavpack")
@@ -166,8 +162,7 @@ class LossyWav(Encoder):
                                 Only properly supports libFLAC and wavpack (will be added later) out of what we have.
 
     :param override_options:    Automatically sets the appropriate options for each encoder to work as intended.
-    :param dither:              Dithers any input down to 16 bit 48 khz if True
-    :param dither_type:         FFMPEG dither_method used for dithering
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
@@ -175,8 +170,7 @@ class LossyWav(Encoder):
     quality: LossyWavQuality = LossyWavQuality.INSANE
     target_encoder: LosslessEncoder | None = None
     override_options: bool = True
-    dither: bool = True
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     output: PathLike | None = None
 
     def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
@@ -187,7 +181,7 @@ class LossyWav(Encoder):
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
 
-        output = ensure_valid_in(input, False, self.dither, self.dither_type, valid_type=ValidInputType.W64, caller=self)
+        output = ensure_valid_in(input, False, self.preprocess, valid_type=ValidInputType.W64, caller=self)
 
         args = [get_executable("lossyWAV", False), str(output.file), "--quality", self.quality.name.lower(), "-o", str(get_temp_workdir())]
         debug(f"Doing lossywav magic...", self)
@@ -195,7 +189,7 @@ class LossyWav(Encoder):
             raise crit("LossyWAV conversion failed!", self)
 
         lossy = Path(get_temp_workdir(), output.file.with_stem(output.file.stem + ".lossy").name)
-        setattr(self.target_encoder, "dither", False)
+        setattr(self.target_encoder, "preprocess", None)
         if self.override_options:
             if isinstance(self.target_encoder, FLAC):
                 setattr(self.target_encoder, "compression_level", 5)

@@ -1,16 +1,18 @@
 from shlex import split as splitcommand
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Sequence
 import subprocess
 import os
 
 from .tools import Encoder, LosslessEncoder
+from .preprocess import Preprocessor, Resample, Downmix
 from ..muxing.muxfiles import AudioFile
 from ..utils.env import run_commandline
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
 from ..utils.files import make_output, clean_temp_files
 from ..utils.types import DitherType, ValidInputType, qAAC_MODE, PathLike
-from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck
+from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck, sanitize_pre
 
 __all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
 
@@ -21,8 +23,7 @@ class FLAC(LosslessEncoder):
     Uses the reference libFLAC encoder to encode audio to flac.
 
     :param compression_level:   Any int value from 0 to 8 (Higher = better but slower)
-    :param dither:              Dithers any input down to 16 bit 48 khz if True
-    :param dither_type:         FFMPEG dither_method used for dithering
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param verify:              Make the encoder verify each encoded sample while encoding to ensure valid output.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
@@ -30,8 +31,7 @@ class FLAC(LosslessEncoder):
     """
 
     compression_level: int = 8
-    dither: bool = True
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     verify: bool = True
     append: str = ""
     output: PathLike | None = None
@@ -41,9 +41,7 @@ class FLAC(LosslessEncoder):
             input = AudioFile.from_file(input, self)
         flac = get_executable("flac")
         output = make_output(input.file, "flac", "libflac", self.output)
-        source = ensure_valid_in(
-            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False
-        )
+        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False)
         debug(f"Encoding '{input.file.stem}' to FLAC using libFLAC...", self)
 
         args = [flac, f"-{self.compression_level}", "-o", str(output)]
@@ -71,8 +69,7 @@ class FLACCL(LosslessEncoder):
 
     :param compression_level:   Any int value from 0 to 11 (Higher = better but slower)
                                 Keep in mind that over 8 is technically out of spec so we default to 8 here.
-    :param dither:              Dithers any input down to 16 bit 48 khz if True
-    :param dither_type:         FFMPEG dither_method used for dithering
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param verify:              Make the encoder verify each encoded sample while encoding to ensure valid output.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
@@ -80,8 +77,7 @@ class FLACCL(LosslessEncoder):
     """
 
     compression_level: int = 8
-    dither: bool = True
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     verify: bool = True
     append: str = ""
     output: PathLike | None = None
@@ -91,9 +87,7 @@ class FLACCL(LosslessEncoder):
             input = AudioFile.from_file(input, self)
         flaccl = get_executable("CUETools.FLACCL.cmd")
         output = make_output(input.file, "flac", "flaccl", self.output)
-        source = ensure_valid_in(
-            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=False
-        )
+        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=False)
         debug(f"Encoding '{input.file.stem}' to FLAC using FLACCL...", self)
 
         args = [flaccl, f"-{self.compression_level}", "-o", str(output)]
@@ -121,24 +115,32 @@ class FF_FLAC(LosslessEncoder):
     Uses the ffmpeg/libav FLAC encoder to encode audio to flac.
 
     :param compression_level:   Any int value from 0 to 12 (Higher = better but slower)
-    :param dither:              Dithers any input down to 16 bit 48 khz if True
-    :param dither_type:         FFMPEG dither_method used for dithering
-    :param append:              Any other args one might pass to the encoder
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
+    :param append:              Any other args one might pass to the encoder.
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
     compression_level: int = 10
-    dither: bool = True
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     append: str = ""
     output: PathLike | None = None
 
     def _base_command(self, input: AudioFile, compression: int = 0) -> list[str]:
         # fmt: off
         args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0", "-c:a", "flac", "-compression_level", str(compression)]
-        if self.dither:
-            args.extend(['-sample_fmt', 's16', '-ar', '48000', '-resampler', 'soxr', '-precision', '24', '-dither_method', self.dither_type.name.lower()])
+        preprocess = sanitize_pre(self.preprocess)
+        minfo = input.get_mediainfo()
+        if any([p.can_run(minfo, preprocess) for p in preprocess]):
+            filters = list[str]()
+            for pre in [p for p in preprocess if p.can_run(minfo, preprocess)]:
+                pre.analyze(input)
+                args.extend(pre.get_args(caller=self))
+                filt = pre.get_filter(caller=self)
+                if filt:
+                    filters.append(filt)
+            if filters:
+                args.extend(["-filter:a", ",".join(filters)])
         if self.append:
             args.extend(splitcommand(self.append))
         return args
@@ -178,8 +180,7 @@ class Opus(Encoder):
                                 Automatically chooses 192 and 320 for stereo and surround respectively if None
 
     :param vbr:                 Uses VBR encoding if True
-    :param dither:              Dithers any input down to 16 bit 48 khz if True, lets the encoder handle it if False
-    :param dither_type:         FFMPEG dither_method used for dithering
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
@@ -187,8 +188,7 @@ class Opus(Encoder):
 
     bitrate: int | None = None
     vbr: bool = True
-    dither: bool = False
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = None
     append: str = ""
     output: PathLike | None = None
 
@@ -197,11 +197,12 @@ class Opus(Encoder):
             input = AudioFile.from_file(input, self)
 
         exe = get_executable("opusenc")
+        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True)
         bitrate = self.bitrate
         if not bitrate:
             info = input.get_mediainfo()
-            match (info.channel_s):
-                case _ if info.channel_s == 2:
+            match info.channel_s:
+                case _ if info.channel_s == 2 or [p for p in sanitize_pre(self.preprocess) if isinstance(p, Downmix)]:
                     bitrate = 192
                 case _ if info.channel_s > 6:
                     bitrate = 420
@@ -212,9 +213,6 @@ class Opus(Encoder):
             debug(f"Encoding '{input.file.stem}' to Opus using opusenc...", self)
 
         output = make_output(input.file, "opus", "opusenc", self.output)
-        source = ensure_valid_in(
-            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True
-        )
 
         args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(bitrate)]
         if self.append:
@@ -239,8 +237,7 @@ class qAAC(Encoder):
 
     :param q:                   Quality value ranging from 0 to 127 if using TVBR, otherwise bitrate in kbps
     :param mode:                Encoding mode, Defaults to TVBR
-    :param dither:              Dithers any input down to 16 bit 48 khz if True, lets the encoder handle it if False
-    :param dither_type:         FFMPEG dither_method used for dithering
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param append:              Any other args one might pass to the encoder
                                 Adds " --no-delay --no-optimize" by default to prevent desync with video
     :param output:              Custom output. Can be a dir or a file.
@@ -249,8 +246,7 @@ class qAAC(Encoder):
 
     q: int = 127
     mode: qAAC_MODE | int = qAAC_MODE.TVBR
-    dither: bool = False
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = None
     append: str = ""
     output: PathLike | None = None
 
@@ -258,9 +254,7 @@ class qAAC(Encoder):
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
         output = make_output(input.file, "aac", "qaac", self.output)
-        source = ensure_valid_in(
-            input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False
-        )
+        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
         qaac = get_executable("qaac")
         qaac_compatcheck()
 
@@ -292,10 +286,9 @@ class FDK_AAC(Encoder):
 
     :param bitrate:             Any int value representing kbps
     :param cutoff:              Hard frequency cutoff. 20 kHz is a good default and setting it to 0 will let it choose automatically.
-    :param dither:              Dithers any input down to 16 bit 48 khz if True, lets the encoder handle it if False
-    :param dither_type:         FFMPEG dither_method used for dithering
-    :param use_binary:          Whether or not to use the fdkaac encoder binary or ffmpeg.
-                                If you don't have ffmpeg compiled with libfdk it will try to fallback to the binary.
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
+    :param use_binary:          Whether to use the fdkaac encoder binary or ffmpeg.
+                                If you don't have ffmpeg compiled with libfdk it will try to fall back to the binary.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
@@ -304,8 +297,7 @@ class FDK_AAC(Encoder):
     bitrate_mode: int = 5
     bitrate: int = 256
     cutoff: int = 20000
-    dither: bool = False
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = None
     use_binary: bool = False
     append: str = ""
     output: PathLike | None = None
@@ -333,7 +325,7 @@ class FDK_AAC(Encoder):
         # fmt: off
         if self.use_binary:
             source = ensure_valid_in(
-                input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.RF64, supports_pipe=False
+                input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.RF64, supports_pipe=False
             )
             args = [exe, "-m", str(self.bitrate_mode), "-w", str(self.cutoff), "-a", "1"]
             if self.bitrate_mode == 0:
