@@ -197,16 +197,17 @@ class Opus(Encoder):
             input = AudioFile.from_file(input, self)
 
         exe = get_executable("opusenc")
-        if not self.bitrate:
+        bitrate = self.bitrate
+        if not bitrate:
             info = input.get_mediainfo()
             match (info.channel_s):
                 case _ if info.channel_s == 2:
-                    self.bitrate = 192
+                    bitrate = 192
                 case _ if info.channel_s > 6:
-                    self.bitrate = 420
+                    bitrate = 420
                 case _:
-                    self.bitrate = 320
-            debug(f"Encoding '{input.file.stem}' to Opus ({self.bitrate} kbps) using opusenc...", self)
+                    bitrate = 320
+            debug(f"Encoding '{input.file.stem}' to Opus ({bitrate} kbps) using opusenc...", self)
         else:
             debug(f"Encoding '{input.file.stem}' to Opus using opusenc...", self)
 
@@ -215,7 +216,7 @@ class Opus(Encoder):
             input, dither=self.dither, dither_type=self.dither_type, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True
         )
 
-        args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(self.bitrate)]
+        args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(bitrate)]
         if self.append:
             args.extend(splitcommand(self.append))
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
@@ -325,7 +326,7 @@ class FDK_AAC(Encoder):
             self.use_binary = True
         else:
             exe = get_executable("ffmpeg") if not self.use_binary else get_executable("fdkaac")
-            
+
         if os.name == "nt":
             warn("It is strongly recommended to use qAAC on windows. See docs.", self, 5)
         debug(f"Encoding '{input.file.stem}' to AAC using libFDK...", self)
