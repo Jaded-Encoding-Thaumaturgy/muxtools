@@ -315,7 +315,7 @@ class Sox(Trimmer):
             input = AudioFile.from_file(input, self)
         out = make_output(input.file, "flac", f"trimmed", self.output)
         self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
-        source = ensure_valid_in(input, dither=False, caller=self, supports_pipe=False)
+        source = ensure_valid_in(input, caller=self, supports_pipe=False)
 
         if len(self.trim) > 1:
             files_to_concat = []
