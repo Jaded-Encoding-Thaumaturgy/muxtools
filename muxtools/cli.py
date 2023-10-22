@@ -6,7 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .utils.log import error, info, warn
+from .utils.log import info, warn
 from .utils.download import unpack_all
 from .utils.env import get_temp_workdir
 from .utils.files import clean_temp_files
@@ -107,6 +107,7 @@ def install_scoop():
     _run_powershell(["Set-ExecutionPolicy", "RemoteSigned", "-Scope", "CurrentUser"])
     info("Downloading and installing scoop for current user...")
     subprocess.run("irm get.scoop.sh | iex", shell=True, executable=shutil.which("powershell"))
+    os.environ["PATH"] += os.pathsep + str(Path(str(os.environ["USERPROFILE"]), "scoop", "shims").resolve())
 
 
 def install_dependencies():
@@ -114,15 +115,25 @@ def install_dependencies():
     info("Updating scoop buckets...")
     _run_powershell("scoop update", True)
 
+    if not shutil.which("git"):
+        request_install("git", "Needed for a lot of things. Just install it.")
+
     if not shutil.which("ffmpeg"):
         request_install(
             "ffmpeg",
             "This is used for ensuring compatibility for basically every encoder.",
-            "anderlli0053_DEV-tools/ffmpeg-nonfree",
-            ("anderlli0053_DEV-tools", "https://github.com/anderlli0053/DEV-tools"),
-            "ffmpeg-nonfree",
+            "versions/ffmpeg-gyan-nightly",
+            ("versions", ""),
+            "ffmpeg-gyan-nightly",
         )
-
+    if not shutil.which("fdkaac"):
+        request_install(
+            "fdkaac",
+            "The second best AAC encoder. Not really necessary tbf.",
+            "hoilc_scoop-lemon/fdkaac",
+            ("hoilc_scoop-lemon", "https://github.com/hoilc/scoop-lemon"),
+            "fdkaac"
+        )
     if not shutil.which("sox"):
         request_install("SoX", "This is used & preferred for trimming lossless audio.")
 
@@ -159,7 +170,7 @@ def install_dependencies():
 
 
 def request_install(
-    name: str, description: str, scoop_package: str | None = None, scoop_bucket: tuple[str] | None = None, exact_name: str | None = None
+    name: str, description: str, scoop_package: str | None = None, scoop_bucket: tuple[str, str] | None = None, exact_name: str | None = None
 ) -> int:
     info(f"Do you want to install {name}? {CONF}\n{description}")
     if input("").lower() in ["y", "yes"]:
