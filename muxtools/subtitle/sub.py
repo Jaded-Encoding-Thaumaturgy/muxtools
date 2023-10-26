@@ -462,8 +462,8 @@ class SubFile(MuxingFile):
         for f in additional_fonts:
             f = ensure_path_exists(f, self, True)
             if f.is_dir():
-                resolved_paths.extend([file for file in f.rglob("*.ttf")])
-                resolved_paths.extend([file for file in f.rglob("*.otf")])
+                resolved_paths.extend([file for file in f.rglob("*.[tT][tT][fF]")])
+                resolved_paths.extend([file for file in f.rglob("*.[oO][tT][fF]")])
             else:
                 if f.suffix.lower() not in [".ttf", ".otf"]:
                     raise error(f"'{f.name}' is not a font!", self)

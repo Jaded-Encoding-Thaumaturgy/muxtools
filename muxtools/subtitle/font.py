@@ -71,8 +71,8 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
             if not Path(outpath).exists():
                 shutil.copy(fontpath, outpath)
 
-    for f in get_workdir().glob("*.ttf"):
+    for f in get_workdir().glob("*.[tT][tT][fF]"):
         found_fonts.append(FontFile(f))
-    for f in get_workdir().glob("*.otf"):
+    for f in get_workdir().glob("*.[oO][tT][fF]"):
         found_fonts.append(FontFile(f))
     return found_fonts
