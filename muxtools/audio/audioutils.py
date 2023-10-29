@@ -40,7 +40,7 @@ def ensure_valid_in(
     minfo = MediaInfo.parse(fileIn.file)
     trackinfo = fileIn.get_mediainfo(minfo)
     container = fileIn.get_containerinfo(minfo)
-    has_containerfmt = container is not None and hasattr(container, format) and container.format is not None
+    has_containerfmt = container is not None and hasattr(container, "format") and container.format is not None
     preprocess = sanitize_pre(preprocess)
 
     if is_fancy_codec(trackinfo):
