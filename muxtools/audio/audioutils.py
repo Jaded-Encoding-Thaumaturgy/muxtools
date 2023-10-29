@@ -76,7 +76,7 @@ def get_pcm(
     minfo: Track,
     supports_pipe: bool = True,
     preprocess: Sequence[Preprocessor] | None = None,
-    valid_type: ValidInputType = ValidInputType.FLAC,
+    valid_type: ValidInputType = ValidInputType.RF64,
     caller: any = None,
 ) -> AudioFile | subprocess.Popen:
     ffmpeg = get_executable("ffmpeg")
