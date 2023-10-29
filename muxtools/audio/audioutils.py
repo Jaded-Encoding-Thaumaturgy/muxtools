@@ -40,6 +40,7 @@ def ensure_valid_in(
     minfo = MediaInfo.parse(fileIn.file)
     trackinfo = fileIn.get_mediainfo(minfo)
     container = fileIn.get_containerinfo(minfo)
+    has_containerfmt = container is not None and hasattr(container, format) and container.format is not None
     preprocess = sanitize_pre(preprocess)
 
     if is_fancy_codec(trackinfo):
@@ -50,11 +51,11 @@ def ensure_valid_in(
 
     wont_process = not any([p.can_run(trackinfo, preprocess) for p in preprocess])
 
-    if (form == "wave" or container.format.lower() == "wave") and wont_process:
+    if (form == "wave" or (has_containerfmt and container.format.lower() == "wave")) and wont_process:
         return fileIn
     if valid_type.allows_flac():
         valid_type = valid_type.remove_flac()
-        if (form == "flac" or container.format.lower() == "flac") and wont_process:
+        if (form == "flac" or (has_containerfmt and container.format.lower() == "flac")) and wont_process:
             return fileIn
 
     if valid_type == ValidInputType.FLAC:
