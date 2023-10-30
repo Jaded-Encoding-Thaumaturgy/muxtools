@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-import os
 import json
-from typing import TypeVar
-from pathlib import Path
-from dataclasses import dataclass
+import os
 from configparser import ConfigParser
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, TypeVar
 
-from .utils.log import error
+from .utils.git import gitignore
+from .utils.log import error, info
+from .utils.types import TrueInputs
 
 __all__ = ["Setup"]
 
@@ -41,6 +43,7 @@ class Setup:
 
     episode: str = "01"
     config_file: str = "config.ini"
+    auth_file: str = "auth.ini"
 
     bdmv_dir: str = "BDMV"
     show_name: str = "Nice Series"
@@ -53,12 +56,24 @@ class Setup:
     debug: bool = True
 
     def __post_init__(self):
-        if self.config_file:
-            config = ConfigParser()
-            config_name = self.config_file
+        if name := self.auth_file:
+            if not Path(name).exists():
+                gitignore(name)
 
-            if not os.path.exists(config_name):
-                config["SETUP"] = {
+            self._touch_ini(
+                name, sections="FTP", raise_on_new=False, fields={
+                    "host": "",
+                    "port": "",
+                    "sftp": False,
+                    "username": "",
+                    "password": "",  # TODO: Figure out a better way to store user passwords
+                    "target_dir": "/"
+                }
+            )
+
+        if name := self.config_file:
+            self._touch_ini(
+                name=name, sections="SETUP", fields={
                     "bdmv_dir": self.bdmv_dir,
                     "show_name": self.show_name,
                     "allow_binary_download": self.allow_binary_download,
@@ -68,21 +83,7 @@ class Setup:
                     "mkv_title_naming": self.mkv_title_naming,
                     "debug": self.debug,
                 }
-
-                with open(config_name, "w") as config_file:
-                    config.write(config_file)
-
-                raise error(f"Template config created at {Path(config_name).resolve()}.\nPlease set it up!")
-
-            config.read(config_name)
-            settings = config["SETUP"]
-
-            valid_bools = ["true", "1", "t", "y", "yes"]
-            for key in settings:
-                if hasattr(self, key) and isinstance(getattr(self, key), bool):
-                    setattr(self, key, True if settings[key].lower() in valid_bools else False)
-                else:
-                    setattr(self, key, settings[key])
+            )
 
         if not self.work_dir:
             self.work_dir = Path(os.getcwd(), "_workdir", self.episode)
@@ -95,7 +96,7 @@ class Setup:
 
         save_setup(self)
 
-    def edit(self: SetupSelf, attr: str, value: any) -> SetupSelf:
+    def edit(self: SetupSelf, attr: str, value: Any) -> SetupSelf:
         """
         Sets a variable inside of Setup and saves it to the environment variables.
         You should use this to apply any changes because other functions will not make use of them otherwise!
@@ -112,6 +113,55 @@ class Setup:
 
     def _toJson(self) -> str:
         return json.dumps(self.__dict__)
+
+    def _touch_ini(
+        self, name: str, sections: list[str] | str,
+        fields: list[dict[str, Any]] | dict[str, Any] = [],
+        raise_on_new: bool = True, caller: str = ""
+    ) -> ConfigParser:
+        """
+        Touch, populate, and sanitize an ini file.
+
+        If the ini file does not exist yet, it will create it.
+        Optionally, if `raise_on_new` is True, it will raise an error
+        prompting the user to configure the ini file.
+
+        `sections` and `fields` are a list to allow for multiple sections
+        to be populated trivially in case they get expanded in the future.
+        This is mostly useful for the `auth` config file.
+        """
+        config = ConfigParser()
+
+        if isinstance(sections, str):
+            sections = [sections]
+
+        if isinstance(fields, dict):
+            fields = [fields]
+
+        if not os.path.exists(name):
+            info(f"Writing {Path(name).resolve()}...", caller)
+
+            for section, field_dict in zip(sections, fields):
+                config[section] = field_dict
+
+                with open(name, "w") as f:
+                    config.write(f)
+
+                if raise_on_new:
+                    raise error(f"Template config created at {Path(name).resolve()}.\nPlease configure it!")
+
+        config.read(name)
+
+        for section in sections:
+            settings = config[section]
+
+            for key in settings:
+                if hasattr(self, key) and isinstance(getattr(self, key), bool):
+                    setattr(self, key, True if settings[key].lower() in TrueInputs else False)
+                else:
+                    setattr(self, key, settings[key])
+
+        return config
 
 
 SetupSelf = TypeVar("SetupSelf", bound=Setup)
