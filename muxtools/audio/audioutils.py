@@ -1,7 +1,8 @@
 import os
 import re
 import subprocess
-from typing import Sequence
+from datetime import timedelta
+from typing import Sequence, Any
 
 from pymediainfo import Track, MediaInfo
 
@@ -12,6 +13,7 @@ from ..utils.log import debug, warn, error
 from ..utils.download import get_executable
 from ..utils.env import get_temp_workdir, run_commandline
 from ..utils.types import DitherType, Trim, AudioFormat, ValidInputType
+from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 
 __all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
 
@@ -71,6 +73,24 @@ def ensure_valid_in(
         return get_pcm(fileIn, trackinfo, supports_pipe, preprocess, valid_type, caller)
 
 
+def get_preprocess_args(
+    fileIn: AudioFile, preprocessors: Preprocessor | Sequence[Preprocessor] | None, mediainfo: Track, caller: Any = None
+) -> list[str]:
+    preprocessors = sanitize_pre(preprocessors)
+    args = list[str]()
+    if any([p.can_run(mediainfo, preprocessors) for p in preprocessors]):
+        filters = list[str]()
+        for pre in [p for p in preprocessors if p.can_run(mediainfo, preprocessors)]:
+            pre.analyze(fileIn)
+            args.extend(pre.get_args(caller=caller))
+            filt = pre.get_filter(caller=caller)
+            if filt:
+                filters.append(filt)
+        if filters:
+            args.extend(["-filter:a", ",".join(filters)])
+    return args
+
+
 def get_pcm(
     fileIn: AudioFile,
     minfo: Track,
@@ -112,7 +132,7 @@ def get_pcm(
     else:
         debug(f"Preparing audio to ensure valid input using ffmpeg...", caller)
         args.append(str(output))
-        if not run_commandline(args):
+        if not run_cmd_pb(args, pbc=ProgressBarConfig("Preparing...", duration_from_track(minfo))):
             return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise error("Failed to convert to desired intermediary!", ensure_valid_in)
@@ -203,6 +223,20 @@ def format_from_track(track: Track) -> AudioFormat | None:
             if format.codecid.casefold() == str(track.codec_id).casefold():
                 return format
     return None
+
+
+def duration_from_track(track: Track, caller: Any = None) -> timedelta:
+    durations: list[str] = getattr(track, "other_duration", [])
+    from ..utils.convert import timedelta_from_formatted
+
+    try:
+        try:
+            return timedelta_from_formatted(durations[4])
+        except:
+            return timedelta_from_formatted(durations[3])
+    except:
+        warn("Could not parse duration from track mediainfo. Will assume 24 minutes.", caller)
+        return timedelta(minutes=24)
 
 
 def is_fancy_codec(track: Track) -> bool:

@@ -15,10 +15,11 @@ from .preprocess import Preprocessor, Resample
 from .tools import Encoder, LosslessEncoder
 from ..utils.log import crit, debug, error
 from ..muxing.muxfiles import AudioFile
-from ..utils.env import get_temp_workdir, run_commandline
+from ..utils.env import get_temp_workdir
 from ..utils.download import get_executable
 from ..utils.files import clean_temp_files, make_output
-from .audioutils import ensure_valid_in, qaac_compatcheck
+from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
+from .audioutils import ensure_valid_in, qaac_compatcheck, duration_from_track, get_preprocess_args
 from ..utils.types import DitherType, LossyWavQuality, PathLike, ValidInputType
 
 __all__ = ["qALAC", "TTA", "TrueAudio", "TheTrueAudio", "LossyWav", "Wavpack"]
@@ -40,24 +41,23 @@ class qALAC(Encoder):
     append: str = ""
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
-        output = make_output(input.file, "alac", "qaac", self.output)
-        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
+        output = make_output(fileIn.file, "alac", "qaac", self.output)
+        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
         qaac = get_executable("qaac")
         qaac_compatcheck()
 
-        debug(f"Encoding '{input.file.stem}' to ALAC using qAAC...", self)
+        debug(f"Encoding '{fileIn.file.stem}' to ALAC using qAAC...", self)
         args = [qaac, "-A", "--no-optimize", "--threading", "-o", str(output)]
         if self.append:
             args.extend(splitcommand(self.append))
         args.append(str(source.file))
 
-        if not run_commandline(args, quiet):
-            debug("Done", self)
+        if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             clean_temp_files()
-            return AudioFile(output, input.container_delay, input.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise crit("Encoding to ALAC using qAAC failed!", self)
 
@@ -71,37 +71,31 @@ class TTA(LosslessEncoder):
     Definitely has a cool name tho.
 
 
-    :param dither:              Dithers any input down to 16 bit 48 khz if True
-    :param dither_type:         FFMPEG dither_method used for dithering
+    :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
-    dither: bool = True
-    dither_type: DitherType = DitherType.TRIANGULAR
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     append: str = ""
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
-        output = make_output(input.file, "tta", "encoded", self.output)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
+        output = make_output(fileIn.file, "tta", "encoded", self.output)
 
-        args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0", "-c:a", "tta"]
-        if self.dither:
-            args.extend(
-                ["-sample_fmt", "s16", "-ar", "48000", "-resampler", "soxr", "-precision", "24", "-dither_method", self.dither_type.name.lower()]
-            )
+        args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(fileIn.file.resolve()), "-map", "0:a:0", "-c:a", "tta"]
+        args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self))
         if self.append:
             args.extend(splitcommand(self.append))
         args.append(str(output))
 
-        debug(f"Encoding '{input.file.stem}' to TTA using ffmpeg...", self)
-        if not run_commandline(args, quiet):
-            debug("Done", self)
+        debug(f"Encoding '{fileIn.file.stem}' to TTA using ffmpeg...", self)
+        if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...", duration_from_track(fileIn.get_mediainfo()))):
             clean_temp_files()
-            return AudioFile(output, input.container_delay, input.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise crit("Encoding to TTA using ffmpeg failed!", self)
 
@@ -128,25 +122,24 @@ class Wavpack(LosslessEncoder):
     append: str = ""
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
 
-        valid_in = ensure_valid_in(input, False, self.preprocess, valid_type=ValidInputType.AIFF, caller=self)
-        output = make_output(input.file, "wv", "wavpack", self.output)
+        valid_in = ensure_valid_in(fileIn, False, self.preprocess, valid_type=ValidInputType.AIFF, caller=self)
+        output = make_output(fileIn.file, "wv", "wavpack", self.output)
 
         wavpack = get_executable("wavpack")
         args = [wavpack, "-f" if self.fast else "-h"]
         if self.append:
             args.extend(splitcommand(self.append))
         args.extend([str(valid_in.file), str(output)])
-        debug(f"Encoding '{input.file.stem}' to wavpack...", self)
-        if run_commandline(args, quiet):
+        debug(f"Encoding '{fileIn.file.stem}' to wavpack...", self)
+        if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             raise error("Failed to encode audio to wavpack!", self)
 
         clean_temp_files()
-        debug("Done", self)
-        return AudioFile(output, input.container_delay, input.source)
+        return AudioFile(output, fileIn.container_delay, fileIn.source)
 
 
 @dataclass
@@ -173,19 +166,19 @@ class LossyWav(Encoder):
     preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
         if not self.target_encoder:
             self.target_encoder = FLAC()
         if not self.target_encoder.lossless:
             raise error("Target Encoder can only be a lossless one.", self)
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
 
-        output = ensure_valid_in(input, False, self.preprocess, valid_type=ValidInputType.W64, caller=self)
+        output = ensure_valid_in(fileIn, False, self.preprocess, valid_type=ValidInputType.W64, caller=self)
 
         args = [get_executable("lossyWAV", False), str(output.file), "--quality", self.quality.name.lower(), "-o", str(get_temp_workdir())]
         debug(f"Doing lossywav magic...", self)
-        if run_commandline(args, quiet):
+        if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             raise crit("LossyWAV conversion failed!", self)
 
         lossy = Path(get_temp_workdir(), output.file.with_stem(output.file.stem + ".lossy").name)
@@ -197,6 +190,6 @@ class LossyWav(Encoder):
             elif isinstance(self.target_encoder, Wavpack):
                 setattr(self.target_encoder, "append", "--blocksize=512 --merge-blocks")
 
-        encoded = self.target_encoder.encode_audio(AudioFile(lossy, input.container_delay, input.source), quiet)
+        encoded = self.target_encoder.encode_audio(AudioFile(lossy, fileIn.container_delay, fileIn.source), quiet)
         clean_temp_files()
         return encoded

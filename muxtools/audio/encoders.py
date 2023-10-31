@@ -11,8 +11,9 @@ from ..utils.env import run_commandline
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
 from ..utils.files import make_output, clean_temp_files
-from ..utils.types import DitherType, ValidInputType, qAAC_MODE, PathLike
-from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck, sanitize_pre
+from ..utils.types import ValidInputType, qAAC_MODE, PathLike
+from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
+from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck, duration_from_track, get_preprocess_args, sanitize_pre
 
 __all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
 
@@ -36,13 +37,13 @@ class FLAC(LosslessEncoder):
     append: str = ""
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
         flac = get_executable("flac")
-        output = make_output(input.file, "flac", "libflac", self.output)
-        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False)
-        debug(f"Encoding '{input.file.stem}' to FLAC using libFLAC...", self)
+        output = make_output(fileIn.file, "flac", "libflac", self.output)
+        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False)
+        debug(f"Encoding '{fileIn.file.stem}' to FLAC using libFLAC...", self)
 
         args = [flac, f"-{self.compression_level}", "-o", str(output)]
         if self.verify:
@@ -53,10 +54,9 @@ class FLAC(LosslessEncoder):
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
-        if not run_commandline(args, quiet, False, stdin):
-            debug("Done", self)
+        if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding..."), shell=False, stdin=stdin):
             clean_temp_files()
-            return AudioFile(output, input.container_delay, input.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise crit("Encoding to FLAC using libFLAC failed!", self)
 
@@ -82,13 +82,13 @@ class FLACCL(LosslessEncoder):
     append: str = ""
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
         flaccl = get_executable("CUETools.FLACCL.cmd")
-        output = make_output(input.file, "flac", "flaccl", self.output)
-        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=False)
-        debug(f"Encoding '{input.file.stem}' to FLAC using FLACCL...", self)
+        output = make_output(fileIn.file, "flac", "flaccl", self.output)
+        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=False)
+        debug(f"Encoding '{fileIn.file.stem}' to FLAC using FLACCL...", self)
 
         args = [flaccl, f"-{self.compression_level}", "-o", str(output)]
         if self.compression_level > 8:
@@ -104,7 +104,7 @@ class FLACCL(LosslessEncoder):
         if not run_commandline(args, quiet, False, stdin):
             debug("Done", self)
             clean_temp_files()
-            return AudioFile(output, input.container_delay, input.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise crit("Encoding to FLAC using FLACCL failed!", self)
 
@@ -126,46 +126,37 @@ class FF_FLAC(LosslessEncoder):
     append: str = ""
     output: PathLike | None = None
 
-    def _base_command(self, input: AudioFile, compression: int = 0) -> list[str]:
+    def _base_command(self, fileIn: AudioFile, compression: int = 0) -> list[str]:
         # fmt: off
-        args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0", "-c:a", "flac", "-compression_level", str(compression)]
-        preprocess = sanitize_pre(self.preprocess)
-        minfo = input.get_mediainfo()
-        if any([p.can_run(minfo, preprocess) for p in preprocess]):
-            filters = list[str]()
-            for pre in [p for p in preprocess if p.can_run(minfo, preprocess)]:
-                pre.analyze(input)
-                args.extend(pre.get_args(caller=self))
-                filt = pre.get_filter(caller=self)
-                if filt:
-                    filters.append(filt)
-            if filters:
-                args.extend(["-filter:a", ",".join(filters)])
+        args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(fileIn.file.resolve()), "-map", "0:a:0", "-c:a", "flac", "-compression_level", str(compression)]
+        minfo = fileIn.get_mediainfo()
+        args.extend(get_preprocess_args(fileIn, self.preprocess, minfo, self))
         if self.append:
             args.extend(splitcommand(self.append))
         return args
         # fmt: on
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
-        output = make_output(input.file, "flac", "ffmpeg", self.output)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
+        output = make_output(fileIn.file, "flac", "ffmpeg", self.output)
         if "temp" in kwargs.keys():
             debug(f"Preparing audio for input to other encoder using ffmpeg...", self)
         else:
-            debug(f"Encoding '{input.file.stem}' to FLAC using ffmpeg...", self)
-        args = self._base_command(input, self.compression_level)
+            debug(f"Encoding '{fileIn.file.stem}' to FLAC using ffmpeg...", self)
+        args = self._base_command(fileIn, self.compression_level)
         args.append(str(output.resolve()))
 
-        if not run_commandline(args, quiet):
-            debug("Done", self)
-            return AudioFile(output, input.container_delay, input.source)
+        if not run_cmd_pb(
+            args, quiet, ProgressBarConfig("Preparing..." if "temp" in kwargs.keys() else "Encoding...", duration_from_track(fileIn.get_mediainfo()))
+        ):
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise crit("Encoding to flac using ffmpeg failed!", self)
 
-    def get_pipe(self, input: AudioFile) -> subprocess.Popen:
+    def get_pipe(self, fileIn: AudioFile) -> subprocess.Popen:
         debug(f"Piping audio for input to other encoder using ffmpeg...", self)
-        args = self._base_command(input, 0)
+        args = self._base_command(fileIn, 0)
         args.extend(["-f", "flac", "-"])
         p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
         return p
@@ -192,15 +183,15 @@ class Opus(Encoder):
     append: str = ""
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
 
         exe = get_executable("opusenc")
-        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True)
+        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True)
         bitrate = self.bitrate
         if not bitrate:
-            info = input.get_mediainfo()
+            info = fileIn.get_mediainfo()
             match info.channel_s:
                 case _ if info.channel_s == 2 or [p for p in sanitize_pre(self.preprocess) if isinstance(p, Downmix)]:
                     bitrate = 192
@@ -208,11 +199,11 @@ class Opus(Encoder):
                     bitrate = 420
                 case _:
                     bitrate = 320
-            debug(f"Encoding '{input.file.stem}' to Opus ({bitrate} kbps) using opusenc...", self)
+            debug(f"Encoding '{fileIn.file.stem}' to Opus ({bitrate} kbps) using opusenc...", self)
         else:
-            debug(f"Encoding '{input.file.stem}' to Opus using opusenc...", self)
+            debug(f"Encoding '{fileIn.file.stem}' to Opus using opusenc...", self)
 
-        output = make_output(input.file, "opus", "opusenc", self.output)
+        output = make_output(fileIn.file, "opus", "opusenc", self.output)
 
         args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(bitrate)]
         if self.append:
@@ -222,10 +213,14 @@ class Opus(Encoder):
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
-        if not run_commandline(args, quiet, False, stdin):
-            debug("Done", self)
+        if isinstance(source, AudioFile):
+            config = ProgressBarConfig("Encoding...")
+        else:
+            config = ProgressBarConfig("Encoding...", duration_from_track(fileIn.get_mediainfo()), regex=r".*\] (\d+:\d+:\d+.\d+).*")
+
+        if not run_cmd_pb(args, quiet, config, shell=False, stdin=stdin):
             clean_temp_files()
-            return AudioFile(output, input.container_delay, input.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise crit("Encoding to opus using opusenc failed!", self)
 
@@ -250,15 +245,15 @@ class qAAC(Encoder):
     append: str = ""
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
-        output = make_output(input.file, "aac", "qaac", self.output)
-        source = ensure_valid_in(input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
+        output = make_output(fileIn.file, "aac", "qaac", self.output)
+        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
         qaac = get_executable("qaac")
         qaac_compatcheck()
 
-        debug(f"Encoding '{input.file.stem}' to AAC using qAAC...", self)
+        debug(f"Encoding '{fileIn.file.stem}' to AAC using qAAC...", self)
         args = [qaac, "--no-delay", "--no-optimize", "--threading", f"--{self.mode.name.lower()}", str(self.q)]
         if self.append:
             args.extend(splitcommand(self.append))
@@ -266,10 +261,9 @@ class qAAC(Encoder):
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
-        if not run_commandline(args, quiet, False, stdin):
-            debug("Done", self)
+        if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding..."), shell=False, stdin=stdin):
             clean_temp_files()
-            return AudioFile(output, input.container_delay, input.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise crit("Encoding to AAC using qAAC failed!", self)
 
@@ -302,10 +296,10 @@ class FDK_AAC(Encoder):
     append: str = ""
     output: PathLike | None = None
 
-    def encode_audio(self, input: AudioFile, quiet: bool = True, **kwargs) -> AudioFile:
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
-        output = make_output(input.file, "m4a", "fdkaac", self.output)
+    def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
+        output = make_output(fileIn.file, "m4a", "fdkaac", self.output)
         if not has_libFDK():
             exe = get_executable("fdkaac", False, False)
             if not exe:
@@ -321,11 +315,11 @@ class FDK_AAC(Encoder):
 
         if os.name == "nt":
             warn("It is strongly recommended to use qAAC on windows. See docs.", self, 5)
-        debug(f"Encoding '{input.file.stem}' to AAC using libFDK...", self)
+        debug(f"Encoding '{fileIn.file.stem}' to AAC using libFDK...", self)
         # fmt: off
         if self.use_binary:
             source = ensure_valid_in(
-                input, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.RF64, supports_pipe=False
+                fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.RF64, supports_pipe=False
             )
             args = [exe, "-m", str(self.bitrate_mode), "-w", str(self.cutoff), "-a", "1"]
             if self.bitrate_mode == 0:
@@ -334,21 +328,23 @@ class FDK_AAC(Encoder):
                 args.extend(splitcommand(self.append))
             args.extend(["-o", str(output), str(source.file)])
         else:
-            args = [exe, "-hide_banner", "-i", str(input.file), "-map", "0:a:0", "-c:a", "libfdk_aac", "-cutoff", str(self.cutoff)]
+            args = [exe, "-hide_banner", "-i", str(fileIn.file), "-map", "0:a:0", "-c:a", "libfdk_aac", "-cutoff", str(self.cutoff)]
             if self.bitrate_mode > 0:
                 args.extend(['-vbr', str(self.bitrate_mode)])
             else:
                 args.extend(['-b:a', f'{self.bitrate}k'])
-            if self.dither:
-                args.extend(['-sample_fmt', 's16', '-ar', '48000', '-resampler', 'soxr', '-precision', '24', '-dither_method', self.dither_type.name.lower()])
+            args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self))
             if self.append:
                 args.extend(splitcommand(self.append))
             args.append(str(output))
         # fmt: on
-        if not run_commandline(args, quiet, False):
-            debug("Done", self)
+        if self.use_binary:
+            config = ProgressBarConfig("Encoding...")
+        else:
+            config = ProgressBarConfig("Encoding...", duration_from_track(fileIn.get_mediainfo()))
+        if not run_cmd_pb(args, quiet, config, shell=False):
             clean_temp_files()
-            return AudioFile(output, input.container_delay, input.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise crit("Encoding to AAC using libFDK failed!", self)
 

@@ -7,7 +7,7 @@ import shutil
 import os
 import re
 
-from .audioutils import format_from_track, is_fancy_codec, sanitize_trims, ensure_valid_in
+from .audioutils import format_from_track, is_fancy_codec, sanitize_trims, ensure_valid_in, duration_from_track
 from .tools import *
 from ..utils.files import *
 from ..utils.log import error, warn, debug
@@ -16,6 +16,7 @@ from ..utils.parsing import parse_audioinfo
 from ..utils.files import get_absolute_track
 from ..utils.types import Trim, PathLike, TrackType
 from ..utils.env import get_temp_workdir, run_commandline
+from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 from ..utils.convert import frame_to_timedelta, format_timedelta, frame_to_ms
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
@@ -131,8 +132,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                         args.extend(["-f", "dts"])
             args.append(str(out))
 
-            if not run_commandline(args, quiet):
-                debug("Done", self)
+            if not run_cmd_pb(args, quiet, ProgressBarConfig("Extracting...", duration_from_track(track))):
                 return AudioFile(out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, ainfo)
             else:
                 raise error("Failed to extract audio track using ffmpeg", self)
