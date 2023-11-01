@@ -55,6 +55,9 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
         if tmdb and not tmdb.movie:
             warn(f"{episode} is not a valid integer! TMDB will be skipped.", "Mux", 3)
             tmdb = None
+            filename = clean_name(re.sub(re.escape(R"$title$"), "", filename))
+            mkvtitle = clean_name(re.sub(re.escape(R"$title$"), "", mkvtitle))
+
     if tmdb:
         debug("Fetching tmdb metadata...", "Mux")
         mediameta = tmdb.get_media_meta()
@@ -129,3 +132,18 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
 
     debug("Done", "Mux")
     return outfile
+
+
+def clean_name(name: str) -> str:
+    delimiters = ["-", ".", "/"]
+    stripped = name.strip()
+    if any([stripped.startswith(delim) for delim in delimiters]):
+        stripped = stripped.lstrip("".join(delimiters))
+
+    if any([stripped.endswith(delim) for delim in delimiters]):
+        stripped = stripped.rstrip("".join(delimiters))
+
+    stripped = stripped.replace("()", "")
+    stripped = stripped.replace("[]", "")
+
+    return stripped
