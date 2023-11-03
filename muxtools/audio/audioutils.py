@@ -15,7 +15,7 @@ from ..utils.env import get_temp_workdir, run_commandline
 from ..utils.types import DitherType, Trim, AudioFormat, ValidInputType
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 
-__all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
+__all__ = ["ensure_valid_in", "sanitize_trims", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
 
 
 def sanitize_pre(preprocess: Preprocessor | Sequence[Preprocessor] | None = None) -> list[Preprocessor]:
@@ -177,52 +177,6 @@ def sanitize_trims(
             trims[index] = (total_frames + trim[0], trim[1])
 
     return trims
-
-
-# Of course these are not all of the formats possible but those are the most common from what I know.
-# fmt: off
-formats = [
-    # Lossy
-    AudioFormat("AC-3",         "ac3",      "A_AC3"),
-    AudioFormat("E-AC-3",       "eac3",     "A_EAC3"),
-    AudioFormat("AAC*",         "m4a",      "A_AAC*"), # Lots of different AAC formats idk what they mean, don't care either
-    AudioFormat("Opus",         "opus",     "A_OPUS"),
-    AudioFormat("Vorbis",       "ogg",      "A_VORBIS"),
-    AudioFormat("/",            "mp3",      "mp4a-6B"), # MP3 has the format name split up into 3 variables so we're gonna ignore this
-    
-    # Lossless
-    AudioFormat("FLAC",         "flac",     "A_FLAC", False),
-    AudioFormat("MLP FBA*",     "thd",      "A_TRUEHD", False), # Atmos stuff has some more shit in the format name
-    AudioFormat("PCM*",         "wav",      "A_PCM*", False),
-
-    # Disgusting DTS Stuff
-    AudioFormat("DTS XLL*",     "dtshd",    "A_DTS", False), # Can be HD-MA or Headphone X or X, who the fuck knows
-    AudioFormat("DTS",          "dts",      "A_DTS"), # Can be lossy
-]
-# fmt: on
-
-
-def format_from_track(track: Track) -> AudioFormat | None:
-    for format in formats:
-        f = str(track.format)
-        if hasattr(track, "format_additionalfeatures") and track.format_additionalfeatures:
-            f = f"{f} {track.format_additionalfeatures}"
-        if "*" in format.format:
-            # matches = filter([f.lower()], format.format.lower())
-            if re.match(format.format.replace("*", ".*"), f, re.IGNORECASE):
-                return format
-        else:
-            if format.format.casefold() == f.casefold():
-                return format
-
-        if "*" in format.codecid:
-            # matches = filter([str(track.codec_id).lower()], format.codecid)
-            if re.match(format.codecid.replace("*", ".*"), str(track.codec_id), re.IGNORECASE):
-                return format
-        else:
-            if format.codecid.casefold() == str(track.codec_id).casefold():
-                return format
-    return None
 
 
 def duration_from_track(track: Track, caller: Any = None) -> timedelta:

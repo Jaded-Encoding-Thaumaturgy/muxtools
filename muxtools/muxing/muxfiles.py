@@ -93,7 +93,7 @@ class AudioFile(MuxingFile):
         return mediainfo.audio_tracks[0]
 
     def is_lossy(self) -> bool:
-        from ..audio.audioutils import format_from_track
+        from ..utils.format import format_from_track
 
         minfo = self.get_mediainfo()
         form = format_from_track(minfo)

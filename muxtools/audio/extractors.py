@@ -7,11 +7,12 @@ import shutil
 import os
 import re
 
-from .audioutils import format_from_track, is_fancy_codec, sanitize_trims, ensure_valid_in, duration_from_track
+from .audioutils import is_fancy_codec, sanitize_trims, ensure_valid_in, duration_from_track
 from .tools import *
 from ..utils.files import *
 from ..utils.log import error, warn, debug
 from ..utils.download import get_executable
+from ..utils.format import format_from_track
 from ..utils.parsing import parse_audioinfo
 from ..utils.files import get_absolute_track
 from ..utils.types import Trim, PathLike, TrackType

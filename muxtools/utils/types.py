@@ -9,6 +9,7 @@ __all__ = [
     "Paths",
     "Trim",
     "TrackType",
+    "VideoFormat",
     "AudioFormat",
     "AudioFrame",
     "AudioStats",
@@ -37,10 +38,20 @@ class TrackType(IntEnum):
 
 
 @dataclass
-class AudioFormat:
+class AVForm:
     format: str
     ext: str
     codecid: str
+    supports_mp4: bool = True
+
+
+@dataclass
+class VideoFormat(AVForm):
+    other_extensions: list[str] | None
+
+
+@dataclass
+class AudioFormat(AVForm):
     lossy: bool = True
 
 
