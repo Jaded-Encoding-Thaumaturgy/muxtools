@@ -126,8 +126,6 @@ def clean_name(name: str) -> str:
 
 def output_names(tmdb: TmdbConfig | None = None) -> tuple[str, str]:
     show_name = get_setup_attr("show_name", "Example")
-    out_dir = ensure_path(get_setup_attr("out_dir", "premux"), "Mux")
-
     episode = get_setup_attr("episode", "01")
     filename = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
     title = get_setup_attr("mkv_title_naming", R"$show$ - $ep$")
