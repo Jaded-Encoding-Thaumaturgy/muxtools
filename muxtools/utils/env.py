@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..main import Setup
 
-__all__ = ["save_setup", "get_setup_attr", "get_workdir", "get_temp_workdir", "is_debug", "download_allowed", "run_commandline"]
+__all__ = ["save_setup", "get_setup_attr", "get_setup_dir", "get_workdir", "get_temp_workdir", "is_debug", "download_allowed", "run_commandline"]
 
 
 def save_setup(setup: Setup):
@@ -22,6 +22,14 @@ def get_setup_attr(attr: str, default: any = None) -> any:
             return loaded.get(attr, default)
         return getattr(loaded, attr, default)
     return default
+
+
+def get_setup_dir() -> list[str]:
+    envi = os.environ.get("vof_setup")
+    if not envi:
+        return []
+    loaded = json.loads(envi)
+    return loaded.keys() if isinstance(loaded, dict) else dir(loaded)
 
 
 def get_workdir() -> Path:
