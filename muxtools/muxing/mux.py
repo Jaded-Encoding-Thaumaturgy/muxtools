@@ -98,13 +98,25 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
 
 
 def clean_name(name: str) -> str:
-    delimiters = ["-", ".", "/"]
+    """
+    This removes every unused token and delimiter aswell as empty brackets/parentheses.
+    Ideally should be called before inserting the show name to not cause false positives with that.
+    The .hack series would definitely cause some :)
+    """
     stripped = name.strip()
-    if any([stripped.startswith(delim) for delim in delimiters]):
-        stripped = stripped.lstrip("".join(delimiters))
 
-    if any([stripped.endswith(delim) for delim in delimiters]):
-        stripped = stripped.rstrip("".join(delimiters))
+    dont_match = [R"$show$", R"$ep$", "$crc32$"]
+    for match in re.findall(r"\$[^ ]+\$", name):
+        if match not in dont_match:
+            stripped = stripped.replace(match, "").strip()
+            warn(f"Unknown token '{match}' was removed.", "Mux")
+
+    delimiters = ["-", ".", "/"]
+    while any([stripped.startswith(delim) for delim in delimiters]):
+        stripped = stripped.lstrip("".join(delimiters)).strip()
+
+    while any([stripped.endswith(delim) for delim in delimiters]):
+        stripped = stripped.rstrip("".join(delimiters)).strip()
 
     stripped = stripped.replace("()", "")
     stripped = stripped.replace("[]", "")
@@ -148,13 +160,6 @@ def output_names(tmdb: TmdbConfig | None = None) -> tuple[str, str]:
             filename = re.sub(re.escape(R"$title$"), epmeta.title, filename)
             title = re.sub(re.escape(R"$title$"), epmeta.title, title)
 
-    filename = re.sub(re.escape(R"$show$"), show_name, filename)
-    filename = re.sub(re.escape(R"$ep$"), episode, filename)
-    filename = re.sub(re.escape(R"$crc32$"), "#crc32#", filename)
-
-    title = re.sub(re.escape(R"$show$"), show_name, title)
-    title = re.sub(re.escape(R"$ep$"), episode, title)
-
     for attribute in get_setup_dir():
         attr = get_setup_attr(attribute, None)
         if not attr or not isinstance(attr, str):
@@ -165,5 +170,15 @@ def output_names(tmdb: TmdbConfig | None = None) -> tuple[str, str]:
             title = re.sub(replace, attr, title)
         except:
             continue
+
+    filename = clean_name(filename)
+    title = clean_name(title)
+
+    filename = re.sub(re.escape(R"$show$"), show_name, filename)
+    filename = re.sub(re.escape(R"$ep$"), episode, filename)
+    filename = re.sub(re.escape(R"$crc32$"), "#crc32#", filename)
+
+    title = re.sub(re.escape(R"$show$"), show_name, title)
+    title = re.sub(re.escape(R"$ep$"), episode, title)
 
     return (filename, title)
