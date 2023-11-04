@@ -7,7 +7,7 @@ import shutil
 import os
 import re
 
-from .audioutils import format_from_track, is_fancy_codec, sanitize_trims, ensure_valid_in, duration_from_track
+from .audioutils import format_from_track, is_fancy_codec, sanitize_trims, ensure_valid_in, duration_from_file
 from .tools import *
 from ..utils.files import *
 from ..utils.log import error, warn, debug
@@ -63,7 +63,9 @@ class Eac3to(Extractor):
                         out = f.rename(f.with_stem(out.stem))
                         break
 
-            return AudioFile(out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input)
+            return AudioFile(
+                out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, duration=duration_from_file(input, self.track)
+            )
         else:
             raise error(f"eac3to failed to extract audio track {self.track} from '{input}'", self.extract_audio)
 
@@ -131,9 +133,9 @@ class FFMpeg(HasExtractor, HasTrimmer):
                         # FFMPEG screams about dtshd not being a known output format but ffmpeg -formats lists it....
                         args.extend(["-f", "dts"])
             args.append(str(out))
-
-            if not run_cmd_pb(args, quiet, ProgressBarConfig("Extracting...", duration_from_track(track))):
-                return AudioFile(out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, ainfo)
+            duration = duration_from_file(input, self.track)
+            if not run_cmd_pb(args, quiet, ProgressBarConfig("Extracting...", duration)):
+                return AudioFile(out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, ainfo, duration)
             else:
                 raise error("Failed to extract audio track using ffmpeg", self)
 

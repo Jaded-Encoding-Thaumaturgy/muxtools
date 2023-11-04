@@ -7,12 +7,12 @@ from typing import Sequence, Any
 from pymediainfo import Track, MediaInfo
 
 from .preprocess import Preprocessor, Resample
-from ..utils.files import make_output
+from ..utils.files import make_output, ensure_path_exists
 from ..muxing.muxfiles import AudioFile
 from ..utils.log import debug, warn, error
 from ..utils.download import get_executable
 from ..utils.env import get_temp_workdir, run_commandline
-from ..utils.types import DitherType, Trim, AudioFormat, ValidInputType
+from ..utils.types import DitherType, Trim, AudioFormat, ValidInputType, PathLike
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 
 __all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
@@ -132,7 +132,7 @@ def get_pcm(
     else:
         debug(f"Preparing audio to ensure valid input using ffmpeg...", caller)
         args.append(str(output))
-        if not run_cmd_pb(args, pbc=ProgressBarConfig("Preparing...", duration_from_track(minfo))):
+        if not run_cmd_pb(args, pbc=ProgressBarConfig("Preparing...", duration_from_file(fileIn))):
             return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
             raise error("Failed to convert to desired intermediary!", ensure_valid_in)
@@ -225,17 +225,36 @@ def format_from_track(track: Track) -> AudioFormat | None:
     return None
 
 
-def duration_from_track(track: Track, caller: Any = None) -> timedelta:
-    durations: list[str] = getattr(track, "other_duration", [])
-    from ..utils.convert import timedelta_from_formatted
+def duration_from_file(fileIn: PathLike | AudioFile, track: int = 0, caller: Any = None) -> timedelta:
+    from ..utils.parsing import timedelta_from_formatted
+
+    if isinstance(fileIn, AudioFile):
+        if fileIn.duration:
+            return fileIn.duration
+        else:
+            fileIn = fileIn.file
+
+    args = [
+        get_executable("ffprobe"),
+        "-v",
+        "error",
+        "-select_streams",
+        str(track),
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        "-sexagesimal",
+        str(ensure_path_exists(fileIn, duration_from_file)),
+    ]
 
     try:
-        try:
-            return timedelta_from_formatted(durations[4])
-        except:
-            return timedelta_from_formatted(durations[3])
+        p = subprocess.run(args, capture_output=True, text=True)
+        if p.returncode != 0:
+            raise Exception("Failed to parse")
+        return timedelta_from_formatted((p.stderr + p.stdout).strip())
     except:
-        warn("Could not parse duration from track mediainfo. Will assume 24 minutes.", caller)
+        warn("Could not parse duration from track. Will assume 24 minutes.", caller)
         return timedelta(minutes=24)
 
 

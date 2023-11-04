@@ -1,6 +1,7 @@
 from pathlib import Path
 from dataclasses import dataclass
 from pymediainfo import MediaInfo, Track
+from datetime import timedelta
 
 from .tracks import VideoTrack
 
@@ -78,6 +79,7 @@ class VideoFile(MuxingFile):
 @dataclass
 class AudioFile(MuxingFile):
     info: AudioInfo | None = None
+    duration: timedelta | None = None
 
     def __post_init__(self):
         self.file = ensure_path_exists(self.file, self)

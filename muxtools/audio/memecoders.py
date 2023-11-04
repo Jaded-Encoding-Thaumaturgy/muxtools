@@ -19,7 +19,7 @@ from ..utils.env import get_temp_workdir
 from ..utils.download import get_executable
 from ..utils.files import clean_temp_files, make_output
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
-from .audioutils import ensure_valid_in, qaac_compatcheck, duration_from_track, get_preprocess_args
+from .audioutils import ensure_valid_in, qaac_compatcheck, duration_from_file, get_preprocess_args
 from ..utils.types import DitherType, LossyWavQuality, PathLike, ValidInputType
 
 __all__ = ["qALAC", "TTA", "TrueAudio", "TheTrueAudio", "LossyWav", "Wavpack"]
@@ -93,7 +93,7 @@ class TTA(LosslessEncoder):
         args.append(str(output))
 
         debug(f"Encoding '{fileIn.file.stem}' to TTA using ffmpeg...", self)
-        if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...", duration_from_track(fileIn.get_mediainfo()))):
+        if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...", duration_from_file(fileIn))):
             clean_temp_files()
             return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:

@@ -13,7 +13,7 @@ from ..utils.log import warn, crit, debug, error
 from ..utils.files import make_output, clean_temp_files
 from ..utils.types import ValidInputType, qAAC_MODE, PathLike
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
-from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck, duration_from_track, get_preprocess_args, sanitize_pre
+from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck, duration_from_file, get_preprocess_args, sanitize_pre
 
 __all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
 
@@ -148,7 +148,7 @@ class FF_FLAC(LosslessEncoder):
         args.append(str(output.resolve()))
 
         if not run_cmd_pb(
-            args, quiet, ProgressBarConfig("Preparing..." if "temp" in kwargs.keys() else "Encoding...", duration_from_track(fileIn.get_mediainfo()))
+            args, quiet, ProgressBarConfig("Preparing..." if "temp" in kwargs.keys() else "Encoding...", duration_from_file(fileIn, 0))
         ):
             return AudioFile(output, fileIn.container_delay, fileIn.source)
         else:
@@ -216,7 +216,7 @@ class Opus(Encoder):
         if isinstance(source, AudioFile):
             config = ProgressBarConfig("Encoding...")
         else:
-            config = ProgressBarConfig("Encoding...", duration_from_track(fileIn.get_mediainfo()), regex=r".*\] (\d+:\d+:\d+.\d+).*")
+            config = ProgressBarConfig("Encoding...", duration_from_file(fileIn, 0), regex=r".*\] (\d+:\d+:\d+.\d+).*")
 
         if not run_cmd_pb(args, quiet, config, shell=False, stdin=stdin):
             clean_temp_files()
@@ -341,7 +341,7 @@ class FDK_AAC(Encoder):
         if self.use_binary:
             config = ProgressBarConfig("Encoding...")
         else:
-            config = ProgressBarConfig("Encoding...", duration_from_track(fileIn.get_mediainfo()))
+            config = ProgressBarConfig("Encoding...", duration_from_file(fileIn, 0))
         if not run_cmd_pb(args, quiet, config, shell=False):
             clean_temp_files()
             return AudioFile(output, fileIn.container_delay, fileIn.source)
