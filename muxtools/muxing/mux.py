@@ -16,7 +16,7 @@ from .tracks import Attachment, _track
 from ..utils.log import debug, error, info, warn
 from ..utils.download import get_executable
 from ..utils.files import ensure_path, ensure_path_exists, get_crc32
-from ..utils.env import get_setup_attr, get_workdir, run_commandline
+from ..utils.env import get_setup_attr, get_setup_dir, get_workdir, run_commandline
 
 __all__ = ["mux"]
 
@@ -33,47 +33,10 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     """
 
     tracks = list(tracks)
-    show_name = get_setup_attr("show_name", "Example")
-    out_name = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
     out_dir = ensure_path(get_setup_attr("out_dir", "premux"), "Mux")
-    mkv_title_naming = get_setup_attr("mkv_title_naming", R"$show$ - $ep$")
     args: list[str] = [get_executable("mkvmerge")]
-    episode = get_setup_attr("episode", "01")
 
-    filename = re.sub(re.escape(R"$show$"), show_name, out_name)
-    filename = re.sub(re.escape(R"$ep$"), episode, filename)
-    filename = re.sub(re.escape(R"$crc32$"), "#crc32#", filename)
-
-    mkvtitle = re.sub(re.escape(R"$show$"), show_name, mkv_title_naming)
-    mkvtitle = re.sub(re.escape(R"$ep$"), episode, mkvtitle)
-
-    try:
-        if " " in episode:
-            episode = str(episode).split(" ")[0]
-        epint = int(episode)
-    except:
-        if tmdb and not tmdb.movie:
-            warn(f"{episode} is not a valid integer! TMDB will be skipped.", "Mux", 3)
-            tmdb = None
-            filename = clean_name(re.sub(re.escape(R"$title$"), "", filename))
-            mkvtitle = clean_name(re.sub(re.escape(R"$title$"), "", mkvtitle))
-
-    if tmdb:
-        debug("Fetching tmdb metadata...", "Mux")
-        mediameta = tmdb.get_media_meta()
-        epmeta = tmdb.get_episode_meta(epint) if not tmdb.movie else None
-        if tmdb.needs_xml():
-            xml = tmdb.make_xml(mediameta, epmeta)
-            args.extend(["--global-tags", xml])
-
-        if not tmdb.movie:
-            if tmdb.write_cover and epmeta.thumb_url:
-                cover = Path(get_workdir(), f"cover_land{Path(epmeta.thumb_url).suffix}")
-                if wget.download(epmeta.thumb_url, str(cover), None):
-                    tracks.append(Attachment(cover, "image/jpeg" if cover.suffix.lower() == ".jpg" else "image/png"))
-
-            filename = re.sub(re.escape(R"$title$"), epmeta.title, filename)
-            mkvtitle = re.sub(re.escape(R"$title$"), epmeta.title, mkvtitle)
+    filename, mkvtitle = output_names(tmdb)
 
     if not outfile:
         outfile = Path(out_dir, f"{filename}.mkv")
@@ -147,3 +110,60 @@ def clean_name(name: str) -> str:
     stripped = stripped.replace("[]", "")
 
     return stripped
+
+
+def output_names(tmdb: TmdbConfig | None = None) -> tuple[str, str]:
+    show_name = get_setup_attr("show_name", "Example")
+    out_dir = ensure_path(get_setup_attr("out_dir", "premux"), "Mux")
+
+    episode = get_setup_attr("episode", "01")
+    filename = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
+    title = get_setup_attr("mkv_title_naming", R"$show$ - $ep$")
+
+    try:
+        if " " in episode:
+            episode = str(episode).split(" ")[0]
+        epint = int(episode)
+    except:
+        if tmdb and not tmdb.movie:
+            warn(f"{episode} is not a valid integer! TMDB will be skipped.", "Mux", 3)
+            tmdb = None
+            filename = clean_name(re.sub(re.escape(R"$title$"), "", filename))
+            title = clean_name(re.sub(re.escape(R"$title$"), "", title))
+
+    if tmdb:
+        debug("Fetching tmdb metadata...", "Mux")
+        mediameta = tmdb.get_media_meta()
+        epmeta = tmdb.get_episode_meta(epint) if not tmdb.movie else None
+        if tmdb.needs_xml():
+            xml = tmdb.make_xml(mediameta, epmeta)
+            args.extend(["--global-tags", xml])
+
+        if not tmdb.movie:
+            if tmdb.write_cover and epmeta.thumb_url:
+                cover = Path(get_workdir(), f"cover_land{Path(epmeta.thumb_url).suffix}")
+                if wget.download(epmeta.thumb_url, str(cover), None):
+                    tracks.append(Attachment(cover, "image/jpeg" if cover.suffix.lower() == ".jpg" else "image/png"))
+
+            filename = re.sub(re.escape(R"$title$"), epmeta.title, filename)
+            title = re.sub(re.escape(R"$title$"), epmeta.title, title)
+
+    filename = re.sub(re.escape(R"$show$"), show_name, filename)
+    filename = re.sub(re.escape(R"$ep$"), episode, filename)
+    filename = re.sub(re.escape(R"$crc32$"), "#crc32#", filename)
+
+    title = re.sub(re.escape(R"$show$"), show_name, title)
+    title = re.sub(re.escape(R"$ep$"), episode, title)
+
+    for attribute in get_setup_dir():
+        attr = get_setup_attr(attribute, None)
+        if not attr or not isinstance(attr, str):
+            continue
+        try:
+            replace = re.escape(Rf"${str(attribute)}$")
+            filename = re.sub(replace, attr, filename)
+            title = re.sub(replace, attr, title)
+        except:
+            continue
+
+    return (filename, title)
