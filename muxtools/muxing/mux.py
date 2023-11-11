@@ -1,4 +1,5 @@
 from shlex import split as splitcommand, join as joincommand
+from typing import Any
 from shutil import rmtree
 from pathlib import Path
 import wget
@@ -36,7 +37,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     out_dir = ensure_path(get_setup_attr("out_dir", "premux"), "Mux")
     args: list[str] = [get_executable("mkvmerge")]
 
-    filename, mkvtitle = output_names(tmdb)
+    filename, mkvtitle = output_names(tmdb, args, tracks)
 
     if not outfile:
         outfile = Path(out_dir, f"{filename}.mkv")
@@ -124,7 +125,7 @@ def clean_name(name: str) -> str:
     return stripped
 
 
-def output_names(tmdb: TmdbConfig | None = None) -> tuple[str, str]:
+def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: list[Any] = []) -> tuple[str, str]:
     show_name = get_setup_attr("show_name", "Example")
     episode = get_setup_attr("episode", "01")
     filename = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
