@@ -485,19 +485,23 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self.clean_styles()
 
-    def change_layers(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, layer: int = 99) -> SubFileSelf:
+    def change_layers(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, layer: int | None = None, additive: bool = True) -> SubFileSelf:
         """
-        Set layer to the specified number on every line with a style you selected.
+        Set layer to the specified number or adds the number to the existing one on every line with a style you selected.
 
-        :param styles:      List of styles to look for
-        :param layer:       The layer you want
+        :param styles:      List of styles to look for.
+        :param layer:       The layer you want. Defaults to 50 for additive and 99 otherwise.
+        :param additive:    Add specified layer number instead of replacing the existing one.
         """
         doc = self._read_doc()
         events = []
+        if not layer:
+            layer = 50 if additive else 99
+
         for line in doc.events:
             for style in styles:
                 if str(line.style).strip().casefold() == style.strip().casefold():
-                    line.layer = layer
+                    line.layer = layer if not additive else int(line.layer) + layer
             events.append(line)
         doc.events = events
         self.__update_doc(doc)
