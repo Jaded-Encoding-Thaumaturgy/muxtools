@@ -132,7 +132,7 @@ def install_dependencies():
             "The second best AAC encoder. Not really necessary tbf.",
             "hoilc_scoop-lemon/fdkaac",
             ("hoilc_scoop-lemon", "https://github.com/hoilc/scoop-lemon"),
-            "fdkaac"
+            "fdkaac",
         )
     if not shutil.which("sox"):
         request_install("SoX", "This is used & preferred for trimming lossless audio.")
@@ -146,7 +146,12 @@ def install_dependencies():
         )
 
     if not shutil.which("opusenc"):
-        request_install("opus-tools", "This is used for encoding audio to opus via opusenc.")
+        request_install(
+            "opus-tools",
+            "This is used for encoding audio to opus via opusenc.",
+            "vodes/opus-tools-rarewares",
+            ("vodes", "https://github.com/Vodes/Bucket"),
+        )
 
     if not shutil.which("flac"):
         request_install("FLAC", "This is used for encoding audio to flac via the official reference encoder.")
