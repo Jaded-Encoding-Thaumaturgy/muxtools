@@ -130,8 +130,8 @@ def install_dependencies():
         request_install(
             "fdkaac",
             "The second best AAC encoder. Not really necessary tbf.",
-            "hoilc_scoop-lemon/fdkaac",
-            ("hoilc_scoop-lemon", "https://github.com/hoilc/scoop-lemon"),
+            "vodes/fdkaac",
+            ("vodes", "https://github.com/Vodes/Bucket"),
             "fdkaac",
         )
     if not shutil.which("sox"):
