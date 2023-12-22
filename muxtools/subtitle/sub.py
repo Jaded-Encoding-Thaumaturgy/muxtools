@@ -156,10 +156,12 @@ class SubFile(MuxingFile):
                 if line.effect.strip() == "***" or line.name.strip() == "***":
                     if isinstance(line, Comment):
                         line.TYPE = "Dialogue"
-                        info(f'autoswapper: Uncommented Line {i} - "{line.text}"', self)
+                        if print_swaps:
+                            info(f'autoswapper: Uncommented Line {i} - "{line.text}"', self)
                     elif isinstance(line, Dialogue):
                         line.TYPE = "Comment"
-                        info(f'autoswapper: Commented Line {i} - "{line.text}"', self)
+                        if print_swaps:
+                            info(f'autoswapper: Commented Line {i} - "{line.text}"', self)
 
             events.append(line)
 
