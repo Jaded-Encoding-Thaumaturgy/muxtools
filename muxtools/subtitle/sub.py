@@ -176,6 +176,8 @@ class SubFile(MuxingFile):
         dialogue_styles: list[str] | None = ["main", "default", "narrator", "narration"],
         top_styles: list[str] | None = ["top"],
         italics_styles: list[str] | None = ["italics", "internal"],
+        alt_style: str = "Alt",
+        alt_styles: list[str] | None = None,
     ) -> SubFileSelf:
         """
         Removes any top and italics styles and replaces them with tags.
@@ -185,7 +187,26 @@ class SubFile(MuxingFile):
         :param dialogue_styles:     Styles that will be set to default_style
         :param top_styles:          Styles that will be set to default_style and an8 added to tags
         :param italics_styles:      Styles that will be set to default_style and i1 added to tags
+        :param alt_style:           The default alt/overlap style that lines will be set to
+        :param alt_styles:          Possible identifiers for styles that should be set to the alt_style
         """
+
+        def get_default(style: str, allow_default: bool = True) -> str:
+            placeholder = default_style
+            is_default = True
+            if alt_styles:
+                for s in alt_styles:
+                    if s.casefold() in style.casefold():
+                        placeholder = alt_style
+                        is_default = False
+            if "flashback" in style.lower():
+                return placeholder if not keep_flashback else "Flashback"
+            
+            if is_default:
+                return placeholder if allow_default else line.style
+            
+            return placeholder
+
         doc = self._read_doc()
         events = []
         for line in doc.events:
@@ -194,20 +215,14 @@ class SubFile(MuxingFile):
                 for s in italics_styles:
                     if s.casefold() in line.style.casefold():
                         add_italics_tag = True
-                        if "flashback" in line.style.lower():
-                            line.style = default_style if not keep_flashback else "Flashback"
-                        else:
-                            line.style = default_style
+                        line.style = get_default(line.style)
                         break
             add_top_tag = False
             if top_styles:
                 for s in top_styles:
                     if s.casefold() in line.style.casefold():
                         add_top_tag = True
-                        if "flashback" in line.style.lower():
-                            line.style = default_style if not keep_flashback else "Flashback"
-                        else:
-                            line.style = default_style
+                        line.style = get_default(line.style)
                         break
             if add_italics_tag and add_top_tag:
                 line.text = R"{\i1\an8}" + line.text
@@ -216,12 +231,8 @@ class SubFile(MuxingFile):
             elif add_top_tag:
                 line.text = R"{\an8}" + line.text
 
-            if not keep_flashback:
-                if "flashback" in line.style.lower():
-                    line.style = default_style
-            else:
-                if line.style == "flashback":
-                    line.style = "Flashback"
+            line.style = get_default(line.style, False)
+            
             if dialogue_styles:
                 for s in dialogue_styles:
                     if s.casefold() in line.style.casefold():
