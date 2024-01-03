@@ -203,6 +203,11 @@ formats = [
 
 
 def format_from_track(track: Track) -> AudioFormat | None:
+    comm_name = getattr(track, "commercial_name", None)
+    compression_mode = str(getattr(track, "compression_mode", ""))
+    if comm_name and str(comm_name).lower() == "dts" and compression_mode.lower() == "lossy":
+        return formats[-1]
+    
     for format in formats:
         f = str(track.format)
         if hasattr(track, "format_additionalfeatures") and track.format_additionalfeatures:
