@@ -201,10 +201,10 @@ class SubFile(MuxingFile):
                         is_default = False
             if "flashback" in style.lower():
                 return placeholder if not keep_flashback else "Flashback"
-            
+
             if is_default:
                 return placeholder if allow_default else line.style
-            
+
             return placeholder
 
         doc = self._read_doc()
@@ -232,7 +232,7 @@ class SubFile(MuxingFile):
                 line.text = R"{\an8}" + line.text
 
             line.style = get_default(line.style, False)
-            
+
             if dialogue_styles:
                 for s in dialogue_styles:
                     if s.casefold() in line.style.casefold():
@@ -587,7 +587,12 @@ class SubFile(MuxingFile):
 
     @classmethod
     def from_srt(
-        cls: type[SubFileSelf], file: PathLike, an8_all_caps: bool = True, fps: Fraction | PathLike = Fraction(24000, 1001), encoding: str = "UTF8"
+        cls: type[SubFileSelf],
+        file: PathLike,
+        an8_all_caps: bool = True,
+        style_all_caps: bool = True,
+        fps: Fraction | PathLike = Fraction(24000, 1001),
+        encoding: str = "UTF8",
     ) -> SubFileSelf:
         """
         Convert srt subtitles to an ass SubFile.
@@ -595,7 +600,8 @@ class SubFile(MuxingFile):
         Also worth noting that this creates a file that assumes 1920x1080. Use the resample function if you need something else.
 
         :param file:            Input srt file
-        :param an8_all_caps:    Automatically an8 every full caps line with over 7 characters because they're usually signs
+        :param an8_all_caps:    Automatically an8 every full caps line with over 7 characters because they're usually signs.
+        :param style_all_caps:  Also set the style of these lines to "Sign" wether it exists or not.
         :param fps:             FPS needed for the time conversion. Also accepts a timecode (v2) file.
         :param encoding:        Encoding used to read the file. Defaults to UTF8.
         """
@@ -611,17 +617,19 @@ class SubFile(MuxingFile):
             cope = frame_to_timedelta(cope, fps, compensate=True)
             return cope
 
-        def convert_tags(text: str) -> str:
+        def convert_tags(text: str) -> tuple[str, bool]:
             text = text.strip().replace("\n", "\\N")
+            is_sign = False
             if an8_all_caps and text.upper() == text and len(text) > 7:
                 text = R"{\an8}" + text
+                is_sign = True
             text = re.sub(r"[\<|{]i[\>|}]", "{\\\i1}", text)
             text = re.sub(r"[\<|{]\/i[\>|}]", "{\\\i}", text)
             text = re.sub(r"[\<|{]b[\>|}]", "{\\b1}", text)
             text = re.sub(r"[\<|{]\/b[\>|}]", "{\\b}", text)
             text = re.sub(r"[\<|{]u[\>|}]", R"{\\u1}", text)
             text = re.sub(r"[\<|{]\/u[\>|}]", R"{\\u}", text)
-            return text
+            return text, is_sign
 
         doc = create_document()
 
@@ -630,8 +638,8 @@ class SubFile(MuxingFile):
             for match in compiled.finditer(content):
                 start = srt_timedelta(match["start"])
                 end = srt_timedelta(match["end"])
-                text = convert_tags(match["text"])
-                doc.events.append(Dialogue(layer=99, start=start, end=end, text=text))
+                text, sign = convert_tags(match["text"])
+                doc.events.append(Dialogue(layer=99, start=start, end=end, text=text, style="Sign" if sign else "Default"))
 
         out = file.with_suffix(".ass")
         with open(out, "w", encoding="utf_8_sig") as writer:
