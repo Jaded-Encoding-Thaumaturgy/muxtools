@@ -155,6 +155,7 @@ def find_tracks(
     lang: str | None = None,
     type: TrackType | None = None,
     use_regex: bool = True,
+    reverse_lang: bool = False,
     custom_condition: Callable[[Track], bool] | None = None,
 ) -> list[Track]:
     """
@@ -165,6 +166,7 @@ def find_tracks(
     :param lang:                Language to match. This can be any of the possible formats like English/eng/en and is case insensitive.
     :param type:                Track Type to search for.
     :param use_regex:           Use regex for the name search instead of checking for equality.
+    :param reverse_lang:        If you want the `lang` param to actually exclude that language.
     :param custom_condition:    Here you can pass any function to create your own conditions. (They have to return a bool)
                                 For example: custom_condition=lambda track: track.codec_id == "A_EAC3"
     """
@@ -180,12 +182,18 @@ def find_tracks(
             return re.match(name, title, re.I)
         return False
 
+    def get_languages(track: MediaInfo) -> list[str]:
+        languages: list[str] = getattr(track, "other_language", None) or list[str]()
+        return [l.casefold() for l in languages]
+
     if name:
         tracks = [track for track in tracks if name_matches(getattr(track, "title", "") or "")]
 
     if lang:
-        languages: list[str] = getattr(track, "other_language", None) or list[str]()
-        tracks = [track for track in tracks if lang.casefold() in [l.casefold() for l in languages]]
+        if reverse_lang:
+            tracks = [track for track in tracks if lang.casefold() not in get_languages(track)]
+        else:
+            tracks = [track for track in tracks if lang.casefold() in get_languages(track)]
 
     if type:
         if type not in (TrackType.VIDEO, TrackType.AUDIO, TrackType.SUB):
