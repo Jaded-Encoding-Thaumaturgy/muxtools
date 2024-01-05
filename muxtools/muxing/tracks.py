@@ -172,6 +172,7 @@ class Premux(_track):
         subtitles: int | list[int] | None = -1,
         keep_attachments: bool = True,
         mkvmerge_args: str = "--no-global-tags",
+        assume_absolute: bool = False,
     ) -> None:
         """
         Custom Track object to arbitrarily grab tracks from an existing file.
@@ -185,6 +186,8 @@ class Premux(_track):
         :param subtitles:           Subtitle Track(s) to choose
         :param keep_attachments:    Whether to keep attachments from the file. Fonts for example.
         :param mkvmerge_args:       Any other args you may want to pass.
+        :param assume_absolute:     Assume that the track numbers passed were already absolute to begin with.
+                                    If False it will simply get absolute numbers derived from the relative ones.
         """
         args = ""
         if video is None:
@@ -193,11 +196,11 @@ class Premux(_track):
             if isinstance(video, list):
                 lv = []
                 for num in video:
-                    abso = get_absolute_tracknum(file, num, TrackType.VIDEO)
+                    abso = get_absolute_tracknum(file, num, TrackType.VIDEO) if not assume_absolute else num
                     lv.append(abso)
                 args += f" -d {','.join(str(i) for i in lv)}"
             else:
-                abso = get_absolute_tracknum(file, video, TrackType.VIDEO)
+                abso = get_absolute_tracknum(file, video, TrackType.VIDEO) if not assume_absolute else video
                 args += f" -d {abso}"
 
         if audio is None:
@@ -206,11 +209,11 @@ class Premux(_track):
             if isinstance(audio, list):
                 la = []
                 for num in audio:
-                    abso = get_absolute_tracknum(file, num, TrackType.AUDIO)
+                    abso = get_absolute_tracknum(file, num, TrackType.AUDIO) if not assume_absolute else num
                     la.append(abso)
                 args += f" -a {','.join(str(i) for i in la)}"
             else:
-                abso = get_absolute_tracknum(file, audio, TrackType.AUDIO)
+                abso = get_absolute_tracknum(file, audio, TrackType.AUDIO) if not assume_absolute else audio
                 args += f" -a {abso}"
 
         if subtitles is None:
@@ -219,11 +222,11 @@ class Premux(_track):
             if isinstance(subtitles, list):
                 ls = []
                 for num in subtitles:
-                    abso = get_absolute_tracknum(file, num, TrackType.SUB)
+                    abso = get_absolute_tracknum(file, num, TrackType.SUB) if not assume_absolute else num
                     ls.append(abso)
                 args += f" -s {','.join(str(i) for i in ls)}"
             else:
-                abso = get_absolute_tracknum(file, subtitles, TrackType.SUB)
+                abso = get_absolute_tracknum(file, subtitles, TrackType.SUB) if not assume_absolute else subtitles
                 args += f" -s {abso}"
 
         if not keep_attachments:
