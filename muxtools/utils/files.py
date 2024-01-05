@@ -120,16 +120,20 @@ def get_track_list(file: PathLike, caller: any = None) -> list[Track]:
     file = ensure_path_exists(file, caller)
     mediainfo = MediaInfo.parse(file)
     current = 0
+    indexes = {"video": 0, "audio": 0, "text": 0}
     sanitized_list = []
     # Weird mediainfo quirks
     for t in mediainfo.tracks:
-        if t.track_type.lower() not in ["video", "audio", "text"]:
+        ttype = t.track_type.lower()
+        if ttype not in ["video", "audio", "text"]:
             continue
         sanitized_list.append(t)
 
         t.track_id = current
+        current += 1
+        setattr(t, "relative_id", indexes[ttype])
+        indexes[ttype] = indexes[ttype] + 1
         if "truehd" in (getattr(t, "commercial_name", "") or "").lower() and "extension" in (getattr(t, "muxing_mode", "") or "").lower():
-            current += 1
             identifier = getattr(t, "format_identifier", "AC-3") or "AC-3"
             compat_track = deepcopy(t)
             compat_track.format = identifier
@@ -137,9 +141,11 @@ def get_track_list(file: PathLike, caller: any = None) -> list[Track]:
             compat_track.commercial_name = ""
             compat_track.compression_mode = "Lossy"
             compat_track.track_id = current
+            current += 1
+            setattr(compat_track, "relative_id", indexes[ttype])
+            indexes[ttype] = indexes[ttype] + 1
             sanitized_list.append(compat_track)
 
-        current += 1
     return sanitized_list
 
 
