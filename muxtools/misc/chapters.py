@@ -144,7 +144,12 @@ class Chapters:
         :param shift_amount:    Frames to shift by
         """
         ch = list(self.chapters[chapter])
-        shifted_frame = ch[0] + frame_to_timedelta(shift_amount, self.fps)
+        shift_delta = frame_to_timedelta(abs(shift_amount), self.fps)
+        if shift_amount < 0:
+            shifted_frame = ch[0] - shift_delta
+        else:
+            shifted_frame = ch[0] + shift_delta
+
         if shifted_frame.total_seconds() > 0:
             ch[0] = shifted_frame
         else:
