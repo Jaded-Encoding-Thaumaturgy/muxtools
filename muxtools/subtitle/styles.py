@@ -1,4 +1,4 @@
-from ass import Style
+from ass import Style, Document
 from ass.data import Color
 from copy import deepcopy
 
@@ -7,7 +7,7 @@ __all__ = [
     "gandhi_default", "GJM_GANDHI_PRESET",
     "cabin_default", "CABIN_PRESET", 
     "lato_default", "LATO_PRESET", 
-    "edit_style"
+    "edit_style", "resize_preset"
 ]
 # fmt: on
 
@@ -121,3 +121,21 @@ LATO_PRESET = [
     edit_style(lato_default, "Alt", outline_color=Color(r=0x15, g=0x3E, b=0x74, a=0x00)),
     edit_style(lato_default, "Flashback", outline_color=Color(r=0x12, g=0x3E, b=0x01, a=0x00)),
 ]
+
+
+def resize_preset(preset: list[Style], target_height: int | Document = 360) -> list[Style]:
+    if isinstance(target_height, Document):
+        target_height = int(target_height.info.get("PlayResY", 360))
+
+    styles = list[Style]()
+    multiplier = target_height / 1080
+    for style in preset:
+        style = deepcopy(style)
+        setattr(style, "fontsize", int(getattr(style, "fontsize", 75.0) * multiplier))
+        setattr(style, "margin_l", int(getattr(style, "margin_l", 180) * multiplier))
+        setattr(style, "margin_r", int(getattr(style, "margin_r", 180) * multiplier))
+        setattr(style, "margin_v", int(getattr(style, "margin_v", 55) * multiplier))
+        setattr(style, "shadow", round(getattr(style, "shadow", 1.5) * multiplier, 1))
+        setattr(style, "outline", round(getattr(style, "outline", 3.2) * multiplier, 1))
+        styles.append(style)
+    return styles

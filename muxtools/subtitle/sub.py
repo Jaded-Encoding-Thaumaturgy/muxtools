@@ -10,7 +10,7 @@ import json
 import re
 import os
 
-from .styles import GJM_GANDHI_PRESET
+from .styles import GJM_GANDHI_PRESET, resize_preset
 from .subutils import create_document, dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
@@ -394,13 +394,17 @@ class SubFile(MuxingFile):
 
         return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts)
 
-    def restyle(self: SubFileSelf, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False) -> SubFileSelf:
+    def restyle(
+        self: SubFileSelf, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True
+    ) -> SubFileSelf:
         """
         Add (and replace existing) styles to the subtitle file.
 
         :param styles:          Either a single or a list of ass Styles
         :param clean_after:     Clean unused styles after
         :param delete_existing: Delete all existing styles before adding new ones
+        :param adjust_styles:   Resize the styles to match the script resolution. 
+                                This assumes 1080p for the actual style res as all the presets are that.
         """
         if not isinstance(styles, list):
             styles = [styles]
@@ -408,6 +412,10 @@ class SubFile(MuxingFile):
         styles = styles.copy()
 
         doc = self._read_doc()
+        script_res = int(doc.info.get("PlayResY", 360))
+        if script_res != 1080 and adjust_styles:
+            styles = resize_preset(styles, script_res)
+
         if delete_existing:
             doc.styles = []
 
