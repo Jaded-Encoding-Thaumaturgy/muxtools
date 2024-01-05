@@ -1,8 +1,10 @@
 import os
+import re
 import binascii
 from pathlib import Path
 from shutil import rmtree
 from copy import deepcopy
+from typing import Callable
 from pymediainfo import Track, MediaInfo
 
 from .log import *
@@ -18,6 +20,8 @@ __all__ = [
     "ensure_path_exists",
     "clean_temp_files",
     "get_absolute_track",
+    "get_track_list",
+    "find_tracks",
 ]
 
 
@@ -110,25 +114,19 @@ def make_output(source: PathLike, ext: str, suffix: str = "", user_passed: PathL
         return Path(uniquify_path(os.path.join(workdir, f"{source_stem}{f'_{suffix}' if suffix else ''}.{ext}"))).resolve()
 
 
-def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: any = None) -> Track:
-    """
-    Finds the absolute track for a relative track number of a specific type.
-
-    :param file:    String or pathlib based Path
-    :param track:   Relative track number
-    :param type:    TrackType of the requested relative track
-    """
-    caller = caller if caller else get_absolute_track
-    file = ensure_path_exists(file, get_absolute_track)
+def get_track_list(file: PathLike, caller: any = None) -> list[Track]:
+    """Makes a sanitized mediainfo track list"""
+    caller = caller if caller else get_track_list
+    file = ensure_path_exists(file, caller)
     mediainfo = MediaInfo.parse(file)
-
     current = 0
     sanitized_list = []
     # Weird mediainfo quirks
     for t in mediainfo.tracks:
-        sanitized_list.append(t)
         if t.track_type.lower() not in ["video", "audio", "text"]:
             continue
+        sanitized_list.append(t)
+
         t.track_id = current
         if "truehd" in (getattr(t, "commercial_name", "") or "").lower() and "extension" in (getattr(t, "muxing_mode", "") or "").lower():
             current += 1
@@ -140,12 +138,76 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: any 
             compat_track.compression_mode = "Lossy"
             compat_track.track_id = current
             sanitized_list.append(compat_track)
-        current += 1
 
-    mediainfo.tracks = sanitized_list
-    videos = mediainfo.video_tracks
-    audios = mediainfo.audio_tracks
-    subtitles = mediainfo.text_tracks
+        current += 1
+    return sanitized_list
+
+
+def find_tracks(
+    file: PathLike,
+    name: str | None = None,
+    lang: str | None = None,
+    type: TrackType | None = None,
+    use_regex: bool = True,
+    custom_condition: Callable[[Track], bool] | None = None,
+) -> list[Track]:
+    """
+    Convenience function to find tracks with some conditions.
+
+    :param file:                File to parse with MediaInfo.
+    :param name:                Name to match, case insensitively.
+    :param lang:                Language to match. This can be any of the possible formats like English/eng/en and is case insensitive.
+    :param type:                Track Type to search for.
+    :param use_regex:           Use regex for the name search instead of checking for equality.
+    :param custom_condition:    Here you can pass any function to create your own conditions. (They have to return a bool)
+                                For example: custom_condition=lambda track: track.codec_id == "A_EAC3"
+    """
+
+    if not name and not lang and not type and not custom_condition:
+        return []
+    tracks = get_track_list(file)
+
+    def name_matches(title: str) -> bool:
+        if title.casefold().strip() == name.casefold().strip():
+            return True
+        if use_regex:
+            return re.match(name, title, re.I)
+        return False
+
+    if name:
+        tracks = [track for track in tracks if name_matches(getattr(track, "title", "") or "")]
+
+    if lang:
+        languages: list[str] = getattr(track, "other_language", None) or list[str]()
+        tracks = [track for track in tracks if lang.casefold() in [l.casefold() for l in languages]]
+
+    if type:
+        if type not in (TrackType.VIDEO, TrackType.AUDIO, TrackType.SUB):
+            raise error("You can only search for video, audio and subtitle tracks!", find_tracks)
+        type_string = (str(type.name) if type != TrackType.SUB else "Text").casefold()
+        tracks = [track for track in tracks if track.track_type.casefold() == type_string]
+
+    if custom_condition:
+        tracks = [track for track in tracks if custom_condition(track)]
+
+    return tracks
+
+
+def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: any = None) -> Track:
+    """
+    Finds the absolute track for a relative track number of a specific type.
+
+    :param file:    String or pathlib based Path
+    :param track:   Relative track number
+    :param type:    TrackType of the requested relative track
+    """
+    caller = caller if caller else get_absolute_track
+    file = ensure_path_exists(file, caller)
+
+    tracks = get_track_list(file, caller)
+    videos = [track for track in tracks if track.track_type.casefold() == "Video".casefold()]
+    audios = [track for track in tracks if track.track_type.casefold() == "Audio".casefold()]
+    subtitles = [track for track in tracks if track.track_type.casefold() == "Text".casefold()]
     match type:
         case TrackType.VIDEO:
             if not videos:
