@@ -171,7 +171,7 @@ class Premux(_track):
         audio: int | list[int] | None = -1,
         subtitles: int | list[int] | None = -1,
         keep_attachments: bool = True,
-        mkvmerge_args: str = "--no-global-tags",
+        mkvmerge_args: str | list[str] = "--no-global-tags",
         assume_absolute: bool = False,
     ) -> None:
         """
@@ -232,8 +232,9 @@ class Premux(_track):
         if not keep_attachments:
             args += " -M"
 
-        args = f" {args.strip()} {mkvmerge_args.strip()}"
-        super().__init__(file, TrackType.MKV, args=split_args(args))
+        args = split_args(args.strip())
+        mkvmerge_args = split_args(mkvmerge_args.strip()) if isinstance(mkvmerge_args, str) else mkvmerge_args
+        super().__init__(file, TrackType.MKV, args=args + mkvmerge_args)
 
 
 VT = VideoTrack
