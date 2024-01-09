@@ -215,21 +215,21 @@ class SubFile(MuxingFile):
                 for s in italics_styles:
                     if s.casefold() in line.style.casefold():
                         add_italics_tag = True
-                        line.style = get_default(line.style)
                         break
             add_top_tag = False
             if top_styles:
                 for s in top_styles:
                     if s.casefold() in line.style.casefold():
                         add_top_tag = True
-                        line.style = get_default(line.style)
                         break
-            if add_italics_tag and add_top_tag:
-                line.text = R"{\i1\an8}" + line.text
-            elif add_italics_tag:
-                line.text = R"{\i1}" + line.text
-            elif add_top_tag:
-                line.text = R"{\an8}" + line.text
+            if any([add_italics_tag, add_top_tag]):
+                line.style = get_default(line.style)
+                if add_italics_tag and add_top_tag:
+                    line.text = R"{\i1\an8}" + line.text
+                elif add_italics_tag:
+                    line.text = R"{\i1}" + line.text
+                elif add_top_tag:
+                    line.text = R"{\an8}" + line.text
 
             line.style = get_default(line.style, False)
 
@@ -403,7 +403,7 @@ class SubFile(MuxingFile):
         :param styles:          Either a single or a list of ass Styles
         :param clean_after:     Clean unused styles after
         :param delete_existing: Delete all existing styles before adding new ones
-        :param adjust_styles:   Resize the styles to match the script resolution. 
+        :param adjust_styles:   Resize the styles to match the script resolution.
                                 This assumes 1080p for the actual style res as all the presets are that.
         """
         if not isinstance(styles, list):
