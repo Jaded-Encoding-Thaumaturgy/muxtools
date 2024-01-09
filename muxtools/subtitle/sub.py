@@ -210,26 +210,14 @@ class SubFile(MuxingFile):
         doc = self._read_doc()
         events = []
         for line in doc.events:
-            add_italics_tag = False
-            if italics_styles:
-                for s in italics_styles:
-                    if s.casefold() in line.style.casefold():
-                        add_italics_tag = True
-                        break
-            add_top_tag = False
-            if top_styles:
-                for s in top_styles:
-                    if s.casefold() in line.style.casefold():
-                        add_top_tag = True
-                        break
+            add_italics_tag = italics_styles and bool([s for s in italics_styles if s.casefold() in line.style.casefold()])
+            add_top_tag = top_styles and bool([s for s in top_styles if s.casefold() in line.style.casefold()])
+
             if any([add_italics_tag, add_top_tag]):
                 line.style = get_default(line.style)
-                if add_italics_tag and add_top_tag:
-                    line.text = R"{\i1\an8}" + line.text
-                elif add_italics_tag:
-                    line.text = R"{\i1}" + line.text
-                elif add_top_tag:
-                    line.text = R"{\an8}" + line.text
+                tags = "" if not add_italics_tag else R"\i1"
+                tags = tags if not add_top_tag else tags + R"\an8"
+                line.text = f"{{{tags}}}{line.text}"
 
             line.style = get_default(line.style, False)
 
