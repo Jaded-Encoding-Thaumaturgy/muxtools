@@ -118,7 +118,13 @@ class SubFile(MuxingFile):
         self.__update_doc(doc)
         return self
 
-    def autoswapper(self: SubFileSelf, allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES, print_swaps: bool = False) -> SubFileSelf:
+    def autoswapper(
+        self: SubFileSelf,
+        allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES,
+        print_swaps: bool = False,
+        inline_marker: str = "*",
+        line_marker: str = "***",
+    ) -> SubFileSelf:
         """
         autoswapper does the swapping.
         Too lazy to explain
@@ -126,34 +132,50 @@ class SubFile(MuxingFile):
         :param allowed_styles:      List of allowed styles to do the swapping on
                                     Will run on every line if passed `None`
         :param print_swaps:         Prints the swaps
+        :param inline_marker:       Marker to use for inline swaps.
+                                    Should be one character. Default `*`
+        :param line_marker:         Marker to use for full-line swaps. Default `***`
 
         :return:                    This SubTrack
         """
         doc = self._read_doc()
-
         events = []
 
+        if not isinstance(inline_marker, str) or not inline_marker.strip():
+            warn("Given invalid inline marker. Using default '*'.", self)
+            inline_marker = "*"
+
+        if not isinstance(line_marker, str) or not line_marker.strip():
+            warn("Given invalid line marker. Using default '***'.", self)
+            line_marker = "***"
+
+        marker = re.escape(inline_marker)
+
+        ab_swap_regex = re.compile(fr"{{{marker}}}([^{{]*){{{marker}([^}}*]+)}}")
+        show_word_regex = re.compile(fr"{{{marker}{marker}([^}}]+)}}")
+        hide_word_regex = re.compile(fr"{{{marker}}}([^{{]*){{{marker} *}}")
+
         for i, line in enumerate(doc.events):
-            if not allowed_styles or line.style.lower() in (style.lower() for style in allowed_styles):
+            if not allowed_styles or str(line.style).casefold() in {style.casefold() for style in allowed_styles}:
                 to_swap: dict = {}
                 # {*}This will be replaced{*With this}
-                for match in re.finditer(re.compile(r"\{\*\}([^{]*)\{\*([^}*]+)\}"), line.text):
-                    to_swap.update({f"{match.group(0)}": f"{{*}}{match.group(2)}{{*{match.group(1)}}}"})
+                for match in re.finditer(ab_swap_regex, line.text):
+                    to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2)}{{{inline_marker}{match.group(1)}}}"})
 
                 # This sentence is no longer{** incomplete}
-                for match in re.finditer(re.compile(r"\{\*\*([^}]+)\}"), line.text):
-                    to_swap.update({f"{match.group(0)}": f"{{*}}{match.group(1)}{{*}}"})
+                for match in re.finditer(show_word_regex, line.text):
+                    to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1)}{{{inline_marker}}}"})
 
                 # This sentence is no longer{*} incomplete{*}
-                for match in re.finditer(re.compile(r"\{\*\}([^{]*)\{\* *\}"), line.text):
-                    to_swap.update({f"{match.group(0)}": f"{{**{match.group(1)}}}"})
+                for match in re.finditer(hide_word_regex, line.text):
+                    to_swap.update({f"{match.group(0)}": f"{{{inline_marker*2}{match.group(1)}}}"})
                 # print(to_swap)
                 for key, val in to_swap.items():
                     if print_swaps:
                         info(f'autoswapper: Swapped "{key}" for "{val}" on line {i}', self)
                     line.text = line.text.replace(key, val)
 
-                if line.effect.strip() == "***" or line.name.strip() == "***":
+                if line.effect.strip() == line_marker or line.name.strip() == line_marker:
                     if isinstance(line, Comment):
                         line.TYPE = "Dialogue"
                         if print_swaps:
