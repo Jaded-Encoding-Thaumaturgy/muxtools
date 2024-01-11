@@ -2,6 +2,7 @@ from shlex import split as splitcommand, join as joincommand
 from typing import Any
 from shutil import rmtree
 from pathlib import Path
+import subprocess
 import wget
 import re
 import os
@@ -32,7 +33,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     :param quiet:       Whether or not to print the mkvmerge output
     :param print_cli:   Print the final muxing command before running it if True
     """
-
+    check_mkvmerge_version()
     tracks = list(tracks)
     out_dir = ensure_path(get_setup_attr("out_dir", "premux"), "Mux")
     args: list[str] = [get_executable("mkvmerge")]
@@ -181,3 +182,17 @@ def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: l
     title = re.sub(re.escape(R"$ep$"), episode, title)
 
     return (filename, title)
+
+
+def check_mkvmerge_version():
+    out = subprocess.run([get_executable("mkvmerge"), "--version"], capture_output=True, text=True, encoding="utf-8", errors="ignore")
+    output = ((out.stderr or "") + (out.stdout or "")).strip()
+    version_regex = re.compile(r".*mkvmerge v(?P<version>\d+(?:\.\d+)?).*", re.I)
+    match = version_regex.match(output)
+    try:
+        if match:
+            version = match.group("version")
+            if version and float(version) < 77:
+                warn("Please update your mkvtoolnix/mkvmerge for optimal behavior.", sleep=10)
+    except:
+        pass
