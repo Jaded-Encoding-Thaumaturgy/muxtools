@@ -139,29 +139,24 @@ class SubFile(MuxingFile):
         :return:                    This SubTrack
         """
         doc = self._read_doc()
-
         events = []
 
-        if type(inline_marker) != str or len(inline_marker) == 0:
+        if not isinstance(inline_marker, str) or not inline_marker.strip():
             warn("Given invalid inline marker. Using default '*'.", self)
             inline_marker = "*"
-        elif len(inline_marker) > 1:
-            warn(f"Inline marker '{inline_marker}' should be one character. Using '{inline_marker[0]}'.", self)
-            inline_marker = inline_marker[0]
 
-        if type(line_marker) != str or len(line_marker := line_marker.strip()) == 0:
+        if not isinstance(line_marker, str) or not line_marker.strip():
             warn("Given invalid line marker. Using default '***'.", self)
             line_marker = "***"
 
-        # these characters have special meaning in python regex, so they need to be escaped if used as markers
-        escaped_inline_marker = f"\\{inline_marker}" if inline_marker in r"\.^$*+?|(){}[]" else inline_marker
+        marker = re.escape(inline_marker)
 
-        ab_swap_regex = re.compile(r"\{\*\}([^{]*)\{\*([^}*]+)\}".replace(r"\*", escaped_inline_marker))
-        show_word_regex = re.compile(r"\{\*\*([^}]+)\}".replace(r"\*", escaped_inline_marker))
-        hide_word_regex = re.compile(r"\{\*\}([^{]*)\{\* *\}".replace(r"\*", escaped_inline_marker))
+        ab_swap_regex = re.compile(fr"{{{marker}}}([^{{]*){{{marker}([^}}*]+)}}")
+        show_word_regex = re.compile(fr"{{{marker}{marker}([^}}]+)}}")
+        hide_word_regex = re.compile(fr"{{{marker}}}([^{{]*){{{marker} *}}")
 
         for i, line in enumerate(doc.events):
-            if not allowed_styles or line.style.lower() in (style.lower() for style in allowed_styles):
+            if not allowed_styles or str(line.style).casefold() in {style.casefold() for style in allowed_styles}:
                 to_swap: dict = {}
                 # {*}This will be replaced{*With this}
                 for match in re.finditer(ab_swap_regex, line.text):
