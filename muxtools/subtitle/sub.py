@@ -151,9 +151,9 @@ class SubFile(MuxingFile):
 
         marker = re.escape(inline_marker)
 
-        ab_swap_regex = re.compile(fr"{{{marker}}}([^{{]*){{{marker}([^}}*]+)}}")
-        show_word_regex = re.compile(fr"{{{marker}{marker}([^}}]+)}}")
-        hide_word_regex = re.compile(fr"{{{marker}}}([^{{]*){{{marker} *}}")
+        ab_swap_regex = re.compile(rf"{{{marker}}}([^{{]*){{{marker}([^}}*]+)}}")
+        show_word_regex = re.compile(rf"{{{marker}{marker}([^}}]+)}}")
+        hide_word_regex = re.compile(rf"{{{marker}}}([^{{]*){{{marker} *}}")
 
         for i, line in enumerate(doc.events):
             if not allowed_styles or str(line.style).casefold() in {style.casefold() for style in allowed_styles}:
@@ -547,7 +547,7 @@ class SubFile(MuxingFile):
 
         :param styles:      List of styles to look for
         """
-        macrons: list[tuple[str, str]] = [("ā", "a"), ("ē", "e"), ("Ī", "i"), ("ō", "o"), ("ū", "u")]
+        macrons: list[tuple[str, str]] = [("ā", "a"), ("ē", "e"), ("ī", "i"), ("ō", "o"), ("ū", "u")]
         doc = self._read_doc()
         events = []
         for line in doc.events:
