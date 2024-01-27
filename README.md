@@ -4,7 +4,7 @@ A library for various muxing and automation tools for anything and everything fa
 
 ## How do I use this?
 
-You might wanna check out the [wiki](https://github.com/Irrational-Encoding-Wizardry/vs-muxtools/wiki) in the [vs-muxtools](https://github.com/Irrational-Encoding-Wizardry/vs-muxtools) repo.
+You might wanna check out the [guide/wiki](https://muxtools.vodes.pw/).
 
 ## Installation
 
