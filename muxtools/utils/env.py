@@ -2,6 +2,7 @@ import os
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from ..main import Setup
 
@@ -12,7 +13,7 @@ def save_setup(setup: Setup):
     os.environ["vof_setup"] = setup._toJson()
 
 
-def get_setup_attr(attr: str, default: any = None) -> any:
+def get_setup_attr(attr: str, default: Any = None) -> Any:
     envi = os.environ.get("vof_setup")
     if not envi:
         return default

@@ -18,10 +18,10 @@ __all__ = ["Resample", "Loudnorm", "Downmix", "Pan", "CustomPreprocessor"]
 class Preprocessor(ABC):
     refresh_metadata = False
 
-    def get_filter(self, caller: any = None) -> str | None:
+    def get_filter(self, caller: Any = None) -> str | None:
         return None
 
-    def get_args(self, caller: any = None) -> list[str]:
+    def get_args(self, caller: Any = None) -> list[str]:
         return []
 
     def analyze(self, file: AudioFile):
@@ -58,7 +58,7 @@ class Resample(Preprocessor):
             or [p for p in preprocessors if isinstance(p, Loudnorm)]
         )
 
-    def get_args(self, caller: any = None) -> list[str]:
+    def get_args(self, caller: Any = None) -> list[str]:
         if caller:
             debug(
                 f"Resampling to {self.depth} bit and {self.sample_rate / 1000} kHz..."
@@ -113,7 +113,7 @@ class Downmix(Preprocessor):
     def can_run(self, track: Track, preprocessors: list[Any]) -> bool:
         return getattr(track, "channel_s", 2) > 2 or self.force
 
-    def get_filter(self, caller: any = None) -> str:
+    def get_filter(self, caller: Any = None) -> str:
         if not self.mixing:
             self.mixing = Downmix.Dave_750
         if caller:
@@ -208,7 +208,7 @@ class Loudnorm(Preprocessor):
             float(offset_match[0]),
         )
 
-    def get_filter(self, caller: any = None) -> str | None:
+    def get_filter(self, caller: Any = None) -> str | None:
         if caller:
             debug(f"Applying loudnorm...", caller)
         if not hasattr(self, "measurements"):
@@ -236,10 +236,10 @@ class CustomPreprocessor(Preprocessor):
     def can_run(self, track: Track, preprocessors: list[Any]) -> bool:
         return True
 
-    def get_filter(self, caller: any = None) -> str | None:
+    def get_filter(self, caller: Any = None) -> str | None:
         return self.filt
 
-    def get_args(self, caller: any = None) -> list[str]:
+    def get_args(self, caller: Any = None) -> list[str]:
         if isinstance(self.args, str) and not isinstance(self.args, Sequence):
             self.args = [self.args]
         return list(self.args) if self.args else []

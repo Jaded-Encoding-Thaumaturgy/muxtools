@@ -3,6 +3,7 @@ import os
 import subprocess
 from pathlib import Path
 from fractions import Fraction
+from typing import Any
 from pyparsebluray import mpls
 from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame, TrackType
 from .files import ensure_path_exists
@@ -75,7 +76,7 @@ def parse_m2ts_path(dgiFile: Path) -> Path:
     return dgiFile
 
 
-def parse_audioinfo(file: PathLike, track: int = 0, caller: any = None, is_thd: bool = False) -> AudioInfo:
+def parse_audioinfo(file: PathLike, track: int = 0, caller: Any = None, is_thd: bool = False) -> AudioInfo:
     f_compiled = re.compile(AUDIOFRAME_REGEX, re.IGNORECASE)
     s_compiled = re.compile(AUDIOSTATS_REGEX, re.IGNORECASE)
     file = ensure_path_exists(file, parse_audioinfo)

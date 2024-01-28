@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import json
-from typing import TypeVar
+from typing import Any, TypeVar
 from pathlib import Path
 from dataclasses import dataclass
 from configparser import ConfigParser
@@ -95,7 +95,7 @@ class Setup:
 
         save_setup(self)
 
-    def edit(self: SetupSelf, attr: str, value: any) -> SetupSelf:
+    def edit(self: SetupSelf, attr: str, value: Any) -> SetupSelf:
         """
         Sets a variable inside of Setup and saves it to the environment variables.
         You should use this to apply any changes because other functions will not make use of them otherwise!
