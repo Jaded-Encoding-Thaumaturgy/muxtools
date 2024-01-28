@@ -18,7 +18,7 @@ __all__ = [
     "LossyWavQuality",
 ]
 
-PathLike = TypeVar("PathLike", str, Path, None)
+PathLike = Union[Path, str, None]
 Trim = tuple[int | None, int | None]
 
 Paths = Union[PathLike, list[PathLike]]
