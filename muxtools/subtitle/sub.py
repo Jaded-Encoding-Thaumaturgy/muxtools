@@ -311,7 +311,7 @@ class SubFile(MuxingFile):
             if target == None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
-                    target = timedelta_to_frame(line.start, fps)
+                    target = timedelta_to_frame(line.start, fps) + 1
 
         if target == None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
@@ -329,7 +329,7 @@ class SubFile(MuxingFile):
                 sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
-                second_sync = timedelta_to_frame(line.start, fps)
+                second_sync = timedelta_to_frame(line.start, fps) + 1
                 mergedoc.events.remove(line)
                 break
 
@@ -338,7 +338,7 @@ class SubFile(MuxingFile):
         # Assume the first line to be the second syncpoint if none was found
         if second_sync == None:
             for l in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = timedelta_to_frame(l.start, fps)
+                second_sync = timedelta_to_frame(l.start, fps) + 1
                 break
 
         # Merge lines from file

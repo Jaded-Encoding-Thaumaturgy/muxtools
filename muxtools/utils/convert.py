@@ -35,27 +35,23 @@ def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
     return timedelta(seconds=float(seconds))
 
 
-def _timedelta_from_timecodes(timecodes: PathLike, frame: int, compensate: bool = False, rounding: bool = False) -> timedelta:
+def _timedelta_from_timecodes(timecodes: PathLike, frame: int) -> timedelta:
     timecode_file = ensure_path_exists(timecodes, _timedelta_from_timecodes)
     parsed = [float(x) / 1000 for x in open(timecode_file, "r").read().splitlines()[1:]]
     if len(parsed) <= frame:
         raise error(f"Frame {frame} is out of range for the given timecode file!", _timedelta_from_timecodes)
 
     target = timedelta(seconds=parsed[frame])
-    if compensate and len(parsed) - 1 >= frame + 1:
-        next = timedelta(seconds=parsed[frame + 1])
-        target = target + (next - target) / 2
-        if rounding:
-            return timedelta(seconds=round(target.total_seconds(), 2))
     return target
 
 
 def _frame_from_timecodes(timecodes: PathLike, time: timedelta) -> int:
     timecode_file = ensure_path_exists(timecodes, _frame_from_timecodes)
-    parsed = [float(x) / 1000 for x in open(timecode_file, "r").read().splitlines()[1:]]
+    # Subtract 0.5 from timecodes to ensure correct behavior even with small rounding errors
+    # (A timedelta of 42ms should belong to frame [42, 83) with a timecode list [0, 42, 83, ...])
+    parsed = [(float(x) - 0.5) / 1000 for x in open(timecode_file, "r").read().splitlines()[1:]]
 
-    nearest_frame = min(parsed, key=lambda val: abs(val - time.total_seconds()))
-    return parsed.index(nearest_frame)
+    return len([t for t in parsed if t < time.total_seconds()]) - 1
 
 
 def timedelta_to_frame(time: timedelta, fps: Fraction | PathLike = Fraction(24000, 1001)) -> int:
@@ -69,16 +65,10 @@ def timedelta_to_frame(time: timedelta, fps: Fraction | PathLike = Fraction(2400
     """
     if not isinstance(fps, Fraction):
         return _frame_from_timecodes(fps, time)
-    ms = Decimal(time.total_seconds()) * 1000
+    ms = Decimal(time.total_seconds())
     fps_dec = _fraction_to_decimal(fps)
 
-    upper_bound = (ms + Decimal(0.5)) * fps_dec / 1000
-    trunc_frame = int(upper_bound)
-
-    if upper_bound == trunc_frame:
-        return trunc_frame - 1
-
-    return trunc_frame
+    return int(ms * fps_dec)
 
 
 def frame_to_timedelta(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False, rounding: bool = True) -> timedelta:
@@ -93,24 +83,25 @@ def frame_to_timedelta(f: int, fps: Fraction | PathLike = Fraction(24000, 1001),
     :param rounding:    Round compensated value to centi seconds if True
     :return:            The resulting timedelta
     """
-    if not f or f < 0:
-        return timedelta(seconds=0)
+    result = None
 
-    if not isinstance(fps, Fraction):
-        return _timedelta_from_timecodes(fps, f, compensate, rounding)
-
-    fps_dec = _fraction_to_decimal(fps)
-    seconds = Decimal(f) / fps_dec
-    if not compensate:
-        return timedelta(seconds=float(seconds))
+    if compensate:
+        result = (frame_to_timedelta(f, fps, rounding=False) + frame_to_timedelta(f + 1, fps, rounding=False)) / 2
     else:
-        t1 = timedelta(seconds=float(seconds))
-        t2 = timedelta(seconds=float(Decimal(f + 1) / fps_dec))
-        result = t1 + (t2 - t1) / 2
-        if not rounding:
-            return result
-        rounded = round(result.total_seconds(), 2)
-        return timedelta(seconds=rounded)
+        if not f or f < 0:
+            return timedelta(seconds=0)
+
+        if isinstance(fps, Fraction):
+            fps_dec = _fraction_to_decimal(fps)
+            seconds = Decimal(f) / fps_dec
+            result = timedelta(seconds=float(seconds))
+        else:
+            result = _timedelta_from_timecodes(fps, f)
+
+    if not rounding:
+        return result
+    rounded = round(result.total_seconds(), 2)
+    return timedelta(seconds=rounded)
 
 
 def frame_to_ms(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False) -> float:
