@@ -29,7 +29,7 @@ def ensure_valid_in(
     supports_pipe: bool = True,
     preprocess: Preprocessor | Sequence[Preprocessor] | None = None,
     valid_type: ValidInputType = ValidInputType.FLAC,
-    caller: any = None,
+    caller: Any = None,
 ) -> AudioFile | subprocess.Popen:
     """
     Ensures valid input for any encoder that accepts flac (all of them).
@@ -97,7 +97,7 @@ def get_pcm(
     supports_pipe: bool = True,
     preprocess: Sequence[Preprocessor] | None = None,
     valid_type: ValidInputType = ValidInputType.RF64,
-    caller: any = None,
+    caller: Any = None,
 ) -> AudioFile | subprocess.Popen:
     ffmpeg = get_executable("ffmpeg")
     args = [ffmpeg, "-i", str(fileIn.file), "-map", "0:a:0"]
@@ -139,7 +139,7 @@ def get_pcm(
 
 
 def sanitize_trims(
-    trims: Trim | list[Trim], total_frames: int = 0, uses_frames: bool = True, allow_negative_start: bool = False, caller: any = None
+    trims: Trim | list[Trim], total_frames: int = 0, uses_frames: bool = True, allow_negative_start: bool = False, caller: Any = None
 ) -> list[Trim]:
     caller = caller if caller else sanitize_trims
     if not isinstance(trims, (list, tuple)):
@@ -189,7 +189,7 @@ formats = [
     AudioFormat("Opus",         "opus",     "A_OPUS"),
     AudioFormat("Vorbis",       "ogg",      "A_VORBIS"),
     AudioFormat("/",            "mp3",      "mp4a-6B"), # MP3 has the format name split up into 3 variables so we're gonna ignore this
-    
+
     # Lossless
     AudioFormat("FLAC",         "flac",     "A_FLAC", False),
     AudioFormat("MLP FBA*",     "thd",      "A_TRUEHD", False), # Atmos stuff has some more shit in the format name
@@ -207,7 +207,7 @@ def format_from_track(track: Track) -> AudioFormat | None:
     compression_mode = str(getattr(track, "compression_mode", ""))
     if comm_name and str(comm_name).lower() == "dts" and compression_mode.lower() == "lossy":
         return formats[-1]
-    
+
     for format in formats:
         f = str(track.format)
         if hasattr(track, "format_additionalfeatures") and track.format_additionalfeatures:

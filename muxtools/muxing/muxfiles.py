@@ -2,6 +2,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from pymediainfo import MediaInfo, Track
 from datetime import timedelta
+from typing import Any
 
 from .tracks import VideoTrack
 
@@ -104,7 +105,7 @@ class AudioFile(MuxingFile):
 
         return getattr(minfo, "compression_mode", "lossless").lower() == "lossy"
 
-    def has_multiple_tracks(self, caller: any = None) -> bool:
+    def has_multiple_tracks(self, caller: Any = None) -> bool:
         fileIn = ensure_path_exists(self.file, caller)
         minfo = MediaInfo.parse(fileIn)
         if len(minfo.audio_tracks) > 1 or len(minfo.video_tracks) > 1 or len(minfo.text_tracks) > 1:
@@ -135,7 +136,7 @@ class AudioFile(MuxingFile):
             raise error("Failed to mux AudioFile to mka.", self)
 
     @staticmethod
-    def from_file(pathIn: PathLike, caller: any):
+    def from_file(pathIn: PathLike, caller: Any):
         from ..utils.log import warn
 
         file = ensure_path_exists(pathIn, caller)

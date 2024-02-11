@@ -1,5 +1,6 @@
 import logging
 from rich.logging import RichHandler
+from typing import Any
 import time
 import inspect
 
@@ -17,20 +18,20 @@ logger = logging.getLogger("muxtools")
 logger.setLevel(logging.DEBUG)
 
 
-def _format_msg(msg: str, caller: any) -> str:
+def _format_msg(msg: str, caller: Any) -> str:
     if caller and not isinstance(caller, str):
         caller = caller.__class__.__qualname__ if hasattr(caller, "__class__") and caller.__class__.__name__ not in ["function", "method"] else caller
         caller = caller.__name__ if not isinstance(caller, str) else caller
     return msg if caller is None else f"[bold]{caller}:[/] {msg}"
 
 
-def crit(msg: str, caller: any = None) -> LoggingException:
+def crit(msg: str, caller: Any = None) -> LoggingException:
     message = _format_msg(msg, caller)
     logger.critical(message)
     return LoggingException(message)
 
 
-def debug(msg: str, caller: any = None):
+def debug(msg: str, caller: Any = None):
     from .env import is_debug
 
     if not is_debug():
@@ -39,25 +40,25 @@ def debug(msg: str, caller: any = None):
     logger.debug(message)
 
 
-def info(msg: str, caller: any = None):
+def info(msg: str, caller: Any = None):
     message = _format_msg(msg, caller)
     logger.info(message)
 
 
-def warn(msg: str, caller: any = None, sleep: int = 0):
+def warn(msg: str, caller: Any = None, sleep: int = 0):
     message = _format_msg(msg, caller)
     logger.warning(message)
     if sleep:
         time.sleep(sleep)
 
 
-def error(msg: str, caller: any = None) -> LoggingException:
+def error(msg: str, caller: Any = None) -> LoggingException:
     message = _format_msg(msg, caller)
     logger.error(message)
     return LoggingException(message)
 
 
-def exit(msg: str, caller: any = None):
+def exit(msg: str, caller: Any = None):
     message = _format_msg(msg, caller)
     logger.info(message)
     import sys

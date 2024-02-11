@@ -4,7 +4,7 @@ import binascii
 from pathlib import Path
 from shutil import rmtree
 from copy import deepcopy
-from typing import Callable
+from typing import Any, Callable
 from pymediainfo import Track, MediaInfo
 
 from .log import *
@@ -25,7 +25,7 @@ __all__ = [
 ]
 
 
-def ensure_path(pathIn: PathLike, caller: any) -> Path:
+def ensure_path(pathIn: PathLike, caller: Any) -> Path:
     """
     Utility function for other functions to make sure a path was passed to them.
 
@@ -38,7 +38,7 @@ def ensure_path(pathIn: PathLike, caller: any) -> Path:
         return Path(pathIn).resolve()
 
 
-def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch, caller: any, allow_dir: bool = False) -> Path:
+def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch, caller: Any, allow_dir: bool = False) -> Path:
     """
     Utility function for other functions to make sure a path was passed to them and that it exists.
 
@@ -114,7 +114,7 @@ def make_output(source: PathLike, ext: str, suffix: str = "", user_passed: PathL
         return Path(uniquify_path(os.path.join(workdir, f"{source_stem}{f'_{suffix}' if suffix else ''}.{ext}"))).resolve()
 
 
-def get_track_list(file: PathLike, caller: any = None) -> list[Track]:
+def get_track_list(file: PathLike, caller: Any = None) -> list[Track]:
     """Makes a sanitized mediainfo track list"""
     caller = caller if caller else get_track_list
     file = ensure_path_exists(file, caller)
@@ -207,7 +207,7 @@ def find_tracks(
     return tracks
 
 
-def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: any = None) -> Track:
+def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: Any = None) -> Track:
     """
     Finds the absolute track for a relative track number of a specific type.
 
@@ -248,7 +248,7 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: any 
             raise error("Not implemented for anything other than Video, Audio or Subtitles.", caller)
 
 
-def get_absolute_tracknum(file: PathLike, track: int, type: TrackType, caller: any = None) -> int:
+def get_absolute_tracknum(file: PathLike, track: int, type: TrackType, caller: Any = None) -> int:
     """
     Finds the absolute track number for a relative track number of a specific type.
 
