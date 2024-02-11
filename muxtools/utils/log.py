@@ -4,7 +4,12 @@ from typing import Any
 import time
 import inspect
 
-__all__ = ["crit", "debug", "error", "exit", "info", "warn", "logger"]
+__all__ = ["crit", "debug", "error", "exit", "info", "warn", "logger", "LoggingException"]
+
+
+class LoggingException(Exception):
+    """Custom exception returned from log.crit and log.error"""
+
 
 FORMAT = "%(name)s | %(message)s"  #
 logging.basicConfig(format=FORMAT, datefmt="[%X]", handlers=[RichHandler(markup=True, omit_repeated_times=False, show_path=False)])
@@ -20,10 +25,10 @@ def _format_msg(msg: str, caller: Any) -> str:
     return msg if caller is None else f"[bold]{caller}:[/] {msg}"
 
 
-def crit(msg: str, caller: Any = None) -> Exception:
+def crit(msg: str, caller: Any = None) -> LoggingException:
     message = _format_msg(msg, caller)
     logger.critical(message)
-    return Exception(message)
+    return LoggingException(message)
 
 
 def debug(msg: str, caller: Any = None):
@@ -47,10 +52,10 @@ def warn(msg: str, caller: Any = None, sleep: int = 0):
         time.sleep(sleep)
 
 
-def error(msg: str, caller: Any = None) -> Exception:
+def error(msg: str, caller: Any = None) -> LoggingException:
     message = _format_msg(msg, caller)
     logger.error(message)
-    return Exception(message)
+    return LoggingException(message)
 
 
 def exit(msg: str, caller: Any = None):
