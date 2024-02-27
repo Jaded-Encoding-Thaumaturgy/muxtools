@@ -161,7 +161,7 @@ def sanitize_trims(
             raise error("The first part of a trim cannot be negative.", caller)
 
         has_negative = (trim[1] is not None and trim[1] < 0) or (trim[0] is not None and trim[0] < 0)
-        if not uses_frames and has_negative:
+        if not uses_frames and has_negative and index != 0:
             raise error(f"If you use milliseconds to trim you cannot use negative values.")
 
         if not total_frames and has_negative:
