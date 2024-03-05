@@ -67,8 +67,8 @@ def timedelta_to_frame(time: timedelta, fps: Fraction | PathLike = Fraction(2400
         return _frame_from_timecodes(fps, time)
     ms = Decimal(time.total_seconds()).__round__(3)
     fps_dec = _fraction_to_decimal(fps)
-
-    return int(ms * fps_dec)
+    frame_decimal = ms * fps_dec
+    return frame_decimal.__round__()
 
 
 def frame_to_timedelta(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False, rounding: bool = True) -> timedelta:
