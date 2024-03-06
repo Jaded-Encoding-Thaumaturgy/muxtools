@@ -54,17 +54,23 @@ def _frame_from_timecodes(timecodes: PathLike, time: timedelta) -> int:
     return len([t for t in parsed if t < time.total_seconds()]) - 1
 
 
-def timedelta_to_frame(time: timedelta, fps: Fraction | PathLike = Fraction(24000, 1001)) -> int:
+def timedelta_to_frame(time: timedelta, fps: Fraction | PathLike = Fraction(24000, 1001), exclude_boundary: bool = False) -> int:
     """
     Converts a timedelta to a frame number.
 
-    :param time:    The timedelta
-    :param fps:     A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
+    :param time:                The timedelta
+    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
+    :param exclude_boundary:    Associate frame boundaries with the previous frame rather than the current one.
+                                Use this option when dealing with subtitle start/end times.
 
-    :return:        The resulting frame number
+    :return:                    The resulting frame number
     """
+    if exclude_boundary:
+        return timedelta_to_frame(time - timedelta(milliseconds=1), fps)
+
     if not isinstance(fps, Fraction):
         return _frame_from_timecodes(fps, time)
+
     ms = int(Decimal(time.total_seconds()).__round__(3) * 1000)
     frame = ms * fps / 1000
     return int(frame)
