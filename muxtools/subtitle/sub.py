@@ -306,8 +306,8 @@ class SubFile(MuxingFile):
         events = []
         for line in doc.events:
             if not allowed_styles or line.style.lower() in allowed_styles:
-                line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps), fps, True)
-                line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps), fps, True)
+                line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps, exclude_boundary=True), fps, True)
+                line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps, exclude_boundary=True), fps, True)
             events.append(line)
         doc.events = events
         self.__update_doc(doc)
@@ -349,7 +349,7 @@ class SubFile(MuxingFile):
             if target == None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
-                    target = timedelta_to_frame(line.start, fps) + 1
+                    target = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
 
         if target == None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
@@ -367,7 +367,7 @@ class SubFile(MuxingFile):
                 sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
-                second_sync = timedelta_to_frame(line.start, fps) + 1
+                second_sync = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
                 mergedoc.events.remove(line)
                 break
 
@@ -376,7 +376,7 @@ class SubFile(MuxingFile):
         # Assume the first line to be the second syncpoint if none was found
         if second_sync == None:
             for l in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = timedelta_to_frame(l.start, fps) + 1
+                second_sync = timedelta_to_frame(l.start, fps, exclude_boundary=True) + 1
                 break
 
         # Merge lines from file
@@ -388,8 +388,8 @@ class SubFile(MuxingFile):
 
             # Apply frame offset
             offset = (target or -1) - second_sync
-            line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps) + offset, fps, True)
-            line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps) + offset, fps, True)
+            line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps, exclude_boundary=True) + offset, fps, True)
+            line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps, exclude_boundary=True) + offset, fps, True)
             tomerge.append(line)
 
         if tomerge:
@@ -611,11 +611,11 @@ class SubFile(MuxingFile):
         doc = self._read_doc()
         events = []
         for line in doc.events:
-            start = timedelta_to_frame(line.start, fps) + frames
+            start = timedelta_to_frame(line.start, fps, exclude_boundary=True) + frames
             if start < 0:
                 start = 0
             start = frame_to_timedelta(start, fps, compensate=True)
-            end = timedelta_to_frame(line.end, fps) + frames
+            end = timedelta_to_frame(line.end, fps, exclude_boundary=True) + frames
             if end < 0:
                 continue
             end = frame_to_timedelta(end, fps, compensate=True)
@@ -669,7 +669,7 @@ class SubFile(MuxingFile):
         def srt_timedelta(timestamp: str) -> timedelta:
             args = timestamp.split(",")[0].split(":")
             parsed = timedelta(hours=int(args[0]), minutes=int(args[1]), seconds=int(args[2]), milliseconds=int(timestamp.split(",")[1]))
-            cope = timedelta_to_frame(parsed, fps)
+            cope = timedelta_to_frame(parsed, fps, exclude_boundary=True)
             cope = frame_to_timedelta(cope, fps, compensate=True)
             return cope
 
