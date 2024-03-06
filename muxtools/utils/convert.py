@@ -1,6 +1,6 @@
 import os
 from math import trunc
-from decimal import ROUND_HALF_DOWN, Decimal
+from decimal import *
 from fractions import Fraction
 from datetime import timedelta
 from typing import Any
@@ -65,10 +65,9 @@ def timedelta_to_frame(time: timedelta, fps: Fraction | PathLike = Fraction(2400
     """
     if not isinstance(fps, Fraction):
         return _frame_from_timecodes(fps, time)
-    ms = Decimal(time.total_seconds()).__round__(3)
-    fps_dec = _fraction_to_decimal(fps)
-    frame_decimal = ms * fps_dec
-    return frame_decimal.__round__()
+    ms = int(Decimal(time.total_seconds()).__round__(3) * 1000)
+    frame = ms * fps / 1000
+    return int(frame)
 
 
 def frame_to_timedelta(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False, rounding: bool = True) -> timedelta:
@@ -150,9 +149,8 @@ def timedelta_from_formatted(formatted: str) -> timedelta:
     :return:                The parsed timedelta
     """
     # 00:05:25.534...
-    seconds: float = 0.0
     split = formatted.split(":")
-    seconds += float(split[0]) * 3600
-    seconds += float(split[1]) * 60
-    seconds += float(split[2])
-    return timedelta(seconds=seconds)
+    seconds = Decimal(split[0]) * Decimal(3600)
+    seconds = seconds + (Decimal(split[1]) * Decimal(60))
+    seconds = seconds + (Decimal(split[2]))
+    return timedelta(seconds=seconds.__float__())
