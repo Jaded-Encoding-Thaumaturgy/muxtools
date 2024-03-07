@@ -73,6 +73,12 @@ def timedelta_to_frame(time: timedelta, fps: Fraction | PathLike = Fraction(2400
 
     ms = int(Decimal(time.total_seconds()).__round__(3) * 1000)
     frame = ms * fps / 1000
+    frame_dec = Decimal(frame.numerator) / Decimal(frame.denominator)
+
+    # Return next int if difference is less than 0.01
+    if abs(frame_dec.__round__(3) - frame_dec.__ceil__()) < 0.01:
+        return frame_dec.__ceil__()
+
     return int(frame)
 
 
