@@ -3,7 +3,6 @@ from math import trunc
 from decimal import *
 from fractions import Fraction
 from datetime import timedelta
-from typing import Any
 
 from ..utils.types import PathLike
 from ..utils.files import ensure_path_exists

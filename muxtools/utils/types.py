@@ -1,6 +1,6 @@
 from enum import IntEnum, Enum
 from pathlib import Path
-from typing import TypeVar, Union, Optional
+from typing import Union, Optional
 from datetime import timedelta
 from dataclasses import dataclass
 

@@ -1,14 +1,11 @@
 from typing import Any
-from enum import IntEnum
-from math import ceil, trunc
+from math import ceil
 from datetime import timedelta
-from fractions import Fraction
 from re import Pattern, compile
 from dataclasses import dataclass
 from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TimeElapsedColumn
 from shlex import split as splitcmd
 from subprocess import Popen, PIPE, STDOUT
-from decimal import ROUND_HALF_DOWN, Decimal
 
 from .convert import timedelta_from_formatted
 
@@ -35,11 +32,9 @@ def run_cmd_pb(cmd: str | list[str], silent: bool = True, pbc: ProgressBarConfig
     if isinstance(pbc.regex, str):
         pbc.regex = compile(pbc.regex)
 
-    with Progress(TextColumn("[progress.description]{task.description}"),
-                  BarColumn(),
-                  TaskProgressColumn(),
-                  TimeRemainingColumn(),
-                  TimeElapsedColumn()) as pro:
+    with Progress(
+        TextColumn("[progress.description]{task.description}"), BarColumn(), TaskProgressColumn(), TimeRemainingColumn(), TimeElapsedColumn()
+    ) as pro:
         task = pro.add_task(pbc.description)
         prev = 0
 

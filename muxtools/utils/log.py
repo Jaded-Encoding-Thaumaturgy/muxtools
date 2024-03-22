@@ -2,7 +2,6 @@ import logging
 from rich.logging import RichHandler
 from typing import Any
 import time
-import inspect
 
 __all__ = ["crit", "debug", "error", "exit", "info", "warn", "logger", "LoggingException"]
 

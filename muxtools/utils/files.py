@@ -4,7 +4,8 @@ import binascii
 from pathlib import Path
 from shutil import rmtree
 from copy import deepcopy
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 from pymediainfo import Track, MediaInfo
 
 from .log import *

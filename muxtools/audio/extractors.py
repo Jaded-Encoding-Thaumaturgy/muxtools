@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
-import shutil
 import os
 import re
 

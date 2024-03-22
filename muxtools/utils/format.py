@@ -1,8 +1,7 @@
 from pymediainfo import MediaInfo, Track
-from .types import TrackType, PathLike, AudioFormat
+from .types import TrackType, PathLike
 from .files import ensure_path_exists
-from .log import error, warn
-import re
+from .log import error
 
 
 def get_absolute_track(file: PathLike, track: int, type: TrackType) -> Track:

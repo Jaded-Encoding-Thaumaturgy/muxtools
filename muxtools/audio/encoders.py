@@ -1,6 +1,6 @@
 from shlex import split as splitcommand
 from dataclasses import dataclass, field
-from typing import Sequence
+from collections.abc import Sequence
 import subprocess
 import os
 

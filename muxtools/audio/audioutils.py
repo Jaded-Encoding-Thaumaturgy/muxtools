@@ -2,7 +2,8 @@ import os
 import re
 import subprocess
 from datetime import timedelta
-from typing import Sequence, Any
+from typing import Any
+from collections.abc import Sequence
 
 from pymediainfo import Track, MediaInfo
 

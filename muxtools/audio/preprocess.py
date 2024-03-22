@@ -1,7 +1,8 @@
 import os
 import re
 import subprocess
-from typing import Any, Sequence
+from typing import Any
+from collections.abc import Sequence
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from pymediainfo import Track
@@ -21,15 +22,14 @@ class Preprocessor(ABC):
     def get_filter(self, caller: Any = None) -> str | None:
         return None
 
-    def get_args(self, caller: Any = None) -> list[str]:
+    def get_args(self, caller: Any = None) -> Sequence[str]:
         return []
 
     def analyze(self, file: AudioFile):
         return None
 
     @abstractmethod
-    def can_run(self, track: Track, preprocessors: list[Any]) -> bool:
-        ...
+    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool: ...
 
 
 @dataclass
@@ -50,7 +50,7 @@ class Resample(Preprocessor):
     sample_rate: int = 48000
     refresh_metadata = True
 
-    def can_run(self, track: Track, preprocessors: list[Any]) -> bool:
+    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool:
         # Run if depth or sample rate differ. Also run if loudnorm is being used.
         return (
             (self.depth and getattr(track, "bit_depth", 24) != self.depth)
@@ -58,12 +58,14 @@ class Resample(Preprocessor):
             or [p for p in preprocessors if isinstance(p, Loudnorm)]
         )
 
-    def get_args(self, caller: Any = None) -> list[str]:
+    def get_args(self, caller: Any = None) -> Sequence[str]:
         if caller:
             debug(
-                f"Resampling to {self.depth} bit and {self.sample_rate / 1000} kHz..."
-                if self.depth
-                else f"Resampling to {self.sample_rate / 1000} kHz...",
+                (
+                    f"Resampling to {self.depth} bit and {self.sample_rate / 1000} kHz..."
+                    if self.depth
+                    else f"Resampling to {self.sample_rate / 1000} kHz..."
+                ),
                 caller,
             )
         return (
@@ -110,7 +112,7 @@ class Downmix(Preprocessor):
     force: bool = False
     refresh_metadata = True
 
-    def can_run(self, track: Track, preprocessors: list[Any]) -> bool:
+    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool:
         return getattr(track, "channel_s", 2) > 2 or self.force
 
     def get_filter(self, caller: Any = None) -> str:
@@ -168,7 +170,7 @@ class Loudnorm(Preprocessor):
         thresh: float
         target_offset: float
 
-    def can_run(self, track: Track, preprocessors: list[Any]) -> bool:
+    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool:
         return True
 
     def analyze(self, file: AudioFile):
@@ -233,13 +235,13 @@ class CustomPreprocessor(Preprocessor):
     filt: str | None = None
     args: str | Sequence[str] | None = None
 
-    def can_run(self, track: Track, preprocessors: list[Any]) -> bool:
+    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool:
         return True
 
     def get_filter(self, caller: Any = None) -> str | None:
         return self.filt
 
-    def get_args(self, caller: Any = None) -> list[str]:
+    def get_args(self, caller: Any = None) -> Sequence[str]:
         if isinstance(self.args, str) and not isinstance(self.args, Sequence):
             self.args = [self.args]
         return list(self.args) if self.args else []

@@ -7,7 +7,7 @@ Thought they might be cool to have atleast.
 from pathlib import Path
 from dataclasses import dataclass, field
 from shlex import split as splitcommand
-from typing import Sequence
+from collections.abc import Sequence
 
 
 from .encoders import FLAC

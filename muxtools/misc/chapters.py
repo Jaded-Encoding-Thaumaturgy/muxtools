@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 from fractions import Fraction
-from os import PathLike
 from pathlib import Path
 from typing import TypeVar
 import os

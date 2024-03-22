@@ -5,11 +5,10 @@ from pathlib import Path
 from fractions import Fraction
 from typing import Any
 from pyparsebluray import mpls
-from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame, TrackType
+from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame
 from .files import ensure_path_exists
 from .log import error, warn, debug, info
 from .download import get_executable
-from .files import get_absolute_tracknum
 from .convert import (
     timedelta_from_formatted,
     timedelta_to_frame,
