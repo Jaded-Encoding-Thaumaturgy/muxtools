@@ -58,7 +58,7 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
             else:
                 name = name.capitalize()
             weight = _weight_to_name(font.weight)
-            name = f"{name}{'-' + weight if weight else ''}{'Italic' if font.italic else ''}"
+            name = f"{name}{'-' + weight if weight and weight not in name else ''}{'Italic' if font.italic else ''}"
 
         return name
 

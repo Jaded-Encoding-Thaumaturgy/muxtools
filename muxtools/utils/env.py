@@ -51,12 +51,23 @@ def download_allowed() -> bool:
     return get_setup_attr("allow_binary_download", False)
 
 
-def run_commandline(command: str | list[str], quiet: bool = True, shell: bool = False, stdin=subprocess.DEVNULL, **kwargs) -> int:
+def run_commandline(
+    command: str | list[str], quiet: bool = True, shell: bool = False, stdin=subprocess.DEVNULL, mkvmerge: bool = False, **kwargs
+) -> int:
     if os.name != "nt" and isinstance(command, str):
         shell = True
     if quiet:
-        p = subprocess.Popen(command, stdin=stdin, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=shell, **kwargs)
+        p = subprocess.Popen(
+            command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, shell=shell, **kwargs
+        )
     else:
         p = subprocess.Popen(command, stdin=stdin, shell=shell, **kwargs)
 
-    return p.wait()
+    returncode = p.wait()
+    if returncode > (1 if mkvmerge else 0) and p.stdout and quiet and (lines := p.stdout.readlines()):
+        print("\n----------------------")
+        for line in lines:
+            print(line.rstrip("\n"))
+        print("----------------------")
+
+    return returncode

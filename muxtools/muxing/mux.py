@@ -82,7 +82,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
         info(joincommand(args), "Mux")
 
     debug("Running the mux...", "Mux")
-    if run_commandline(args, quiet) > 1:
+    if run_commandline(args, quiet, mkvmerge=True) > 1:
         raise error("Muxing failed!", "Mux")
 
     if "#crc32#" in outfile.stem:
