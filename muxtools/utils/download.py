@@ -26,15 +26,15 @@ class Tool:
 # fmt: off
 # Feel free to compare the hashes if you don't like the custom files
 tools = [
-    Tool("CUETools.FLACCL.cmd", "https://github.com/gchudov/cuetools.net/releases/download/v2.2.4/CUETools_2.2.4.zip", ["flaccl"]),
+    Tool("CUETools.FLACCL.cmd", "https://github.com/gchudov/cuetools.net/releases/download/v2.2.5/CUETools_2.2.5.zip", ["flaccl"]),
     # non-free builds for libfdk_aac if one so desires
-    Tool("ffmpeg", "https://github.com/AnimMouse/ffmpeg-autobuild/releases/download/m-2023-06-12-17-58/ffmpeg-09621fd-9b0e37c-win64-nonfree.7z", ["ffprobe"]),
-    Tool("mkvmerge", "https://mkvtoolnix.download/windows/releases/77.0/mkvtoolnix-64-bit-77.0.7z", ['mkvextract', 'mkvinfo', 'mkvpropedit']), 
+    Tool("ffmpeg", "https://github.com/AnimMouse/ffmpeg-autobuild/releases/download/2024-03-10-12-25-64634e8-a8e823a/ffmpeg-64634e8-a8e823a-win64-nonfree.7z", ["ffprobe"]),
+    Tool("mkvmerge", "https://mkvtoolnix.download/windows/releases/83.0/mkvtoolnix-64-bit-83.0.7z", ['mkvextract', 'mkvinfo', 'mkvpropedit']), 
     Tool("eac3to", "https://files.catbox.moe/hn9oms.7z"), # Custom package because of removed sounds and updated libFlac
     Tool("x264", "https://github.com/DJATOM/x264-aMod/releases/download/r3101+20/x264-aMod-x64-core164-r3101+20.7z"),
     Tool("x265", "https://github.com/DJATOM/x265-aMod/releases/download/3.5+67/x265-x64-v3.5+67-aMod-gcc12.2.1+opt.7z"),
     Tool("qaac", "https://files.catbox.moe/z9q796.7z"), # 2.79 with flac, w64 and iTunes libraries included
-    Tool("opusenc", "https://archive.mozilla.org/pub/opus/win32/opus-tools-0.2-opus-1.3.zip"),
+    Tool("opusenc", "https://www.rarewares.org/files/opus/opustools-0.2-20230419-x64.zip"),
     Tool("flac", "https://github.com/xiph/flac/releases/download/1.4.3/flac-1.4.3-win.zip"),
     Tool("wavpack", "https://github.com/dbry/WavPack/releases/download/5.6.0/wavpack-5.6.0-x64.zip")
 ]
