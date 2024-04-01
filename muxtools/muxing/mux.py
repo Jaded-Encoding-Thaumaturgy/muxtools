@@ -1,4 +1,5 @@
 from shlex import split as splitcommand, join as joincommand
+from pymediainfo import MediaInfo
 from typing import Any
 from shutil import rmtree
 from pathlib import Path
@@ -84,6 +85,20 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     debug("Running the mux...", "Mux")
     if run_commandline(args, quiet, mkvmerge=True) > 1:
         raise error("Muxing failed!", "Mux")
+
+    try:
+        from importlib.metadata import version
+
+        minfo = MediaInfo.parse(outfile, parse_speed=0.375)
+        container_info = minfo.general_tracks[0]
+        mkvpropedit = get_executable("mkvpropedit", False, False)
+        muxtools_version = version("muxtools")
+        version_tag = f" + muxtools v{muxtools_version}"
+        if mkvpropedit and (muxing_application := getattr(container_info, "writing_library", None)):
+            args = [mkvpropedit, "--edit", "info", "--set", f"muxing-application={muxing_application + version_tag}", str(outfile.resolve())]
+            run_commandline(args)
+    except:
+        pass
 
     if "#crc32#" in outfile.stem:
         debug("Generating CRC32 for the muxed file...", "Mux")
