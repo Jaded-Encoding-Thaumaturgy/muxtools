@@ -38,16 +38,28 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
     from font_collector import AssDocument, FontLoader, Helpers, Font
 
     def _get_fontname(font: Font) -> str:
+        filename_fallback = False
+        exact_fallback = False
         try:
-            familyname = font.family_names.pop()
-            if " " in familyname:
-                familyname = "".join([part.capitalize() for part in familyname.split(" ")])
-            else:
-                familyname.capitalize()
-            weight = _weight_to_name(font.weight)
-            name = f"{familyname}{'-' + weight if weight else ''}{'Italic' if font.italic else ''}"
+            try:
+                name = font.family_names.pop().strip()
+            except:
+                name = font.exact_names.pop().strip()
+                exact_fallback = True
         except:
-            name = Path(font.filename).name
+            name = Path(font.filename).with_suffix("").name.strip()
+            filename_fallback = True
+
+        if not filename_fallback:
+            if " " in name:
+                name = "".join([part.capitalize() for part in name.split(" ")])
+            elif "-" in name and exact_fallback:
+                name = "".join([part.strip().capitalize() for part in name.split("-")])
+            else:
+                name = name.capitalize()
+            weight = _weight_to_name(font.weight)
+            name = f"{name}{'-' + weight if weight else ''}{'Italic' if font.italic else ''}"
+
         return name
 
     loaded_fonts = FontLoader(additional_fonts, use_system_font=use_system_fonts).fonts
