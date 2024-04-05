@@ -1,5 +1,6 @@
 from __future__ import annotations
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar
 from datetime import timedelta
@@ -20,11 +21,13 @@ from ..utils.convert import frame_to_timedelta, timedelta_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
 from ..muxing.muxfiles import MuxingFile
+from .basesub import BaseSubFile, _Line
 
 __all__ = ["FontFile", "SubFile", "DEFAULT_DIALOGUE_STYLES"]
 
 DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "top", "italics"]
 SRT_REGEX = r"\d+[\r\n](?:(?P<start>\d+:\d+:\d+,\d+) --> (?P<end>\d+:\d+:\d+,\d+))[\r\n](?P<text>(?:.+\r?\n)+(?=(\r?\n)?))"
+LINES = list[_Line]
 
 
 @dataclass
@@ -33,7 +36,7 @@ class FontFile(MuxingFile):
 
 
 @dataclass
-class SubFile(MuxingFile):
+class SubFile(BaseSubFile):
     """
     Utility class representing a subtitle file with various functions to run on.
 
@@ -87,51 +90,15 @@ class SubFile(MuxingFile):
                     self._read_doc().dump_file(writer)
                 self.file = out
 
-    def _read_doc(self, file: PathLike | None = None) -> Document:
-        with open(self.file if not file else file, "r", encoding=self.encoding) as reader:
-            doc = parseDoc(reader)
-            self.__fix_style_definition(doc)
-            return doc
+    def manipulate_lines(self: SubFileSelf, func: Callable[[LINES], LINES | None]) -> SubFileSelf:
+        """
+        Function to manipulate any lines.
 
-    def __update_doc(self, doc: Document):
-        with open(self.file, "w", encoding=self.encoding) as writer:
-            doc.dump_file(writer)
-
-    def __fix_style_definition(self, doc: Document):
-        fields: list[str] = doc.styles.field_order
-        valid_casing = [
-            "Name",
-            "Fontname",
-            "Fontsize",
-            "PrimaryColour",
-            "SecondaryColour",
-            "OutlineColour",
-            "BackColour",
-            "Bold",
-            "Italic",
-            "Underline",
-            "StrikeOut",
-            "ScaleX",
-            "ScaleY",
-            "Spacing",
-            "Angle",
-            "BorderStyle",
-            "Outline",
-            "Shadow",
-            "Alignment",
-            "MarginL",
-            "MarginR",
-            "MarginV",
-            "Encoding",
-        ]
-
-        for i, f in enumerate(fields):
-            for valid in valid_casing:
-                if f.casefold() == valid.casefold():
-                    fields[i] = valid
-                    break
-
-        setattr(doc.styles, "field_order", fields)
+        :param func:        Your own function you want to run on the list of lines.
+                            This can return a new list or just edit the one passed into it.
+        """
+        super().manipulate_lines(func)
+        return self
 
     def clean_styles(self: SubFileSelf) -> SubFileSelf:
         """
@@ -144,7 +111,7 @@ class SubFile(MuxingFile):
             for match in regex.finditer(line.text):
                 used_styles.add(match.group(1))
         doc.styles = [style for style in doc.styles if style.name in used_styles]
-        self.__update_doc(doc)
+        self._update_doc(doc)
         return self
 
     def clean_garbage(self: SubFileSelf) -> SubFileSelf:
@@ -153,7 +120,7 @@ class SubFile(MuxingFile):
         """
         doc = self._read_doc()
         doc.sections.pop("Aegisub Project Garbage", None)
-        self.__update_doc(doc)
+        self._update_doc(doc)
         return self
 
     def autoswapper(
@@ -176,9 +143,6 @@ class SubFile(MuxingFile):
 
         :return:                    This SubTrack
         """
-        doc = self._read_doc()
-        events = []
-
         if not isinstance(inline_marker, str) or not inline_marker.strip():
             warn("Given invalid inline marker. Using default '*'.", self)
             inline_marker = "*"
@@ -193,40 +157,38 @@ class SubFile(MuxingFile):
         show_word_regex = re.compile(rf"{{{marker}{marker}([^}}]+)}}")
         hide_word_regex = re.compile(rf"{{{marker}}}([^{{]*){{{marker} *}}")
 
-        for i, line in enumerate(doc.events):
-            if not allowed_styles or str(line.style).casefold() in {style.casefold() for style in allowed_styles}:
-                to_swap: dict = {}
-                # {*}This will be replaced{*With this}
-                for match in re.finditer(ab_swap_regex, line.text):
-                    to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2)}{{{inline_marker}{match.group(1)}}}"})
+        def _do_autoswap(lines: LINES):
+            for i, line in enumerate(lines):
+                if not allowed_styles or str(line.style).casefold() in {style.casefold() for style in allowed_styles}:
+                    to_swap: dict = {}
+                    # {*}This will be replaced{*With this}
+                    for match in re.finditer(ab_swap_regex, line.text):
+                        to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2)}{{{inline_marker}{match.group(1)}}}"})
 
-                # This sentence is no longer{** incomplete}
-                for match in re.finditer(show_word_regex, line.text):
-                    to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1)}{{{inline_marker}}}"})
+                    # This sentence is no longer{** incomplete}
+                    for match in re.finditer(show_word_regex, line.text):
+                        to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1)}{{{inline_marker}}}"})
 
-                # This sentence is no longer{*} incomplete{*}
-                for match in re.finditer(hide_word_regex, line.text):
-                    to_swap.update({f"{match.group(0)}": f"{{{inline_marker*2}{match.group(1)}}}"})
-                # print(to_swap)
-                for key, val in to_swap.items():
-                    if print_swaps:
-                        info(f'autoswapper: Swapped "{key}" for "{val}" on line {i}', self)
-                    line.text = line.text.replace(key, val)
-
-                if line.effect.strip() == line_marker or line.name.strip() == line_marker:
-                    if isinstance(line, Comment):
-                        line.TYPE = "Dialogue"
+                    # This sentence is no longer{*} incomplete{*}
+                    for match in re.finditer(hide_word_regex, line.text):
+                        to_swap.update({f"{match.group(0)}": f"{{{inline_marker*2}{match.group(1)}}}"})
+                    # print(to_swap)
+                    for key, val in to_swap.items():
                         if print_swaps:
-                            info(f'autoswapper: Uncommented Line {i} - "{line.text}"', self)
-                    elif isinstance(line, Dialogue):
-                        line.TYPE = "Comment"
-                        if print_swaps:
-                            info(f'autoswapper: Commented Line {i} - "{line.text}"', self)
+                            info(f'autoswapper: Swapped "{key}" for "{val}" on line {i}', self)
+                        line.text = line.text.replace(key, val)
 
-            events.append(line)
+                    if line.effect.strip() == line_marker or line.name.strip() == line_marker:
+                        if isinstance(line, Comment):
+                            line.TYPE = "Dialogue"
+                            if print_swaps:
+                                info(f'autoswapper: Uncommented Line {i} - "{line.text}"', self)
+                        elif isinstance(line, Dialogue):
+                            line.TYPE = "Comment"
+                            if print_swaps:
+                                info(f'autoswapper: Commented Line {i} - "{line.text}"', self)
 
-        doc.events = events
-        self.__update_doc(doc)
+        self.manipulate_lines(_do_autoswap)
         return self
 
     def unfuck_cr(
@@ -251,15 +213,15 @@ class SubFile(MuxingFile):
         :param alt_styles:          Possible identifiers for styles that should be set to the alt_style
         """
 
-        def get_default(style: str, allow_default: bool = True) -> str:
+        def get_default(line: _Line, allow_default: bool = True) -> str:
             placeholder = default_style
             is_default = True
             if alt_styles:
                 for s in alt_styles:
-                    if s.casefold() in style.casefold():
+                    if s.casefold() in line.style.casefold():
                         placeholder = alt_style
                         is_default = False
-            if "flashback" in style.lower():
+            if "flashback" in line.style.lower():
                 return placeholder if not keep_flashback else "Flashback"
 
             if is_default:
@@ -267,28 +229,25 @@ class SubFile(MuxingFile):
 
             return placeholder
 
-        doc = self._read_doc()
-        events = []
-        for line in doc.events:
-            add_italics_tag = italics_styles and bool([s for s in italics_styles if s.casefold() in line.style.casefold()])
-            add_top_tag = top_styles and bool([s for s in top_styles if s.casefold() in line.style.casefold()])
+        def _func(lines: LINES):
+            for line in lines:
+                add_italics_tag = italics_styles and bool([s for s in italics_styles if s.casefold() in line.style.casefold()])
+                add_top_tag = top_styles and bool([s for s in top_styles if s.casefold() in line.style.casefold()])
 
-            if any([add_italics_tag, add_top_tag]):
-                line.style = get_default(line.style)
-                tags = "" if not add_italics_tag else R"\i1"
-                tags = tags if not add_top_tag else tags + R"\an8"
-                line.text = f"{{{tags}}}{line.text}"
+                if any([add_italics_tag, add_top_tag]):
+                    line.style = get_default(line)
+                    tags = "" if not add_italics_tag else R"\i1"
+                    tags = tags if not add_top_tag else tags + R"\an8"
+                    line.text = f"{{{tags}}}{line.text}"
 
-            line.style = get_default(line.style, False)
+                line.style = get_default(line, False)
 
-            if dialogue_styles:
-                for s in dialogue_styles:
-                    if s.casefold() in line.style.casefold():
-                        line.style = default_style
-            events.append(line)
-        doc.events = events
-        self.__update_doc(doc)
-        return self.clean_styles()
+                if dialogue_styles:
+                    for s in dialogue_styles:
+                        if s.casefold() in line.style.casefold():
+                            line.style = default_style
+
+        return self.manipulate_lines(_func).clean_styles()
 
     def shift_0(
         self: SubFileSelf, fps: Fraction | PathLike = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES
@@ -302,16 +261,14 @@ class SubFile(MuxingFile):
         :param fps:             The fps fraction used for conversions. Also accepts a timecode (v2) file.
         :param allowed_styles:  A list of style names this will run on. Will run on every line if None.
         """
-        doc = self._read_doc()
-        events = []
-        for line in doc.events:
-            if not allowed_styles or line.style.lower() in allowed_styles:
-                line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps, exclude_boundary=True), fps, True)
-                line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps, exclude_boundary=True), fps, True)
-            events.append(line)
-        doc.events = events
-        self.__update_doc(doc)
-        return self
+
+        def _func(lines: LINES):
+            for line in lines:
+                if not allowed_styles or line.style.lower() in allowed_styles:
+                    line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps, exclude_boundary=True), fps, True)
+                    line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps, exclude_boundary=True), fps, True)
+
+        return self.manipulate_lines(_func)
 
     def merge(
         self: SubFileSelf,
@@ -400,7 +357,7 @@ class SubFile(MuxingFile):
                     continue
                 doc.styles.append(style)
 
-        self.__update_doc(doc)
+        self._update_doc(doc)
         return self
 
     def collect_fonts(
@@ -472,7 +429,7 @@ class SubFile(MuxingFile):
         styles.extend(existing)
         doc.styles = styles
 
-        self.__update_doc(doc)
+        self._update_doc(doc)
         if clean_after:
             return self.clean_styles()
         else:
@@ -553,7 +510,7 @@ class SubFile(MuxingFile):
                 continue
             events.append(line)
         doc.events = events
-        self.__update_doc(doc)
+        self._update_doc(doc)
         return self.clean_styles()
 
     def change_layers(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, layer: int | None = None, additive: bool = True) -> SubFileSelf:
@@ -564,19 +521,16 @@ class SubFile(MuxingFile):
         :param layer:       The layer you want. Defaults to 50 for additive and 99 otherwise.
         :param additive:    Add specified layer number instead of replacing the existing one.
         """
-        doc = self._read_doc()
-        events = []
         if not layer:
             layer = 50 if additive else 99
 
-        for line in doc.events:
-            for style in styles:
-                if str(line.style).strip().casefold() == style.strip().casefold():
-                    line.layer = layer if not additive else int(line.layer) + layer
-            events.append(line)
-        doc.events = events
-        self.__update_doc(doc)
-        return self
+        def _func(lines: LINES):
+            for line in lines:
+                for style in styles:
+                    if str(line.style).strip().casefold() == style.strip().casefold():
+                        line.layer = layer if not additive else line.layer + layer
+
+        return self.manipulate_lines(_func)
 
     def purge_macrons(self: SubFileSelf, styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> SubFileSelf:
         """
@@ -598,7 +552,7 @@ class SubFile(MuxingFile):
                     line.text: str = line.text.replace(macron[0], macron[1])
             events.append(line)
         doc.events = events
-        self.__update_doc(doc)
+        self._update_doc(doc)
         return self
 
     def shift(self: SubFileSelf, frames: int, fps: Fraction | PathLike = Fraction(24000, 1001)) -> SubFileSelf:
@@ -608,24 +562,20 @@ class SubFile(MuxingFile):
         :param frames:      Number of frames to shift by
         :param fps:         FPS needed for the timing calculations. Also accepts a timecode (v2) file.
         """
-        doc = self._read_doc()
-        events = []
-        for line in doc.events:
-            start = timedelta_to_frame(line.start, fps, exclude_boundary=True) + frames
-            if start < 0:
-                start = 0
-            start = frame_to_timedelta(start, fps, compensate=True)
-            end = timedelta_to_frame(line.end, fps, exclude_boundary=True) + frames
-            if end < 0:
-                continue
-            end = frame_to_timedelta(end, fps, compensate=True)
-            line.start = start
-            line.end = end
-            events.append(line)
+        def _func(lines: LINES):
+            for line in lines:
+                start = timedelta_to_frame(line.start, fps, exclude_boundary=True) + frames
+                if start < 0:
+                    start = 0
+                start = frame_to_timedelta(start, fps, compensate=True)
+                end = timedelta_to_frame(line.end, fps, exclude_boundary=True) + frames
+                if end < 0:
+                    continue
+                end = frame_to_timedelta(end, fps, compensate=True)
+                line.start = start
+                line.end = end
 
-        doc.events = events
-        self.__update_doc(doc)
-        return self
+        return self.manipulate_lines(_func)
 
     def copy(self: SubFileSelf) -> SubFileSelf:
         """
@@ -695,7 +645,7 @@ class SubFile(MuxingFile):
                 start = srt_timedelta(match["start"])
                 end = srt_timedelta(match["end"])
                 text, sign = convert_tags(match["text"])
-                doc.events.append(Dialogue(layer=99, start=start, end=end, text=text, style="Sign" if sign else "Default"))
+                doc.events.append(Dialogue(layer=99, start=start, end=end, text=text, style="Sign" if sign and style_all_caps else "Default"))
 
         out = file.with_suffix(".ass")
         with open(out, "w", encoding="utf_8_sig") as writer:
