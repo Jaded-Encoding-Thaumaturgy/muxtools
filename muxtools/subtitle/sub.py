@@ -21,7 +21,7 @@ from ..utils.convert import frame_to_timedelta, timedelta_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
 from ..muxing.muxfiles import MuxingFile
-from .basesub import BaseSubFile, _Line
+from .basesub import BaseSubFile, _Line, ASSHeader
 
 __all__ = ["FontFile", "SubFile", "DEFAULT_DIALOGUE_STYLES"]
 
@@ -98,6 +98,31 @@ class SubFile(BaseSubFile):
                             This can return a new list or just edit the one passed into it.
         """
         super().manipulate_lines(func)
+        return self
+
+    def set_header(self: SubFileSelf, header: str | ASSHeader, value: str | int | bool | None) -> SubFileSelf:
+        """
+        A function to add headers to the "Script Info" section of the subtitle file.
+        This will validate the input for known functional headers but also allows arbitrary ones.
+        If you're planning on setting multiple at the same time, use the `set_headers` function instead to avoid a lot of I/O.
+
+        :param header:      The name of the header or a header chosen from the enum.
+        :param value:       The value of the header. None will remove the header unless it's the Matrix header because None has a meaning there.
+        """
+        super().set_header(header, value)
+        return self
+
+    def set_headers(self: SubFileSelf, *headers: tuple[str | ASSHeader, str | int | bool | None]) -> SubFileSelf:
+        """
+        A function to add headers to the "Script Info" section of the subtitle file.
+        This will validate the input for known functional headers but also allows arbitrary ones.
+
+        :param headers:     Any amount of tuples with the same typing as the single header function.
+        """
+        doc = self._read_doc()
+        for header, value in headers:
+            super().set_header(header, value, doc)
+        self._update_doc(doc)
         return self
 
     def clean_styles(self: SubFileSelf) -> SubFileSelf:
@@ -562,6 +587,7 @@ class SubFile(BaseSubFile):
         :param frames:      Number of frames to shift by
         :param fps:         FPS needed for the timing calculations. Also accepts a timecode (v2) file.
         """
+
         def _func(lines: LINES):
             for line in lines:
                 start = timedelta_to_frame(line.start, fps, exclude_boundary=True) + frames
