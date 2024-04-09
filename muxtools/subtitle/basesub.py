@@ -123,7 +123,7 @@ class BaseSubFile(ABC, MuxingFile):
         self._update_doc(doc)
 
     def set_header(self, header: str | ASSHeader, value: str | int | bool | None, opened_doc: None | Document = None) -> None:
-        doc = opened_doc if opened_doc else self._read_doc()
+        doc = opened_doc or self._read_doc()
         functional_headers = ASSHeader._member_map_.items()
         section: dict = doc.sections["Script Info"]
         if isinstance(header, str):
