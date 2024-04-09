@@ -15,26 +15,51 @@ __all__ = ["_Line", "ASSHeader"]
 
 class _Line:
     TYPE: str
+    """The type of line. Should either be `Dialogue` or `Comment`."""
     layer: int
+    """An integer value in the range `[0, 2³¹-1]`. Events with a lower Layer value are placed behind events with a higher value."""
     start: timedelta
+    """Start of this line as a timedelta."""
     end: timedelta
+    """End of this line as a timedelta."""
     style: str
+    """Style name used for this line. Must exactly match one of the styles in your subtitle file."""
     name: str
+    """Usually used for what character is currently speaking. Known as `Actor` in aegisub."""
     margin_l: int
+    """Left margin overriding the value in the current style."""
     margin_r: int
+    """Right margin overriding the value in the current style."""
     margin_v: int
+    """Vertical margin overriding the value in the current style."""
     effect: str
+    """A legacy effect to be applied to the event. Can usually also be used as another freeform field."""
     text: str
+    """The text displayed (or not, if this is a Comment)"""
 
 
 class ASSHeader(IntEnum):
+    """
+    Basic enum class for some functional ASS headers.\n
+    Check https://github.com/libass/libass/wiki/ASS-File-Format-Guide for more information on each member.
+
+    Also contains the function to validate the input.
+    """
+
     LayoutResX = 1
+    """Video width this subtitle was originally authored on."""
     LayoutResY = 2
+    """Video height this subtitle was originally authored on."""
     PlayResX = 3
+    """Video width this subtitle is used on."""
     PlayResY = 4
+    """Video height this subtitle is used on."""
     WrapStyle = 5
+    """The default line-wrapping behaviour."""
     ScaledBorderAndShadow = 6
+    """Scale border and shadow with playback resolution. Should ideally always be yes."""
     YCbCr_Matrix = 7
+    """The color range and matrix this subtitle was authored for."""
 
     def validate_input(self, value: str | int | bool | None, caller: Any = None) -> str | int | None:
         if self in range(1, 6) and not isinstance(value, int) and value is not None:
@@ -69,6 +94,11 @@ class ASSHeader(IntEnum):
 
 
 class BaseSubFile(ABC, MuxingFile):
+    """
+    A base class for the SubFile class.\n
+    Mostly contains the functions to read/write the file and some commonly reused functions to manipulate headers/lines.
+    """
+
     def _read_doc(self, file: PathLike | None = None) -> Document:
         with open(self.file if not file else file, "r", encoding=self.encoding) as reader:
             doc = parseDoc(reader)
