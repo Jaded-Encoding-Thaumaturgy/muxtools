@@ -565,20 +565,18 @@ class SubFile(BaseSubFile):
         :param styles:      List of styles to look for
         """
         macrons: list[tuple[str, str]] = [("ā", "a"), ("ē", "e"), ("ī", "i"), ("ō", "o"), ("ū", "u")]
-        doc = self._read_doc()
-        events = []
-        for line in doc.events:
-            process = not styles
-            for style in styles or []:
-                if str(line.style).strip().casefold() == style.strip().casefold():
-                    process = True
-            if process:
-                for macron in macrons + [(m[0].upper(), m[1].upper()) for m in macrons]:
-                    line.text: str = line.text.replace(macron[0], macron[1])
-            events.append(line)
-        doc.events = events
-        self._update_doc(doc)
-        return self
+
+        def _func(lines: LINES):
+            for line in lines:
+                process = not styles
+                for style in styles or []:
+                    if str(line.style).strip().casefold() == style.strip().casefold():
+                        process = True
+                if process:
+                    for macron in macrons + [(m[0].upper(), m[1].upper()) for m in macrons]:
+                        line.text = line.text.replace(macron[0], macron[1])
+
+        return self.manipulate_lines(_func)
 
     def shift(self: SubFileSelf, frames: int, fps: Fraction | PathLike = Fraction(24000, 1001)) -> SubFileSelf:
         """
