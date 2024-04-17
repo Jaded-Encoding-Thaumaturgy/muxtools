@@ -1,4 +1,4 @@
-from shlex import split as splitcommand, join as joincommand
+from shlex import join as joincommand
 from pymediainfo import MediaInfo
 from typing import Any
 from shutil import rmtree
@@ -50,13 +50,13 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
 
     for track in tracks:
         if isinstance(track, _track):
-            args.extend(splitcommand(track.mkvmerge_args()))
+            args.extend(track.mkvmerge_args())
             continue
         elif isinstance(track, MuxingFile):
             if not isinstance(track, FontFile):
                 warn("It's strongly recommended to pass tracks to ensure naming and tagging instead of MuxingFiles directly!", "Mux", 1)
             track = track.to_track()
-            args.extend(splitcommand(track.mkvmerge_args()))
+            args.extend(track.mkvmerge_args())
             continue
         elif isinstance(track, Chapters):
             if not track.chapters:
@@ -94,7 +94,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
         mkvpropedit = get_executable("mkvpropedit", False, False)
         muxtools_version = version("muxtools")
         version_tag = f" + muxtools v{muxtools_version}"
-        if mkvpropedit and (muxing_application := getattr(container_info, "writing_library", None)):
+        if mkvpropedit and (muxing_application := getattr(container_info, "writing_library", None)) and "muxtools" not in muxing_application:
             args = [mkvpropedit, "--edit", "info", "--set", f"muxing-application={muxing_application + version_tag}", str(outfile.resolve())]
             run_commandline(args)
     except:

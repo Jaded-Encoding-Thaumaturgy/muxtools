@@ -1,5 +1,5 @@
 from pathlib import Path
-from shlex import join as join_args, split as split_args
+from shlex import split as split_args
 
 from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType
@@ -57,30 +57,43 @@ class _track:
         self.type = type if isinstance(type, TrackType) else (TrackType(type) if isinstance(type, int) else TrackType[type.upper()])
         self.args = args
 
-    def mkvmerge_args(self) -> str:
-        self.file = self.file if isinstance(self.file, Path) else Path(self.file)
+    def mkvmerge_args(self) -> list[str]:
+        filepath = str(self.file.resolve())
         if self.type == TrackType.ATTACHMENT:
             is_font = self.file.suffix.lower() in [".ttf", ".otf"]
             if not is_font and not self.lang:
                 raise ValueError(f"Please specify a mimetype for the attachments if they're not fonts!")
             if not is_font:
-                return f' --attachment-mime-type {self.lang} --attach-file "{self.file.resolve()}"'
+                args = ["--attachment-mime-type", self.lang]
             else:
-                return f' --attachment-mime-type {"font/ttf" if self.file.suffix.lower() == ".ttf" else "font/otf"} --attach-file "{self.file.resolve()}"'
+                args = ["--attachment-mime-type", "font/ttf" if self.file.suffix.lower() == ".ttf" else "font/otf"]
+            if self.name:
+                args.extend(["--attachment-name", self.name])
+
+            args.extend(["--attach-file", filepath])
+            return args
+
         elif self.type == TrackType.MKV:
-            return f' {join_args(self.args)} "{self.file.resolve()}"'
+            return [*self.args, filepath]
         elif self.type == TrackType.CHAPTERS:
-            return f' --chapters "{self.file.resolve()}"'
-        name_args = f' --track-name "0:{self.name}"' if self.name else ""
-        lang_args = f" --language 0:{self.lang}" if self.lang else ""
-        delay_args = f" --sync 0:{self.delay}" if self.delay else ""
-        default_args = f' --default-track-flag 0:{"yes" if self.default else "no"}'
-        forced_args = f' --forced-display-flag 0:{"yes" if self.forced else "no"}'
+            return ["--chapters", filepath]
+        args = ["--track-name", f"0:{self.name}"]
+        if self.lang:
+            args.extend(["--language", f"0:{self.lang}"])
+        if self.delay:
+            args.extend(["--sync", f"0:{self.delay}"])
+        args.extend(
+            [
+                "--default-track-flag",
+                f"0:{'yes' if self.default else 'no'}",
+                "--forced-display-flag",
+                f"0:{'yes' if self.forced else 'no'}",
+            ]
+        )
         if self.args:
-            other_args = join_args(self.args)
-        else:
-            other_args = ""
-        return f'{other_args}{name_args}{lang_args}{default_args}{forced_args}{delay_args} "{self.file.resolve()}"'
+            args.extend(self.args)
+        args.append(filepath)
+        return args
 
 
 class VideoTrack(_track):
@@ -138,8 +151,8 @@ class Attachment(_track):
     pseudo _track object for attachments
     """
 
-    def __init__(self, file: str | Path, mimetype: str = "") -> None:
-        super().__init__(file, TrackType.ATTACHMENT, lang=mimetype)
+    def __init__(self, file: str | Path, mimetype: str = "", name: str = "") -> None:
+        super().__init__(file, TrackType.ATTACHMENT, lang=mimetype, name=name)
 
 
 class SubTrack(_track):
