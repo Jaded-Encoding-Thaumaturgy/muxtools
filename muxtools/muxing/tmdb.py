@@ -166,7 +166,7 @@ class TmdbConfig:
                 try:
                     group = [group for group in groups if group["order"] == self.season][0]
                 except:
-                    raise error(f"Could not find subgroup for the number {self.season}.")
+                    raise error(f"Could not find subgroup for the number {self.season}.", self)
                 self.episodes = group["episodes"]
             else:
                 self.episodes = json_resp["episodes"]
