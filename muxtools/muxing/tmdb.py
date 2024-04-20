@@ -227,5 +227,20 @@ class TmdbConfig:
         return outfile
 
 
-def TitleTMDB(id: int, season: int = 1, movie: bool = False, language: str = "en-US") -> TmdbConfig:
-    return TmdbConfig(id, season, movie, language, False, False, False, False, False, False)
+def TitleTMDB(
+    id: int, season: int = 1, movie: bool = False, language: str = "en-US", offset: int = 0, order: TMDBOrder | str | None = None
+) -> TmdbConfig:
+    """
+    Shortcut function to get a TMDB config with just titles enabled.
+
+    :param id:              TMDB Media ID. The numerical part in URLs like https://www.themoviedb.org/tv/82684/...
+    :param season:          The number of the season. If given an order this will be the Nth subgroup in that order.
+    :param movie:           Is this a movie?
+    :param order:           Episode group/order enum or a string for an exact ID. Obviously not applicable to a movie.
+    :param language:        The metadata language. Defaults to english.
+                            This requires ISO 639-1 codes. See https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+                            Be aware that some metadata might just not exist in your requested language. Check beforehand.
+
+    :param offset:          Offset to apply to the current number used in the setup that will be matched to the TMDB number.
+    """
+    return TmdbConfig(id, season, movie, order, language, offset, False, False, False, False, False, False)
