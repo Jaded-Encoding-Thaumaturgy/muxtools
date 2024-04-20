@@ -1,21 +1,49 @@
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from enum import IntEnum
 import requests
 import logging
 
 from ..utils.types import PathLike
-from ..utils.log import debug, error
+from ..utils.log import debug, error, info
 
 
 # https://github.com/Radarr/Radarr/blob/29ba6fe5563e737f0f87919e48f556e39284e6bb/src/NzbDrone.Common/Cloud/RadarrCloudRequestBuilder.cs#L31
 # skill issue
 API_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIxYTczNzMzMDE5NjFkMDNmOTdmODUzYTg3NmRkMTIxMiIsInN1YiI6IjU4NjRmNTkyYzNhMzY4MGFiNjAxNzUzNCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.gh1BwogCCKOda6xj9FRMgAAj_RYKMMPC3oNlcBtlmwk"
-BASE_URL = "https://api.themoviedb.org/3/"
+BASE_URL = "https://api.themoviedb.org/3"
 
 logging.getLogger("urllib3.connectionpool").setLevel(logging.CRITICAL)
 
 
-__all__ = ["TmdbConfig", "TitleTMDB"]
+__all__ = ["TmdbConfig", "TitleTMDB", "TMDBOrder"]
+
+
+class TMDBOrder(IntEnum):
+    """
+    TMDB Episode groups or orders. Don't think there is a universally agreed on name.\n
+    This enum is for automatically selecting one with the given type.
+    """
+
+    ORIGINAL_AIR_DATE = 1
+    """Original air date order"""
+    ABSOLUTE = 2
+    """Absolute numbering order"""
+    DVD = 3
+    """DVD order"""
+    DIGITAL = 4
+    """Digital order"""
+    STORY_ARC = 5
+    """Story Arc order"""
+    PRODUCTION = 6
+    """
+    Production order, this is usually what contains the proper seasons now that 
+    TMDB mods decided to be weird.
+
+    See https://www.themoviedb.org/tv/95479/discuss/64a5672ada10f0011cb49f99
+    """
+    TV = 7
+    """TV order"""
 
 
 @dataclass
@@ -42,11 +70,14 @@ class TmdbConfig:
     A simple configuration class for TMDB Usage in muxing.
 
     :param id:              TMDB Media ID. The numerical part in URLs like https://www.themoviedb.org/tv/82684/...
-    :param season:          The number of the season.
+    :param season:          The number of the season. If given an order this will be the Nth subgroup in that order.
     :param movie:           Is this a movie?
+    :param order:           Episode group/order enum or a string for an exact ID. Obviously not applicable to a movie.
     :param language:        The metadata language. Defaults to english.
                             This requires ISO 639-1 codes. See https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
                             Be aware that some metadata might just not exist in your requested language. Check beforehand.
+
+    :param offset:          Offset to apply to the current number used in the setup that will be matched to the TMDB number.
 
     :param write_title:     Writes the episode title to the `DESCRIPTION` mkv tag if True
     :param write_ids:       Writes the IDs (IMDB, TVDB, TMDB) to their respective mkv tags if True
@@ -59,7 +90,9 @@ class TmdbConfig:
     id: int
     season: int = 1
     movie: bool = False
+    order: TMDBOrder | str | None = None
     language: str = "en-US"
+    offset: int = 0
 
     write_ids: bool = True
     write_date: bool = True
@@ -97,19 +130,49 @@ class TmdbConfig:
 
     def get_episode_meta(self, num: int) -> EpisodeMetadata:
         if not hasattr(self, "episodes"):
-            url = f"{BASE_URL}/tv/{self.id}/season/{self.season}?language={self.language}"
             headers = {"accept": "application/json", "Authorization": f"Bearer {API_KEY}"}
-            response = requests.get(url, headers=headers)
+            if self.order:
+                if not hasattr(self, "order_id"):
+                    if isinstance(self.order, str):
+                        setattr(self, "order_id", self.order)
+                    else:
+                        orders_url = f"{BASE_URL}/tv/{self.id}/episode_groups"
+                        order_resp = requests.get(orders_url, headers=headers)
+                        orders = order_resp.json()["results"]
+                        if not orders:
+                            raise error("Could not find any episode groups/orders for this show.", self)
+                        filtered = [order for order in orders if order["type"] == self.order]
+                        if not filtered:
+                            raise error(f"Could not find an episode groups/orders for type {self.order.name}.", self)
 
-            if response.status_code > 202:
-                ex = error(f"Episode Metadata Request has failed! ({response.status_code})", self)
-                debug(response.text)
+                        wanted_order = sorted(filtered, key=lambda it: it["group_count"])[0]
+                        info(f"Selecting episode group '{wanted_order['name']}'.", self)
+                        setattr(self, "order_id", str(wanted_order["id"]))
+
+                url = f"{BASE_URL}/tv/episode_group/{self.order_id}?language={self.language}"
+            else:
+                url = f"{BASE_URL}/tv/{self.id}/season/{self.season}?language={self.language}"
+
+            meta_response = requests.get(url, headers=headers)
+
+            if meta_response.status_code > 202:
+                ex = error(f"Episode Metadata Request has failed! ({meta_response.status_code})", self)
+                debug(meta_response.text)
                 raise ex
 
-            self.episodes = response.json()["episodes"]
+            json_resp: dict = meta_response.json()
+            if "groups" in json_resp:
+                groups = json_resp["groups"]
+                try:
+                    group = [group for group in groups if group["order"] == self.season][0]
+                except:
+                    raise error(f"Could not find subgroup for the number {self.season}.")
+                self.episodes = group["episodes"]
+            else:
+                self.episodes = json_resp["episodes"]
 
         try:
-            episode = self.episodes[num - 1]
+            episode = self.episodes[(num + self.offset) - 1]
         except:
             raise error(f"Failed to find or parse episode {num:02}!", self)
 
