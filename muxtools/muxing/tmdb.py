@@ -116,7 +116,7 @@ class TmdbConfig:
 
         mediajson = response.json()
 
-        url = f"{BASE_URL}{'movie' if self.movie else 'tv'}/{self.id}/external_ids"
+        url = f"{BASE_URL}/{'movie' if self.movie else 'tv'}/{self.id}/external_ids"
         response = requests.get(url, headers=headers)
         other_ids = response.json()
 
