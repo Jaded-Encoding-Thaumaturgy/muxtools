@@ -135,7 +135,7 @@ class Chapters:
             index += 1
         return self
 
-    def shift_chapter(self, chapter: int = 0, shift_amount: int = 0) -> "Chapters":
+    def shift_chapter(self: ChaptersSelf, chapter: int = 0, shift_amount: int = 0) -> ChaptersSelf:
         """
         Used to shift a single chapter by x frames
 
@@ -156,7 +156,15 @@ class Chapters:
         self.chapters[chapter] = tuple(ch)
         return self
 
-    def print(self) -> "Chapters":
+    def shift(self: ChaptersSelf, shift_amount: int) -> ChaptersSelf:
+        """
+        Shifts all chapters by x frames.
+
+        :param shift_amount:    Frames to shift by
+        """
+        return [self.shift_chapter(i, shift_amount) for i, _ in enumerate(self.chapters)][-1]
+
+    def print(self: ChaptersSelf) -> ChaptersSelf:
         """
         Prettier print for these because default timedelta formatting sucks
         """
@@ -166,7 +174,7 @@ class Chapters:
         print("", end="\n")
         return self
 
-    def to_file(self, out: PathLike | None = None) -> str:
+    def to_file(self: ChaptersSelf, out: PathLike | None = None) -> str:
         """
         Outputs the chapters to an OGM file
 
