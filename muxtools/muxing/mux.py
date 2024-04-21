@@ -128,7 +128,10 @@ def clean_name(name: str) -> str:
             stripped = stripped.replace(match, "").strip()
             warn(f"Unknown token '{match}' was removed.", "Mux")
 
-    delimiters = ["-", ".", "/"]
+    delimiters = ["-", "/"]
+    if not stripped.endswith("..."):
+        delimiters.append(".")
+
     while any([stripped.startswith(delim) for delim in delimiters]):
         stripped = stripped.lstrip("".join(delimiters)).strip()
 
