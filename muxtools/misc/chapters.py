@@ -99,7 +99,7 @@ class Chapters:
         old: list[str] = [chapter[1] for chapter in self.chapters]
         if len(names) > len(old):
             self.print()
-            raise error(f"Chapters: too many names!", self)
+            raise error("Chapters: too many names!", self)
         if len(names) < len(old):
             names += [None] * (len(old) - len(names))
 
@@ -232,7 +232,7 @@ class Chapters:
                     chapters.append((line.start, ""))
 
         if not chapters:
-            warn(f"Could not find any chapters in subtitle!", "Chapters")
+            warn("Could not find any chapters in subtitle!", "Chapters")
         ch = Chapters(chapters, fps)
         if _print and chapters:
             ch.print()

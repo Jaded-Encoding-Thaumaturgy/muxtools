@@ -184,7 +184,7 @@ class Loudnorm(Preprocessor):
             "-i",
             str(ensure_path_exists(file.file, self).resolve()),
             "-map",
-            f"0:a:0",
+            "0:a:0",
             "-filter:a",
             "loudnorm=print_format=json",
             "-f",
@@ -200,7 +200,7 @@ class Loudnorm(Preprocessor):
         thresh_match = re.findall(r"input_thresh.+?(-?\d+(?:\.\d+)?)", output, re.I)
         offset_match = re.findall(r"target_offset.+?(-?\d+(?:\.\d+)?)", output, re.I)
         if not all([i_match, tp_match, lra_match, thresh_match, offset_match]):
-            raise error(f"Could not properly measure the input file!", self)
+            raise error("Could not properly measure the input file!", self)
 
         self.measurements = self.Measurements(
             float(i_match[0]),
@@ -212,7 +212,7 @@ class Loudnorm(Preprocessor):
 
     def get_filter(self, caller: Any = None) -> str | None:
         if caller:
-            debug(f"Applying loudnorm...", caller)
+            debug("Applying loudnorm...", caller)
         if not hasattr(self, "measurements"):
             # Ideally shouldn't run into this lmfao
             return ""

@@ -62,7 +62,7 @@ class _track:
         if self.type == TrackType.ATTACHMENT:
             is_font = self.file.suffix.lower() in [".ttf", ".otf"]
             if not is_font and not self.lang:
-                raise ValueError(f"Please specify a mimetype for the attachments if they're not fonts!")
+                raise ValueError("Please specify a mimetype for the attachments if they're not fonts!")
             if not is_font:
                 args = ["--attachment-mime-type", self.lang]
             else:

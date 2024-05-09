@@ -1,4 +1,4 @@
-from enum import IntEnum, Enum
+from enum import IntEnum
 from pathlib import Path
 from typing import Union, Optional
 from datetime import timedelta

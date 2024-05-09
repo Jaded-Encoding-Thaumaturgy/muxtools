@@ -12,8 +12,8 @@ from ..utils.files import make_output, ensure_path_exists
 from ..muxing.muxfiles import AudioFile
 from ..utils.log import debug, warn, error
 from ..utils.download import get_executable
-from ..utils.env import get_temp_workdir, run_commandline
-from ..utils.types import DitherType, Trim, AudioFormat, ValidInputType, PathLike
+from ..utils.env import get_temp_workdir
+from ..utils.types import Trim, AudioFormat, ValidInputType, PathLike
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 
 __all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
@@ -126,12 +126,12 @@ def get_pcm(
         output = make_output(fileIn.file, "aiff" if valid_type == ValidInputType.AIFF else "w64", "ffmpeg", temp=True)
 
     if supports_pipe and valid_type != ValidInputType.RF64:
-        debug(f"Piping audio to ensure valid input using ffmpeg...", caller)
+        debug("Piping audio to ensure valid input using ffmpeg...", caller)
         args.extend(["-f", "aiff" if valid_type == ValidInputType.AIFF else "w64", "-"])
         p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
         return p
     else:
-        debug(f"Preparing audio to ensure valid input using ffmpeg...", caller)
+        debug("Preparing audio to ensure valid input using ffmpeg...", caller)
         args.append(str(output))
         if not run_cmd_pb(args, pbc=ProgressBarConfig("Preparing...", duration_from_file(fileIn))):
             return AudioFile(output, fileIn.container_delay, fileIn.source)
@@ -163,10 +163,10 @@ def sanitize_trims(
 
         has_negative = (trim[1] is not None and trim[1] < 0) or (trim[0] is not None and trim[0] < 0)
         if not uses_frames and has_negative and index != 0:
-            raise error(f"If you use milliseconds to trim you cannot use negative values.")
+            raise error("If you use milliseconds to trim you cannot use negative values.")
 
         if not total_frames and has_negative:
-            raise error(f"If you want to use negative trims you gotta pass a total frame number.")
+            raise error("If you want to use negative trims you gotta pass a total frame number.")
 
         if trim[1] is not None and trim[1] < 0:
             trim = (trim[0], total_frames + trim[1])

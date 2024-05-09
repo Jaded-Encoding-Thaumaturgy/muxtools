@@ -8,7 +8,7 @@ from typing import Any
 from collections.abc import Callable
 from pymediainfo import Track, MediaInfo
 
-from .log import *
+from .log import crit, error
 from .glob import GlobSearch
 from .types import PathLike, TrackType
 from .env import get_temp_workdir, get_workdir
@@ -58,7 +58,7 @@ def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch, caller: A
     if not path.exists():
         raise crit(f"Path target '{path}' does not exist.", caller)
     if not allow_dir and path.is_dir():
-        raise crit(f"Path cannot be a directory.", caller)
+        raise crit("Path cannot be a directory.", caller)
     return path
 
 
@@ -185,7 +185,7 @@ def find_tracks(
 
     def get_languages(track: MediaInfo) -> list[str]:
         languages: list[str] = getattr(track, "other_language", None) or list[str]()
-        return [l.casefold() for l in languages]
+        return [lang.casefold() for lang in languages]
 
     if name:
         tracks = [track for track in tracks if name_matches(getattr(track, "title", "") or "")]
@@ -230,21 +230,21 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: Any 
             try:
                 return videos[track]
             except:
-                raise error(f"Your requested track doesn't exist.", caller)
+                raise error("Your requested track doesn't exist.", caller)
         case TrackType.AUDIO:
             if not audios:
                 raise error(f"No audio tracks have been found in '{file.name}'!", caller)
             try:
                 return audios[track]
             except:
-                raise error(f"Your requested track doesn't exist.", caller)
+                raise error("Your requested track doesn't exist.", caller)
         case TrackType.SUB:
             if not subtitles:
                 raise error(f"No subtitle tracks have been found in '{file.name}'!", caller)
             try:
                 return subtitles[track]
             except:
-                raise error(f"Your requested track doesn't exist.", caller)
+                raise error("Your requested track doesn't exist.", caller)
         case _:
             raise error("Not implemented for anything other than Video, Audio or Subtitles.", caller)
 

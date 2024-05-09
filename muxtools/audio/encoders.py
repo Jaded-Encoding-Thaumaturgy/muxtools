@@ -141,7 +141,7 @@ class FF_FLAC(LosslessEncoder):
             fileIn = AudioFile.from_file(fileIn, self)
         output = make_output(fileIn.file, "flac", "ffmpeg", self.output)
         if "temp" in kwargs.keys():
-            debug(f"Preparing audio for input to other encoder using ffmpeg...", self)
+            debug("Preparing audio for input to other encoder using ffmpeg...", self)
         else:
             debug(f"Encoding '{fileIn.file.stem}' to FLAC using ffmpeg...", self)
         args = self._base_command(fileIn, self.compression_level)
@@ -155,7 +155,7 @@ class FF_FLAC(LosslessEncoder):
             raise crit("Encoding to flac using ffmpeg failed!", self)
 
     def get_pipe(self, fileIn: AudioFile) -> subprocess.Popen:
-        debug(f"Piping audio for input to other encoder using ffmpeg...", self)
+        debug("Piping audio for input to other encoder using ffmpeg...", self)
         args = self._base_command(fileIn, 0)
         args.extend(["-f", "flac", "-"])
         p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)

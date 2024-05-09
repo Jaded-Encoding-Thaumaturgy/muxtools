@@ -5,7 +5,6 @@ from typing import Any
 from collections.abc import Callable
 from enum import IntEnum
 
-from ..utils.glob import GlobSearch
 from ..utils.log import error, warn
 from ..utils.types import PathLike
 from ..muxing.muxfiles import MuxingFile
@@ -70,7 +69,7 @@ class ASSHeader(IntEnum):
         if self == 6 and value is not None:
             if not isinstance(value, bool) and str(value).lower() not in ["yes", "no"]:
                 raise error(f"The valid values for {self.name} are 'yes', 'no' or a boolean with the same meaning.", caller)
-            if str(value).lower() == "no" or value == False:
+            if str(value).lower() == "no" or value is False:
                 warn(f"There's practically no good reason for {self.name} to be 'no'. Carry on if you are sure.", caller, 1)
             if isinstance(value, bool):
                 return "yes" if value else "no"

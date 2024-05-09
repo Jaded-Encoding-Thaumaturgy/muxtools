@@ -33,21 +33,21 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType) -> Track:
             try:
                 return videos[track]
             except:
-                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+                raise error("Your requested track doesn't exist.", get_absolute_track)
         case TrackType.AUDIO:
             if not audios:
                 raise error(f"No audio tracks have been found in '{file.name}'!", get_absolute_track)
             try:
                 return audios[track]
             except:
-                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+                raise error("Your requested track doesn't exist.", get_absolute_track)
         case TrackType.SUB:
             if not subtitles:
                 raise error(f"No subtitle tracks have been found in '{file.name}'!", get_absolute_track)
             try:
                 return subtitles[track]
             except:
-                raise error(f"Your requested track doesn't exist.", get_absolute_track)
+                raise error("Your requested track doesn't exist.", get_absolute_track)
         case _:
             raise error("Not implemented for anything other than Video, Audio or Subtitles.", get_absolute_track)
 

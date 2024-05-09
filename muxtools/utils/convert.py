@@ -1,6 +1,5 @@
-import os
 from math import trunc
-from decimal import *
+from decimal import Decimal, ROUND_HALF_DOWN
 from fractions import Fraction
 from datetime import timedelta
 

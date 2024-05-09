@@ -1,6 +1,6 @@
 from .env import download_allowed
 from .types import PathLike
-from .log import *
+from .log import crit, error, info
 
 import os
 import wget
@@ -59,7 +59,7 @@ def get_executable(type: str, can_download: bool | None = None, can_error: bool 
             raise error(f"Custom executable for {type} not found!", get_executable)
 
     if path is None:
-        if not can_download or can_download == False:
+        if not can_download or can_download is False:
             if not can_error:
                 return None
             raise crit(f"{type.lower()} executable not found in path!", get_executable)
@@ -101,7 +101,7 @@ def download_binary(type: str) -> str:
 
     wget.download(url, str(binary_dir.resolve()))
     print("")
-    info(f"Done.", get_executable)
+    info("Done.", get_executable)
     unpack_all(binary_dir)
 
     executables = binary_dir.rglob(type.lower() + "*.exe")

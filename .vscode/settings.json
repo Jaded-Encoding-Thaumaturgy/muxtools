@@ -1,9 +1,10 @@
 {
-    "editor.formatOnSave": true,
-    "python.formatting.blackArgs": ["--line-length", "150"],
-    "python.formatting.provider": "black",
     "[python]": {
-        "diffEditor.ignoreTrimWhitespace": false,
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnType": false,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff"
     },
+    "ruff.lint.enable": true,
+    "ruff.lint.args": ["--config", "./pyproject.toml"],
+    "ruff.format.args": ["--config", "./pyproject.toml"]
 }

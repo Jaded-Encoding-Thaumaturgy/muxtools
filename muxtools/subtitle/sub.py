@@ -328,12 +328,12 @@ class SubFile(BaseSubFile):
         # Find syncpoint in current document if sync is a string
         for line in doc.events:
             events.append(line)
-            if target == None and isinstance(sync, str):
+            if target is None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
                     target = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
 
-        if target == None and isinstance(sync, str):
+        if target is None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
             if no_error:
                 warn(msg, self)
@@ -356,15 +356,15 @@ class SubFile(BaseSubFile):
         sorted_lines = sorted(mergedoc.events, key=lambda event: event.start)
 
         # Assume the first line to be the second syncpoint if none was found
-        if second_sync == None:
-            for l in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = timedelta_to_frame(l.start, fps, exclude_boundary=True) + 1
+        if second_sync is None:
+            for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
+                second_sync = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
                 break
 
         # Merge lines from file
         for line in sorted_lines:
             # Don't apply any offset if sync=None for plain merging or if target == source
-            if target == None or target == second_sync:
+            if target is None or target == second_sync:
                 tomerge.append(line)
                 continue
 

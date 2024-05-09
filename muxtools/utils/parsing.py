@@ -101,7 +101,7 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: Any = None, is_thd: 
         caller = parse_audioinfo
         debug(f"Parsing frames and stats for '{file.stem}'", caller)
     else:
-        debug(f"Parsing frames and stats...", caller)
+        debug("Parsing frames and stats...", caller)
     out = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="ignore")
     frames = []
     stats = AudioStats()
@@ -152,11 +152,11 @@ def parse_chapters_bdmv(
     src = ensure_path_exists(src, parse_chapters_bdmv)
     stream_dir = src.parent
     if stream_dir.name.lower() != "stream":
-        print(f"Your source file is not in a default bdmv structure!\nWill skip chapters.")
+        print("Your source file is not in a default bdmv structure!\nWill skip chapters.")
         return None
     playlist_dir = Path(os.path.join(stream_dir.parent, "PLAYLIST"))
     if not playlist_dir.exists():
-        print(f"PLAYLIST folder couldn't have been found!\nWill skip chapters.")
+        print("PLAYLIST folder couldn't have been found!\nWill skip chapters.")
         return None
 
     chapters: list[Chapter] = []

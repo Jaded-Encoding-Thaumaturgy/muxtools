@@ -20,7 +20,7 @@ from ..utils.download import get_executable
 from ..utils.files import clean_temp_files, make_output
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 from .audioutils import ensure_valid_in, qaac_compatcheck, duration_from_file, get_preprocess_args
-from ..utils.types import DitherType, LossyWavQuality, PathLike, ValidInputType
+from ..utils.types import LossyWavQuality, PathLike, ValidInputType
 
 __all__ = ["qALAC", "TTA", "TrueAudio", "TheTrueAudio", "LossyWav", "Wavpack"]
 
@@ -177,7 +177,7 @@ class LossyWav(Encoder):
         output = ensure_valid_in(fileIn, False, self.preprocess, valid_type=ValidInputType.W64, caller=self)
 
         args = [get_executable("lossyWAV", False), str(output.file), "--quality", self.quality.name.lower(), "-o", str(get_temp_workdir())]
-        debug(f"Doing lossywav magic...", self)
+        debug("Doing lossywav magic...", self)
         if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             raise crit("LossyWAV conversion failed!", self)
 
