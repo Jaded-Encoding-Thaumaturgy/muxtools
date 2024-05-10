@@ -386,7 +386,12 @@ class SubFile(BaseSubFile):
         return self
 
     def collect_fonts(
-        self, use_system_fonts: bool = True, search_current_dir: bool = True, additional_fonts: list[PathLike] = [], collect_draw_fonts: bool = True
+        self,
+        use_system_fonts: bool = True,
+        search_current_dir: bool = True,
+        additional_fonts: list[PathLike] = [],
+        collect_draw_fonts: bool = True,
+        error_missing: bool = False,
     ) -> list[FontFile]:
         """
         Collects fonts for current subtitle.
@@ -397,6 +402,7 @@ class SubFile(BaseSubFile):
         :param additional_fonts:        Can be a directory or a path to a file directly (or a list of either)
         :param collect_draw_fonts:      Whether or not to include fonts used for drawing (usually Arial)
                                         See https://github.com/libass/libass/issues/617 for details.
+        :param error_missing:           Raise an error instead of just warnings when a font is missing.
 
         :return:                        A list of FontFile objects
         """
@@ -420,9 +426,9 @@ class SubFile(BaseSubFile):
                 resolved_paths.append(f)
         from .font import collect_fonts as collect
 
-        debug(f"Collecting fonts for '{self.file.stem}'...", self)
+        info(f"Collecting fonts for '{self.file.stem}'...", self)
 
-        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts)
+        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing)
 
     def restyle(
         self: SubFileSelf, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True
