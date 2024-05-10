@@ -76,7 +76,8 @@ def collect_fonts(
     doc = AssDocument(sub._read_doc())
     styles = doc.get_used_style(collect_draw_fonts)
 
-    found_fonts: list[MTFontFile] = []
+    found_fonts = list[MTFontFile]()
+    collected_names = list[str]()
 
     for style, usage_data in styles.items():
         query = font_collection.get_used_font_by_style(style, load_strategy)
@@ -89,15 +90,24 @@ def collect_fonts(
                 warn(msg, collect_fonts, 3)
         else:
             fontname = _get_fontname(query.font_face)
-
-            info(f"Found font '{fontname}'.", collect_fonts)
             fontpath = Path(query.font_face.font_file.filename)
             outpath = os.path.join(get_workdir(), f"{fontname}{fontpath.suffix}")
+
+            if fontname not in collected_names:
+                info(f"Found font '{fontname}'.", collect_fonts)
+                collected_names.append(fontname)
+
+            if query.need_faux_bold:
+                warn(f"Faux bold used for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts, 2)
+            elif query.mismatch_bold:
+                warn(f"Mismatched weight for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts, 2)
+
+            if query.mismatch_italic:
+                warn(f"Could not find a requested {'non-' if query.font_face.is_italic else ''}italic variant for '{fontname}'!", collect_fonts, 2)
+
             missing_glyphs = query.font_face.get_missing_glyphs(usage_data.characters_used)
             if len(missing_glyphs) != 0:
                 warn(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts, 3)
-            if query.need_faux_bold:
-                warn(f"'{fontname}' is using faux bold!", collect_fonts, 2)
             if not Path(outpath).exists():
                 shutil.copy(fontpath, outpath)
 
