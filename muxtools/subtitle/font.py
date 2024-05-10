@@ -42,9 +42,9 @@ def collect_fonts(sub: SubFile, use_system_fonts: bool = True, additional_fonts:
         exact_fallback = False
         try:
             try:
-                name = font.family_names.pop().strip()
+                name = font.family_names[-1].strip()
             except:
-                name = font.exact_names.pop().strip()
+                name = font.exact_names[-1].strip()
                 exact_fallback = True
         except:
             name = Path(font.filename).with_suffix("").name.strip()
