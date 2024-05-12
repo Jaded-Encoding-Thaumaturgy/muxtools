@@ -60,7 +60,7 @@ class _track:
     def mkvmerge_args(self) -> list[str]:
         filepath = str(self.file.resolve())
         if self.type == TrackType.ATTACHMENT:
-            is_font = self.file.suffix.lower() in [".ttf", ".otf", ".ttc", ".woff", ".woff2"]
+            is_font = self.file.suffix.lower() in [".ttf", ".otf", ".ttc", ".otc"]
             if not is_font and not self.lang:
                 raise ValueError("Please specify a mimetype for the attachments if they're not fonts!")
             if not is_font:

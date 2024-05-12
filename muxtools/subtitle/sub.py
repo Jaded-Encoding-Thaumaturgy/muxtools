@@ -435,8 +435,10 @@ class SubFile(BaseSubFile):
             if f.is_dir():
                 resolved_paths.extend([file for file in f.rglob("*.[tT][tT][fF]")])
                 resolved_paths.extend([file for file in f.rglob("*.[oO][tT][fF]")])
+                resolved_paths.extend([file for file in f.rglob("*.[tT][tT][cC]")])
+                resolved_paths.extend([file for file in f.rglob("*.[oO][tT][cC]")])
             else:
-                if f.suffix.lower() not in [".ttf", ".otf", ".ttc", ".woff", ".woff2"]:
+                if f.suffix.lower() not in [".ttf", ".otf", ".ttc", ".otc"]:
                     raise error(f"'{f.name}' is not a font!", self)
                 resolved_paths.append(f)
         from .font import collect_fonts as collect
