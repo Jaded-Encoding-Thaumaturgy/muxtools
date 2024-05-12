@@ -127,7 +127,7 @@ class SubFile(BaseSubFile):
 
     def clean_styles(self: SubFileSelf) -> SubFileSelf:
         """
-        Deletes unused styles from the document
+        Deletes unused styles from the document.
         """
         doc = self._read_doc()
         used_styles = {line.style for line in doc.events if line.TYPE == "Dialogue"}
@@ -141,12 +141,27 @@ class SubFile(BaseSubFile):
 
     def clean_garbage(self: SubFileSelf) -> SubFileSelf:
         """
-        Removes the "Aegisub Project Garbage" section from the file
+        Removes the "Aegisub Project Garbage" section from the file.
         """
         doc = self._read_doc()
         doc.sections.pop("Aegisub Project Garbage", None)
         self._update_doc(doc)
         return self
+
+    def clean_extradata(self: SubFileSelf) -> SubFileSelf:
+        """
+        Removes the "Aegisub Extradata" section from the file.
+        """
+        doc = self._read_doc()
+        doc.sections.pop("Aegisub Extradata", None)
+        self._update_doc(doc)
+        return self
+
+    def clean_comments(self: SubFileSelf) -> SubFileSelf:
+        """
+        Removes all comment lines from the file.
+        """
+        return self.manipulate_lines(lambda lines: list(filter(lambda line: str(line.TYPE).lower() != "comment", lines)))
 
     def autoswapper(
         self: SubFileSelf,
