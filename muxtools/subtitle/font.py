@@ -111,8 +111,7 @@ def collect_fonts(
             if not Path(outpath).exists():
                 shutil.copy(fontpath, outpath)
 
-    for f in get_workdir().glob("*.[tT][tT][fF]"):
-        found_fonts.append(MTFontFile(f))
-    for f in get_workdir().glob("*.[oO][tT][fF]"):
-        found_fonts.append(MTFontFile(f))
+    for r in [ "*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[wW][oO][fF][fF]", "*.[wW][oO][fF][fF][2]" ]:
+        for f in get_workdir().glob(r):
+            found_fonts.append(MTFontFile(f))
     return found_fonts
