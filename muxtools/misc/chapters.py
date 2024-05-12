@@ -198,17 +198,27 @@ class Chapters:
 
     @staticmethod
     def from_sub(
-        file: PathLike | SubFile, fps: Fraction | PathLike = Fraction(24000, 1001), _print: bool = True, encoding: str = "utf_8_sig"
+        file: PathLike | SubFile,
+        fps: Fraction | PathLike = Fraction(24000, 1001),
+        use_actor_field: bool = False,
+        markers: str | list[str] = ["chapter", "chptr"],
+        _print: bool = True,
+        encoding: str = "utf_8_sig",
     ) -> "Chapters":
         """
         Extract chapters from an ass file or a SubFile.
 
         :param file:            Input ass file or SubFile
         :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
+        :param use_actor_field: Uses the actor field instead of the effect field for identification.
+        :param markers:         Markers to check for.
         :param _print:          Prints the chapters after parsing
         :param encoding:        Encoding used to read the ass file if need be
         """
         from ass import parse_file, Comment
+
+        if isinstance(markers, str):
+            markers = [markers]
 
         if isinstance(file, SubFile):
             doc = file._read_doc()
@@ -220,8 +230,9 @@ class Chapters:
         pattern = re.compile(r"\{([^\\].+?)\}")
         chapters = list[Chapter]()
         for line in doc.events:
-            effect = str(line.effect).lower()
-            if "chapter" in effect or "chptr" in effect:
+            field_value = str(line.name).lower() if use_actor_field else str(line.effect).lower()
+            found = [m in field_value for m in markers]
+            if any(found):
                 match = pattern.search(line.text)
                 if match:
                     chapters.append((line.start, match.group(1)))
