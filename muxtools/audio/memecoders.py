@@ -155,6 +155,7 @@ class LossyWav(Encoder):
                                 Only properly supports libFLAC and wavpack (will be added later) out of what we have.
 
     :param override_options:    Automatically sets the appropriate options for each encoder to work as intended.
+    :param limit:               Frequency cutoff in hz.
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
@@ -163,6 +164,7 @@ class LossyWav(Encoder):
     quality: LossyWavQuality = LossyWavQuality.INSANE
     target_encoder: LosslessEncoder | None = None
     override_options: bool = True
+    limit: int = 20000
     preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
     output: PathLike | None = None
 
@@ -176,7 +178,7 @@ class LossyWav(Encoder):
 
         output = ensure_valid_in(fileIn, False, self.preprocess, valid_type=ValidInputType.W64, caller=self)
 
-        args = [get_executable("lossyWAV", False), str(output.file), "--quality", self.quality.name.lower(), "-o", str(get_temp_workdir())]
+        args = [get_executable("lossyWAV", False), str(output.file), "--quality", self.quality.name.lower(), "-l", str(self.limit), "-o", str(get_temp_workdir())]
         debug("Doing lossywav magic...", self)
         if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             raise crit("LossyWAV conversion failed!", self)
