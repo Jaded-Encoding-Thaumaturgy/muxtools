@@ -85,12 +85,14 @@ class FFMpeg(HasExtractor, HasTrimmer):
         :param preserve_delay:      Will preserve existing container delay
         :param output:              Custom output. Can be a dir or a file.
                                     Do not specify an extension unless you know what you're doing.
-        :param append:              Specify a string of args you can pass to Eac3to
+        :param full_analysis:       Analyze entire track for bitdepth and other statistics.
+                                    This *will* take quite a bit of time.
         """
 
         track: int = 0
         preserve_delay: bool = True
         output: PathLike | None = None
+        full_analysis: bool = False
 
         def extract_audio(self, input: PathLike, quiet: bool = True) -> AudioFile:
             ffmpeg = get_executable("ffmpeg")
@@ -99,7 +101,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             form = format_from_track(track)
             debug(f"Extracting audio track from '{input.stem}' using ffmpeg...", self)
             if not form:
-                ainfo = parse_audioinfo(input, self.track, self)
+                ainfo = parse_audioinfo(input, self.track, self, full_analysis=self.full_analysis)
                 lossy = getattr(track, "compression_mode", "lossless").lower() == "lossy"
                 if lossy:
                     raise error(f"Unrecognized lossy format found: {track.format}", self)
@@ -108,7 +110,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     warn("Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
                     out = make_output(input, extension, f"extracted_{self.track}", self.output)
             else:
-                ainfo = parse_audioinfo(input, self.track, self, form.ext == "thd")
+                ainfo = parse_audioinfo(input, self.track, self, form.ext == "thd", full_analysis=self.full_analysis)
                 lossy = form.lossy
                 extension = form.ext
                 out = make_output(input, extension, f"extracted_{self.track}", self.output)
