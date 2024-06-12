@@ -2,7 +2,7 @@ import os
 import shutil
 import logging
 from pathlib import Path
-from font_collector import ABCFontFace
+from font_collector import ABCFontFace, VariableFontFace
 
 from .sub import SubFile, FontFile as MTFontFile
 from ..utils.env import get_workdir
@@ -35,7 +35,6 @@ def _weight_to_name(weight: int) -> str | int:
 
 def _get_fontname(font: ABCFontFace) -> str:
     filename_fallback = False
-
     try:
         found = font.get_family_name_from_lang("en")
         if not found:
@@ -50,11 +49,16 @@ def _get_fontname(font: ABCFontFace) -> str:
             name = "".join([(part.capitalize() if part.islower() else part) for part in name.split(" ")])
         else:
             name = name.capitalize()
-        weight = _weight_to_name(font.weight)
-        if weight:
-            name += f"-{weight}"
-        if font.is_italic:
-            name += ("" if weight else "-") + "Italic"
+        if isinstance(font, VariableFontFace):
+            name += "-VariableCollection"
+            if font.is_italic:
+                name += "Italic"
+        else:
+            weight = _weight_to_name(font.weight)
+            if weight:
+                name += f"-{weight}"
+            if font.is_italic:
+                name += ("" if weight else "-") + "Italic"
 
     return name
 
@@ -77,7 +81,9 @@ def collect_fonts(
     styles = doc.get_used_style(collect_draw_fonts)
 
     found_fonts = list[MTFontFile]()
-    collected_names = list[str]()
+    collected_names = set[str]()
+    collected_collections = set[str]()
+    collected_italic_collections = set[str]()
 
     for style, usage_data in styles.items():
         query = font_collection.get_used_font_by_style(style, load_strategy)
@@ -91,11 +97,29 @@ def collect_fonts(
         else:
             fontname = _get_fontname(query.font_face)
             fontpath = Path(query.font_face.font_file.filename)
-            outpath = os.path.join(get_workdir(), f"{fontname}{fontpath.suffix}")
+            outpath = get_workdir() / f"{fontname}{fontpath.suffix}"
+            family_name = query.font_face.get_best_family_name().value
+
+            if isinstance(query.font_face, VariableFontFace):
+                outpath = outpath.with_suffix(".ttc")
+                if query.font_face.is_italic:
+                    collected_italic_collections.add(family_name)
+                else:
+                    collected_collections.add(family_name)
+
+                if not outpath.exists():
+                    info(f"Converting '{family_name}' variable font to a collection.")
+                    query.font_face.variable_font_to_collection(outpath)
+            else:
+                has_collection = family_name in collected_collections
+                has_italics_collection = family_name in collected_italic_collections
+                # It may collect the same collection files again for more styles using the same font so lets cope with this.
+                if (query.font_face.is_italic and has_italics_collection) or (not query.font_face.is_italic and has_collection):
+                    continue
 
             if fontname not in collected_names:
                 info(f"Found font '{fontname}'.", collect_fonts)
-                collected_names.append(fontname)
+                collected_names.add(fontname)
 
             if query.need_faux_bold:
                 warn(f"Faux bold used for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts, 2)
@@ -108,10 +132,11 @@ def collect_fonts(
             missing_glyphs = query.font_face.get_missing_glyphs(usage_data.characters_used)
             if len(missing_glyphs) != 0:
                 warn(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts, 3)
-            if not Path(outpath).exists():
+
+            if not outpath.exists():
                 shutil.copy(fontpath, outpath)
 
-    for r in [ "*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]" ]:
+    for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
         for f in get_workdir().glob(r):
             found_fonts.append(MTFontFile(f))
     return found_fonts
