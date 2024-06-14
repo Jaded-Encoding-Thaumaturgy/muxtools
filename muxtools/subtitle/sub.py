@@ -731,6 +731,7 @@ class SubFile(BaseSubFile):
             subfile = cls.from_srt(out, **kwargs)
             subfile.container_delay = delay
             subfile.source = file
+            out.unlink(True)
             return subfile
 
         return cls(out, delay, file)
