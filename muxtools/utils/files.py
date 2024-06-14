@@ -187,7 +187,7 @@ def find_tracks(
         languages: list[str] = getattr(track, "other_language", None) or list[str]()
         return [lang.casefold() for lang in languages]
 
-    if name:
+    if name is not None:
         tracks = [track for track in tracks if name_matches(getattr(track, "title", "") or "")]
 
     if lang:
