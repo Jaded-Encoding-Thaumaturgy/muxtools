@@ -70,7 +70,7 @@ def collect_fonts(
 
     set_loglevel(logging.CRITICAL)
 
-    from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass
+    from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass, ABCFontFace
 
     font_collection = FontCollection(
         use_system_fonts, additional_fonts=FontLoader.load_additional_fonts(additional_fonts, scan_subdirs=True) if additional_fonts else []
@@ -81,9 +81,7 @@ def collect_fonts(
     styles = doc.get_used_style(collect_draw_fonts)
 
     found_fonts = list[MTFontFile]()
-    collected_names = set[str]()
-    collected_collections = set[str]()
-    collected_italic_collections = set[str]()
+    collected_faces = set[ABCFontFace]()
 
     for style, usage_data in styles.items():
         query = font_collection.get_used_font_by_style(style, load_strategy)
@@ -102,24 +100,17 @@ def collect_fonts(
 
             if isinstance(query.font_face, VariableFontFace):
                 outpath = outpath.with_suffix(".ttc")
-                if query.font_face.is_italic:
-                    collected_italic_collections.add(family_name)
-                else:
-                    collected_collections.add(family_name)
 
                 if not outpath.exists():
                     info(f"Converting '{family_name}' variable font to a collection.")
                     query.font_face.variable_font_to_collection(outpath)
             else:
-                has_collection = family_name in collected_collections
-                has_italics_collection = family_name in collected_italic_collections
-                # It may collect the same collection files again for more styles using the same font so lets cope with this.
-                if (query.font_face.is_italic and has_italics_collection) or (not query.font_face.is_italic and has_collection):
+                if query.font_face in collected_faces:
                     continue
 
-            if fontname not in collected_names:
+            if query.font_face not in collected_faces:
                 info(f"Found font '{fontname}'.", collect_fonts)
-                collected_names.add(fontname)
+                collected_faces.add(query.font_face)
 
             if query.need_faux_bold:
                 warn(f"Faux bold used for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts, 2)
