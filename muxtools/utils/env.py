@@ -60,16 +60,16 @@ def run_commandline(
         p = subprocess.Popen(
             command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, shell=shell, **kwargs
         )
-        p.communicate()
+        out, err = p.communicate()
         returncode = p.returncode
+        stdout = (out or "") + (err or "")
     else:
         p = subprocess.Popen(command, stdin=stdin, shell=shell, **kwargs)
         returncode = p.wait()
 
-    if returncode > (1 if mkvmerge else 0) and p.stdout and quiet and (lines := p.stdout.readlines()):
+    if returncode > (1 if mkvmerge else 0) and p.stdout and quiet and (lines := stdout):
         print("\n----------------------")
-        for line in lines:
-            print(line.rstrip("\n"))
+        print(lines.strip())
         print("----------------------")
 
     return returncode
