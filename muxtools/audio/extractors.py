@@ -9,16 +9,19 @@ import re
 from .audioutils import format_from_track, is_fancy_codec, sanitize_trims, ensure_valid_in, duration_from_file
 from .tools import Extractor, Trimmer, AudioFile, HasExtractor, HasTrimmer
 from ..utils.files import ensure_path_exists, make_output, clean_temp_files
-from ..utils.log import error, warn, debug
+from ..utils.log import error, warn, debug, info
 from ..utils.download import get_executable
 from ..utils.parsing import parse_audioinfo
 from ..utils.files import get_absolute_track
 from ..utils.types import Trim, PathLike, TrackType
-from ..utils.env import get_temp_workdir, run_commandline
+from ..utils.env import get_temp_workdir, run_commandline, communicate_stdout
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 from ..utils.convert import frame_to_timedelta, format_timedelta, frame_to_ms
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
+
+
+EAC3TO_DELAY_REGEX = r"remaining delay of (?P<delay>(?:-|\+)?\d+)ms could not"
 
 
 @dataclass
@@ -27,14 +30,12 @@ class Eac3to(Extractor):
     Extracts audio files using eac3to
 
     :param track:               Relative audio track number
-    :param preserve_delay:      Will preserve existing container delay
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     :param append:              Specify a string of args you can pass to Eac3to
     """
 
     track: int = 0
-    preserve_delay: bool = True
     output: PathLike | None = None
     append: str = ""
 
@@ -44,15 +45,20 @@ class Eac3to(Extractor):
         track = get_absolute_track(input, self.track, TrackType.AUDIO, self)
         form = format_from_track(track)
         if not form:
-            error(f"Unrecognized format: {track.format}", self.extract_audio)
-            warn("Will extract as wav instead.", self.extract_audio)
+            lossy = getattr(track, "compression_mode", "lossless").lower() == "lossy"
+            if lossy:
+                raise error(f"Unrecognized lossy format: {track.format}", self)
+            else:
+                warn(f"Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
             extension = "wav"
         else:
             extension = form.ext
 
+        info(f"Extracting audio track {self.track} from '{input.stem}'...", self)
+
         out = make_output(input, extension, f"extracted_{self.track}", self.output)
-        p = run_commandline(f'"{eac3to}" "{input}" {track.track_id+1}: "{out}" {self.append}', quiet)
-        if p == 0:
+        code, stdout = communicate_stdout(f'"{eac3to}" "{input}" {track.track_id+1}: "{out}" {self.append}')
+        if code == 0:
             if not out.exists():
                 pattern_str = rf"{re.escape(out.stem)} DELAY.*\.{extension}"
                 pattern = re.compile(pattern_str, re.IGNORECASE)
@@ -61,11 +67,17 @@ class Eac3to(Extractor):
                         f = Path(out.parent, f)
                         out = f.rename(f.with_stem(out.stem))
                         break
+            delay = 0
 
-            return AudioFile(
-                out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, duration=duration_from_file(input, self.track)
-            )
+            pattern = re.compile(EAC3TO_DELAY_REGEX)
+            for line in stdout.splitlines():
+                match = re.search(pattern, line)
+                if match:
+                    delay = int(match.group("delay"))
+                    debug(f"Additional delay of {delay} ms will be applied to fix remaining sync.", self)
+            return AudioFile(out, delay, input, duration=duration_from_file(input, self.track))
         else:
+            print("", stdout, "")
             raise error(f"eac3to failed to extract audio track {self.track} from '{input}'", self.extract_audio)
 
 
@@ -99,7 +111,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             input = ensure_path_exists(input, self)
             track = get_absolute_track(input, self.track, TrackType.AUDIO, self)
             form = format_from_track(track)
-            debug(f"Extracting audio track from '{input.stem}' using ffmpeg...", self)
+            info(f"Extracting audio track {self.track} from '{input.stem}'...", self)
             if not form:
                 ainfo = parse_audioinfo(input, self.track, self, full_analysis=self.full_analysis)
                 lossy = getattr(track, "compression_mode", "lossless").lower() == "lossy"
@@ -219,7 +231,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             ainfo = parse_audioinfo(input.file, caller=self) if not input.info else input.info
 
             if len(self.trim) == 1:
-                debug(f"Trimming '{input.file.stem}' with ffmpeg...", self)
+                info(f"Trimming '{input.file.stem}' with ffmpeg...", self)
                 tr = self.trim[0]
                 if lossy:
                     args[2:1] = splitcommand(self._targs(tr))
@@ -241,7 +253,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 else:
                     raise error("Failed to trim audio using FFMPEG!", self)
             else:
-                debug(f"Generating trimmed tracks for '{input.file.stem}'...", self)
+                info(f"Generating trimmed tracks for '{input.file.stem}'...", self)
                 concat: list = []
                 first = True
                 for i, tr in enumerate(self.trim):
@@ -263,7 +275,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                         concat.append(nout)
                     else:
                         raise error("Failed to trim audio using FFMPEG!", self)
-                debug("Concatenating the tracks...", self)
+                info("Concatenating the tracks...", self)
                 concat_f = os.path.join(get_temp_workdir(), "concat.txt")
                 with open(concat_f, "w") as f:
                     f.writelines([f"file {self._escape_name(c)}\n" for c in concat])
@@ -323,7 +335,7 @@ class Sox(Trimmer):
         if len(self.trim) > 1:
             files_to_concat = []
             first = True
-            debug(f"Generating trimmed tracks for '{input.file.stem}'...", self)
+            info(f"Generating trimmed tracks for '{input.file.stem}'...", self)
             for i, t in enumerate(self.trim):
                 soxr = sox.Transformer()
                 soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
@@ -337,7 +349,7 @@ class Sox(Trimmer):
                 soxr.build(str(source.file.resolve()), tout)
                 files_to_concat.append(tout)
 
-            debug("Concatenating the tracks...", self)
+            info("Concatenating the tracks...", self)
             soxr = sox.Combiner()
             soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
             formats = ["wav" for file in files_to_concat]
@@ -347,7 +359,7 @@ class Sox(Trimmer):
         else:
             soxr = sox.Transformer()
             soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
-            debug(f"Applying trim to '{input.file.stem}'", self)
+            info(f"Applying trim to '{input.file.stem}'", self)
             t = self.trim[0]
             if t[0] < 0:
                 soxr.trim(0, self._conv(t[1]))
