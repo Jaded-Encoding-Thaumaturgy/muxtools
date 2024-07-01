@@ -1,4 +1,4 @@
-from . import convert, download, env, files, glob, log, parsing, types, subprogress
+from . import convert, download, env, files, glob, log, parsing, types, subprogress, dataclass
 
 from .convert import *
 from .download import *

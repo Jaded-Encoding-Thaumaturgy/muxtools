@@ -1,0 +1,94 @@
+from abc import ABC
+from typing import Any
+from shlex import split
+from pydantic.dataclasses import ConfigDict, dataclass  # noqa: F401
+
+from .log import error
+
+__all__ = ["CLIKwargs", "allow_extra", "dataclass"]
+
+allow_extra = ConfigDict(extra="allow", str_strip_whitespace=True, allow_inf_nan=False, arbitrary_types_allowed=True)
+
+attribute_blacklist = ["executable", "resumable", "x265", "was_file"]
+
+
+class CLIKwargs(ABC):
+    """
+    This is an abstract class to enable the use of (pydantic) dataclass kwargs for custom cli args.
+
+    Examples:
+    ```py
+    @dataclass(config=allow_extra)
+    class Encoder(CLIKwargs):
+        clip: vs.VideoNode
+    
+    test = Encoder(clip, colorspace="BT709")
+    print(test.get_custom_args())
+    # returns ['--colorspace', 'BT709']
+
+    # if it starts with an _ it will be a single - argument
+    # empty values will be stripped
+    test = Encoder(clip, _vbr="")
+    print(test.get_custom_args())
+    # returns ['-vbr']
+
+    # if it ends with an _ it will preserve underscores
+    test = Encoder(clip, _color_range_="limited")
+    print(test.get_custom_args())
+    # returns ['-color_range', 'limited']
+    ```
+
+    Alternatively you can pass an `append` argument that's either a dict[str, Any], a string or a list of strings:
+    ```py
+    test = Encoder(clip, append="-vbr --bitrate 192")
+    test = Encoder(clip, append=["-vbr", "--bitrate", "192"])
+    test = Encoder(clip, append={"-vbr": "", "--bitrate": "192"})
+    # all of them return ['-vbr', '--bitrate', '192']
+    ```
+    """
+
+    def get_custom_args(self) -> list[str]:
+        init_args: dict[str, Any]
+        if not (init_args := getattr(self, "__pydantic_fields__", None)):
+            return []
+
+        args = list[str]()
+        attributes = vars(self)
+        init_keys = list(init_args.keys())
+
+        for k, v in attributes.items():
+            if k == "append":
+                if isinstance(v, list):
+                    args.extend([str(x) for x in v])
+                elif isinstance(v, str):
+                    args.extend(split(v))
+                elif isinstance(v, dict):
+                    for append_k, append_v in v.items():
+                        args.append(str(append_k))
+                        if (stripped := str(append_v).strip()):
+                            args.append(stripped)
+                else:
+                    raise error("Append is not a string, list of strings or dict!", self)
+                continue
+            
+            if not any([isinstance(v, str), isinstance(v, int), isinstance(v, float)]):
+                continue
+            if k in init_keys or k in attribute_blacklist:
+                continue
+            
+            prefix = "--"
+            keep_underscores = False
+
+            if k.endswith("_"):
+                keep_underscores = True
+                k = k[:-1]
+            if k.startswith("_"):
+                prefix = "-"
+                k = k[1:]
+            args.append(f"{prefix}{k.replace('_', '-') if not keep_underscores else k}")
+            if not isinstance(v, str):
+                args.append(str(v))
+            else:
+                if (stripped := v.strip()):
+                    args.append(stripped)
+        return args
