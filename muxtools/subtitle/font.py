@@ -43,6 +43,8 @@ def _get_fontname(font: ABCFontFace) -> str:
         name = Path(font.font_file.filename).with_suffix("").name.strip()
         filename_fallback = True
 
+    name = name.replace("/", " ").replace("\\", " ")
+
     if not filename_fallback:
         if " " in name:
             name = "".join([(part.capitalize() if part.islower() else part) for part in name.split(" ")])
