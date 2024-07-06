@@ -1,6 +1,6 @@
 from shlex import split as splitcommand
-from dataclasses import dataclass, field
 from collections.abc import Sequence
+from pydantic.dataclasses import dataclass, Field
 import subprocess
 import os
 
@@ -8,6 +8,7 @@ from .tools import Encoder, LosslessEncoder
 from .preprocess import Preprocessor, Resample, Downmix
 from ..muxing.muxfiles import AudioFile
 from ..utils.env import run_commandline
+from ..utils.dataclass import allow_extra
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
 from ..utils.files import make_output, clean_temp_files
@@ -18,7 +19,7 @@ from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck, duration_
 __all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class FLAC(LosslessEncoder):
     """
     Uses the reference libFLAC encoder to encode audio to flac.
@@ -32,7 +33,7 @@ class FLAC(LosslessEncoder):
     """
 
     compression_level: int = 8
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     verify: bool = True
     append: str = ""
     output: PathLike | None = None
@@ -61,7 +62,7 @@ class FLAC(LosslessEncoder):
             raise crit("Encoding to FLAC using libFLAC failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class FLACCL(LosslessEncoder):
     """
     Uses the CUETools FLACCL encoder to encode audio to flac.
@@ -77,7 +78,7 @@ class FLACCL(LosslessEncoder):
     """
 
     compression_level: int = 8
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     verify: bool = True
     append: str = ""
     output: PathLike | None = None
@@ -109,7 +110,7 @@ class FLACCL(LosslessEncoder):
             raise crit("Encoding to FLAC using FLACCL failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class FF_FLAC(LosslessEncoder):
     """
     Uses the ffmpeg/libav FLAC encoder to encode audio to flac.
@@ -122,7 +123,7 @@ class FF_FLAC(LosslessEncoder):
     """
 
     compression_level: int = 10
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     append: str = ""
     output: PathLike | None = None
 
@@ -162,7 +163,7 @@ class FF_FLAC(LosslessEncoder):
         return p
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class Opus(Encoder):
     """
     Uses opusenc to encode audio to opus.
@@ -225,7 +226,7 @@ class Opus(Encoder):
             raise crit("Encoding to opus using opusenc failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class qAAC(Encoder):
     """
     Uses qAAC to encode audio to AAC.
@@ -268,7 +269,7 @@ class qAAC(Encoder):
             raise crit("Encoding to AAC using qAAC failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class FDK_AAC(Encoder):
     """
     Uses the libFDK implementation in ffmpeg to encode audio to AAC.
