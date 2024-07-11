@@ -5,7 +5,7 @@ Thought they might be cool to have atleast.
 """
 
 from pathlib import Path
-from dataclasses import dataclass, field
+from pydantic.dataclasses import dataclass, Field
 from shlex import split as splitcommand
 from collections.abc import Sequence
 
@@ -21,24 +21,23 @@ from ..utils.files import clean_temp_files, make_output
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 from .audioutils import ensure_valid_in, qaac_compatcheck, duration_from_file, get_preprocess_args
 from ..utils.types import LossyWavQuality, PathLike, ValidInputType
+from ..utils.dataclass import allow_extra
 
 __all__ = ["qALAC", "TTA", "TrueAudio", "TheTrueAudio", "LossyWav", "Wavpack"]
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class qALAC(Encoder):
     """
     Uses qAAC encoder to encode audio to ALAC.
     This is basically just worse FLAC and the only real use is good Apple hardware support.
 
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
-    :param append:              Any other args one might pass to the encoder.
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
-    append: str = ""
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -50,9 +49,7 @@ class qALAC(Encoder):
         qaac_compatcheck()
 
         debug(f"Encoding '{fileIn.file.stem}' to ALAC using qAAC...", self)
-        args = [qaac, "-A", "--no-optimize", "--threading", "-o", str(output)]
-        if self.append:
-            args.extend(splitcommand(self.append))
+        args = [qaac, "-A", "--no-optimize", "--threading", "-o", str(output)] + self.get_custom_args()
         args.append(str(source.file))
 
         if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
@@ -62,7 +59,7 @@ class qALAC(Encoder):
             raise crit("Encoding to ALAC using qAAC failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class TTA(LosslessEncoder):
     """
     Uses ffmpeg to encode audio to TTA/The True Audio.
@@ -72,13 +69,11 @@ class TTA(LosslessEncoder):
 
 
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
-    :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
-    append: str = ""
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -87,9 +82,7 @@ class TTA(LosslessEncoder):
         output = make_output(fileIn.file, "tta", "encoded", self.output)
 
         args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(fileIn.file.resolve()), "-map", "0:a:0", "-c:a", "tta"]
-        args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self))
-        if self.append:
-            args.extend(splitcommand(self.append))
+        args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self) + self.get_custom_args())
         args.append(str(output))
 
         debug(f"Encoding '{fileIn.file.stem}' to TTA using ffmpeg...", self)
@@ -104,7 +97,7 @@ TrueAudio = TTA
 TheTrueAudio = TTA
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class Wavpack(LosslessEncoder):
     """
     Another interesting lossless codec even if solely for the fact that it supports 32bit float and an arbitrary amount of channels.
@@ -112,14 +105,12 @@ class Wavpack(LosslessEncoder):
 
     :param fast:                Use either fast or high quality modes. Obviously fast means less compression.
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
-    :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
     fast: bool = False
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
-    append: str = ""
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -130,9 +121,7 @@ class Wavpack(LosslessEncoder):
         output = make_output(fileIn.file, "wv", "wavpack", self.output)
 
         wavpack = get_executable("wavpack")
-        args = [wavpack, "-f" if self.fast else "-h"]
-        if self.append:
-            args.extend(splitcommand(self.append))
+        args = [wavpack, "-f" if self.fast else "-h"] + self.get_custom_args()
         args.extend([str(valid_in.file), str(output)])
         debug(f"Encoding '{fileIn.file.stem}' to wavpack...", self)
         if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
@@ -142,7 +131,7 @@ class Wavpack(LosslessEncoder):
         return AudioFile(output, fileIn.container_delay, fileIn.source)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class LossyWav(Encoder):
     """
     A lossy (lol) preprocessor for wav/pcm audio that selectively reduces bitdepth by zero'ing out certain bits.
@@ -165,7 +154,7 @@ class LossyWav(Encoder):
     target_encoder: LosslessEncoder | None = None
     override_options: bool = True
     limit: int = 20000
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -178,7 +167,16 @@ class LossyWav(Encoder):
 
         output = ensure_valid_in(fileIn, False, self.preprocess, valid_type=ValidInputType.W64, caller=self)
 
-        args = [get_executable("lossyWAV", False), str(output.file), "--quality", self.quality.name.lower(), "-l", str(self.limit), "-o", str(get_temp_workdir())]
+        args = [
+            get_executable("lossyWAV", False),
+            str(output.file),
+            "--quality",
+            self.quality.name.lower(),
+            "-l",
+            str(self.limit),
+            "-o",
+            str(get_temp_workdir()),
+        ]
         debug("Doing lossywav magic...", self)
         if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             raise crit("LossyWAV conversion failed!", self)
