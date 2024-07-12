@@ -79,8 +79,8 @@ def timedelta_to_frame(
     frame = ms * fps / 1000
     frame_dec = Decimal(frame.numerator) / Decimal(frame.denominator)
 
-    # Return next int if difference is less than 0.01
-    if allow_rounding and abs(frame_dec.__round__(3) - frame_dec.__ceil__()) < 0.01:
+    # Return next int if difference is less than 0.03
+    if allow_rounding and abs(frame_dec.__round__(3) - frame_dec.__ceil__()) < 0.03:
         return frame_dec.__ceil__()
 
     return int(frame)
