@@ -1,6 +1,9 @@
 from abc import ABC
+from math import ceil
 from typing import Any
 from shlex import split
+from psutil import Process
+from multiprocessing import cpu_count
 from pydantic.dataclasses import ConfigDict, dataclass  # noqa: F401
 
 from .log import error
@@ -9,7 +12,7 @@ __all__ = ["CLIKwargs", "allow_extra", "dataclass"]
 
 allow_extra = ConfigDict(extra="allow", str_strip_whitespace=True, allow_inf_nan=False, arbitrary_types_allowed=True)
 
-attribute_blacklist = ["executable", "resumable", "x265", "was_file"]
+attribute_blacklist = ["executable", "resumable", "x265", "was_file", "affinity"]
 
 
 class CLIKwargs(ABC):
@@ -21,7 +24,7 @@ class CLIKwargs(ABC):
     @dataclass(config=allow_extra)
     class Encoder(CLIKwargs):
         clip: vs.VideoNode
-    
+
     test = Encoder(clip, colorspace="BT709")
     print(test.get_custom_args())
     # returns ['--colorspace', 'BT709']
@@ -47,6 +50,33 @@ class CLIKwargs(ABC):
     ```
     """
 
+    def get_process_affinity(self) -> bool | list[int] | None:
+        if not hasattr(self, "affinity"):
+            return False
+
+        threads = self.affinity
+
+        if not threads:
+            return []
+
+        if isinstance(threads, float):
+            if 0.0 <= threads or threads >= 1.0:
+                threads = 1.0
+
+            threads = ceil(cpu_count() * threads)
+
+        if isinstance(threads, int):
+            threads = range(0, threads)
+        elif isinstance(threads, tuple):
+            threads = range(*threads)
+
+        threads = list(set(threads))
+        return threads
+
+    def update_process_affinity(self, pid: int):
+        if not isinstance((affinity := self.get_process_affinity()), bool):
+            Process(pid).cpu_affinity(affinity)
+
     def get_custom_args(self) -> list[str]:
         init_args: dict[str, Any]
         if not (init_args := getattr(self, "__pydantic_fields__", None)):
@@ -65,17 +95,17 @@ class CLIKwargs(ABC):
                 elif isinstance(v, dict):
                     for append_k, append_v in v.items():
                         args.append(str(append_k))
-                        if (stripped := str(append_v).strip()):
+                        if stripped := str(append_v).strip():
                             args.append(stripped)
                 else:
                     raise error("Append is not a string, list of strings or dict!", self)
                 continue
-            
+
             if not any([isinstance(v, str), isinstance(v, int), isinstance(v, float)]):
                 continue
             if k in init_keys or k in attribute_blacklist:
                 continue
-            
+
             prefix = "--"
             keep_underscores = False
 
@@ -89,6 +119,6 @@ class CLIKwargs(ABC):
             if not isinstance(v, str):
                 args.append(str(v))
             else:
-                if (stripped := v.strip()):
+                if stripped := v.strip():
                     args.append(stripped)
         return args
