@@ -120,20 +120,31 @@ def get_track_list(file: PathLike, caller: Any = None) -> list[Track]:
     caller = caller if caller else get_track_list
     file = ensure_path_exists(file, caller)
     mediainfo = MediaInfo.parse(file)
-    current = 0
-    indexes = {"video": 0, "audio": 0, "text": 0}
+
+    filler_tracks = 0
+    is_m2ts = False
+    relative_indices = dict[str, int]()
     sanitized_list = []
-    # Weird mediainfo quirks
+
     for t in mediainfo.tracks:
         ttype = t.track_type.lower()
+
+        if ttype == "general":
+            is_m2ts = getattr(t, "format", None) == "BDAV"
         if ttype not in ["video", "audio", "text"]:
             continue
         sanitized_list.append(t)
 
-        t.track_id = current
-        current += 1
-        setattr(t, "relative_id", indexes[ttype])
-        indexes[ttype] = indexes[ttype] + 1
+        if is_m2ts and "-" in t.streamorder:
+            t.streamorder = str(t.streamorder).split("-")[1]
+        order = t.streamorder
+        order = -1 if order is None else int(order)
+        t.streamorder = order + filler_tracks
+
+        relative = relative_indices.get(ttype, 0)
+        setattr(t, "relative_id", relative)
+        relative_indices[ttype] = relative + 1
+
         if "truehd" in (getattr(t, "commercial_name", "") or "").lower() and "extension" in (getattr(t, "muxing_mode", "") or "").lower():
             identifier = getattr(t, "format_identifier", "AC-3") or "AC-3"
             compat_track = deepcopy(t)
@@ -141,11 +152,19 @@ def get_track_list(file: PathLike, caller: Any = None) -> list[Track]:
             compat_track.codec_id = f"A_{identifier.replace('-', '')}"
             compat_track.commercial_name = ""
             compat_track.compression_mode = "Lossy"
-            compat_track.track_id = current
-            current += 1
-            setattr(compat_track, "relative_id", indexes[ttype])
-            indexes[ttype] = indexes[ttype] + 1
+            compat_track.streamorder = t.streamorder + 1
+
+            relative = relative_indices.get(ttype, 0)
+            setattr(compat_track, "relative_id", relative)
+            relative_indices[ttype] = relative + 1
+
             sanitized_list.append(compat_track)
+            filler_tracks += 1
+
+    # the actual ID is really just absolutely useless so lets try and use the order
+    for t in sanitized_list:
+        if isinstance(t.streamorder, int) and t.streamorder > -1:
+            t.track_id = t.streamorder
 
     return sanitized_list
 
