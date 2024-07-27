@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from ..utils.types import PathLike
 from ..muxing.muxfiles import AudioFile
+from ..utils.dataclass import CLIKwargs
 
 
 class HasExtractor(ABC):
@@ -12,19 +13,19 @@ class HasTrimmer(ABC):
     pass
 
 
-class Extractor(ABC):
+class Extractor(CLIKwargs):
     @abstractmethod
     def extract_audio(self, input: PathLike, quiet: bool = True) -> AudioFile:
         pass
 
 
-class Trimmer(ABC):
+class Trimmer(CLIKwargs):
     @abstractmethod
     def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
         pass
 
 
-class Encoder(ABC):
+class Encoder(CLIKwargs):
     lossless = False
 
     @abstractmethod

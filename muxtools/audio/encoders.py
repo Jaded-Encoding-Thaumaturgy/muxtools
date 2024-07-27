@@ -1,6 +1,6 @@
 from shlex import split as splitcommand
-from dataclasses import dataclass, field
 from collections.abc import Sequence
+from pydantic.dataclasses import dataclass, Field
 import subprocess
 import os
 
@@ -8,6 +8,7 @@ from .tools import Encoder, LosslessEncoder
 from .preprocess import Preprocessor, Resample, Downmix
 from ..muxing.muxfiles import AudioFile
 from ..utils.env import run_commandline
+from ..utils.dataclass import allow_extra
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
 from ..utils.files import make_output, clean_temp_files
@@ -18,7 +19,7 @@ from .audioutils import ensure_valid_in, has_libFDK, qaac_compatcheck, duration_
 __all__ = ["FLAC", "FLACCL", "FF_FLAC", "Opus", "qAAC", "FDK_AAC"]
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class FLAC(LosslessEncoder):
     """
     Uses the reference libFLAC encoder to encode audio to flac.
@@ -26,15 +27,13 @@ class FLAC(LosslessEncoder):
     :param compression_level:   Any int value from 0 to 8 (Higher = better but slower)
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param verify:              Make the encoder verify each encoded sample while encoding to ensure valid output.
-    :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
     compression_level: int = 8
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     verify: bool = True
-    append: str = ""
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -45,11 +44,10 @@ class FLAC(LosslessEncoder):
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False)
         debug(f"Encoding '{fileIn.file.stem}' to FLAC using libFLAC...", self)
 
-        args = [flac, f"-{self.compression_level}", "-o", str(output)]
+        args = [flac, f"-{self.compression_level}", "-o", str(output)] + self.get_custom_args()
+        print(self.get_custom_args())
         if self.verify:
             args.append("--verify")
-        if self.append:
-            args.extend(splitcommand(self.append))
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
@@ -61,7 +59,7 @@ class FLAC(LosslessEncoder):
             raise crit("Encoding to FLAC using libFLAC failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class FLACCL(LosslessEncoder):
     """
     Uses the CUETools FLACCL encoder to encode audio to flac.
@@ -71,15 +69,13 @@ class FLACCL(LosslessEncoder):
                                 Keep in mind that over 8 is technically out of spec so we default to 8 here.
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param verify:              Make the encoder verify each encoded sample while encoding to ensure valid output.
-    :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
     compression_level: int = 8
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     verify: bool = True
-    append: str = ""
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -90,13 +86,11 @@ class FLACCL(LosslessEncoder):
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=False)
         debug(f"Encoding '{fileIn.file.stem}' to FLAC using FLACCL...", self)
 
-        args = [flaccl, f"-{self.compression_level}", "-o", str(output)]
+        args = [flaccl, f"-{self.compression_level}", "-o", str(output)] + self.get_custom_args()
         if self.compression_level > 8:
             args.append("--lax")
         if self.verify:
             args.append("--verify")
-        if self.append:
-            args.extend(splitcommand(self.append))
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
@@ -109,30 +103,26 @@ class FLACCL(LosslessEncoder):
             raise crit("Encoding to FLAC using FLACCL failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class FF_FLAC(LosslessEncoder):
     """
     Uses the ffmpeg/libav FLAC encoder to encode audio to flac.
 
     :param compression_level:   Any int value from 0 to 12 (Higher = better but slower)
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
-    :param append:              Any other args one might pass to the encoder.
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
 
     compression_level: int = 10
-    preprocess: Preprocessor | Sequence[Preprocessor] | None = field(default_factory=Resample)
-    append: str = ""
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     output: PathLike | None = None
 
     def _base_command(self, fileIn: AudioFile, compression: int = 0) -> list[str]:
         # fmt: off
         args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(fileIn.file.resolve()), "-map", "0:a:0", "-c:a", "flac", "-compression_level", str(compression)]
         minfo = fileIn.get_mediainfo()
-        args.extend(get_preprocess_args(fileIn, self.preprocess, minfo, self))
-        if self.append:
-            args.extend(splitcommand(self.append))
+        args.extend(get_preprocess_args(fileIn, self.preprocess, minfo, self) + self.get_custom_args())
         return args
         # fmt: on
 
@@ -162,7 +152,7 @@ class FF_FLAC(LosslessEncoder):
         return p
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class Opus(Encoder):
     """
     Uses opusenc to encode audio to opus.
@@ -172,7 +162,6 @@ class Opus(Encoder):
 
     :param vbr:                 Uses VBR encoding if True
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
-    :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
@@ -180,7 +169,6 @@ class Opus(Encoder):
     bitrate: int | None = None
     vbr: bool = True
     preprocess: Preprocessor | Sequence[Preprocessor] | None = None
-    append: str = ""
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -205,9 +193,7 @@ class Opus(Encoder):
 
         output = make_output(fileIn.file, "opus", "opusenc", self.output)
 
-        args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(bitrate)]
-        if self.append:
-            args.extend(splitcommand(self.append))
+        args = [exe, "--vbr" if self.vbr else "--cvbr", "--bitrate", str(bitrate)] + self.get_custom_args()
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
         args.append(str(output))
 
@@ -225,7 +211,7 @@ class Opus(Encoder):
             raise crit("Encoding to opus using opusenc failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class qAAC(Encoder):
     """
     Uses qAAC to encode audio to AAC.
@@ -233,8 +219,6 @@ class qAAC(Encoder):
     :param q:                   Quality value ranging from 0 to 127 if using TVBR, otherwise bitrate in kbps
     :param mode:                Encoding mode, Defaults to TVBR
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
-    :param append:              Any other args one might pass to the encoder
-                                Adds " --no-delay --no-optimize" by default to prevent desync with video
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
@@ -242,7 +226,6 @@ class qAAC(Encoder):
     q: int = 127
     mode: qAAC_MODE | int = qAAC_MODE.TVBR
     preprocess: Preprocessor | Sequence[Preprocessor] | None = None
-    append: str = ""
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -255,8 +238,7 @@ class qAAC(Encoder):
 
         debug(f"Encoding '{fileIn.file.stem}' to AAC using qAAC...", self)
         args = [qaac, "--no-delay", "--no-optimize", "--threading", f"--{self.mode.name.lower()}", str(self.q)]
-        if self.append:
-            args.extend(splitcommand(self.append))
+        args.extend(self.get_custom_args())
         args.extend(["-o", str(output), str(source.file.resolve()) if isinstance(source, AudioFile) else "-"])
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
@@ -268,7 +250,7 @@ class qAAC(Encoder):
             raise crit("Encoding to AAC using qAAC failed!", self)
 
 
-@dataclass
+@dataclass(config=allow_extra)
 class FDK_AAC(Encoder):
     """
     Uses the libFDK implementation in ffmpeg to encode audio to AAC.
@@ -283,7 +265,6 @@ class FDK_AAC(Encoder):
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param use_binary:          Whether to use the fdkaac encoder binary or ffmpeg.
                                 If you don't have ffmpeg compiled with libfdk it will try to fall back to the binary.
-    :param append:              Any other args one might pass to the encoder
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
@@ -293,7 +274,6 @@ class FDK_AAC(Encoder):
     cutoff: int = 20000
     preprocess: Preprocessor | Sequence[Preprocessor] | None = None
     use_binary: bool = False
-    append: str = ""
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
@@ -324,18 +304,14 @@ class FDK_AAC(Encoder):
             args = [exe, "-m", str(self.bitrate_mode), "-w", str(self.cutoff), "-a", "1"]
             if self.bitrate_mode == 0:
                 args.extend(["-b", str(self.bitrate)])
-            if self.append:
-                args.extend(splitcommand(self.append))
-            args.extend(["-o", str(output), str(source.file)])
+            args.extend(self.get_custom_args() + ["-o", str(output), str(source.file)])
         else:
             args = [exe, "-hide_banner", "-i", str(fileIn.file), "-map", "0:a:0", "-c:a", "libfdk_aac", "-cutoff", str(self.cutoff)]
             if self.bitrate_mode > 0:
                 args.extend(['-vbr', str(self.bitrate_mode)])
             else:
                 args.extend(['-b:a', f'{self.bitrate}k'])
-            args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self))
-            if self.append:
-                args.extend(splitcommand(self.append))
+            args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self) + self.get_custom_args())
             args.append(str(output))
         # fmt: on
         if self.use_binary:
