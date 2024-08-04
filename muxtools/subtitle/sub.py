@@ -634,18 +634,22 @@ class SubFile(BaseSubFile):
 
         return self.manipulate_lines(_func)
 
-    def shift(self: SubFileSelf, frames: int, fps: Fraction | PathLike = Fraction(24000, 1001)) -> SubFileSelf:
+    def shift(self: SubFileSelf, frames: int, fps: Fraction | PathLike = Fraction(24000, 1001), delete_before_zero: bool = False) -> SubFileSelf:
         """
         Shifts all lines by any frame number.
 
-        :param frames:      Number of frames to shift by
-        :param fps:         FPS needed for the timing calculations. Also accepts a timecode (v2) file.
+        :param frames:              Number of frames to shift by
+        :param fps:                 FPS needed for the timing calculations. Also accepts a timecode (v2) file.
+        :param delete_before_zero:  Delete lines that would be before 0 after shifting.
         """
 
-        def _func(lines: LINES):
+        def shift_lines(lines: LINES):
+            new_list = list[_Line]()
             for line in lines:
                 start = timedelta_to_frame(line.start, fps, exclude_boundary=True) + frames
                 if start < 0:
+                    if delete_before_zero:
+                        continue
                     start = 0
                 start = frame_to_timedelta(start, fps, compensate=True)
                 end = timedelta_to_frame(line.end, fps, exclude_boundary=True) + frames
@@ -654,8 +658,10 @@ class SubFile(BaseSubFile):
                 end = frame_to_timedelta(end, fps, compensate=True)
                 line.start = start
                 line.end = end
+                new_list.append(line)
+            return new_list
 
-        return self.manipulate_lines(_func)
+        return self.manipulate_lines(shift_lines)
 
     def copy(self: SubFileSelf) -> SubFileSelf:
         """
