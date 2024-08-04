@@ -538,28 +538,61 @@ class SubFile(BaseSubFile):
         clean_temp_files()
         return self
 
-    def separate_signs(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, inverse: bool = False) -> SubFileSelf:
+    def separate_signs(
+        self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, inverse: bool = False, heuristics: bool = False, print_heuristics: bool = True
+    ) -> SubFileSelf:
         """
         Basically deletes lines that have any of the passed styles.
 
         :param styles:      List of style names to get rid of
         :param inverse:     Treat the list as the opposite. Will remove lines that *don't* have any of those styles.
+        :param heuristics:  Also use heuristics for detecting signs.
         """
-        doc = self._read_doc()
-        events = []
-        for line in doc.events:
-            skip = inverse
-            for style in styles:
-                if str(line.style).strip().casefold() == style.strip().casefold():
-                    skip = not inverse
-                    break
 
-            if skip:
-                continue
-            events.append(line)
-        doc.events = events
-        self._update_doc(doc)
-        return self.clean_styles()
+        def _is_sign(line: _Line) -> bool:
+            confidence = 0
+            style_check = False
+            if styles and (line.style.casefold() not in [str(style).casefold() for style in styles]):
+                style_check = True
+                confidence += 2
+
+            if heuristics and confidence < 2:
+                if line.name:
+                    if "onscreen" in line.name.lower().replace(" ", "") or line.name.lower() == "type":
+                        confidence += 1
+
+                if R"\pos" in line.text:
+                    confidence += 1
+                if R"\mov" in line.text:
+                    confidence += 1
+                if R"\fn" in line.text:
+                    confidence += 1
+                if R"\blur" in line.text or R"\be" in line.text:
+                    confidence += 1
+
+                an_types = [Rf"\an{num}" for num in range(1, 10) if num not in (2, 8)]
+                for an in an_types:
+                    if an in line.text:
+                        confidence += 1
+                        break
+                if print_heuristics and confidence >= 2 and not style_check:  # and styles:
+                    info(f"Line with dialogue style passed heuristics:\n{line.text}", self)
+
+            return confidence >= 2
+
+        def filter_lines(lines: LINES):
+            events = []
+            for line in lines:
+                skip = not inverse
+                if _is_sign(line):
+                    skip = inverse
+
+                if skip:
+                    continue
+                events.append(line)
+            return events
+
+        return self.manipulate_lines(filter_lines).clean_styles()
 
     def change_layers(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, layer: int | None = None, additive: bool = True) -> SubFileSelf:
         """
