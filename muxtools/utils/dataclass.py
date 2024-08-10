@@ -12,7 +12,7 @@ __all__ = ["CLIKwargs", "allow_extra", "dataclass"]
 
 allow_extra = ConfigDict(extra="allow", str_strip_whitespace=True, allow_inf_nan=False, arbitrary_types_allowed=True)
 
-attribute_blacklist = ["executable", "resumable", "x265", "was_file", "affinity"]
+attribute_blacklist = ["executable", "resumable", "x265", "was_file", "affinity", "_no_print"]
 
 
 class CLIKwargs(ABC):

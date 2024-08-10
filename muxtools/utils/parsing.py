@@ -75,7 +75,9 @@ def parse_m2ts_path(dgiFile: Path) -> Path:
     return dgiFile
 
 
-def parse_audioinfo(file: PathLike, track: int = 0, caller: Any = None, is_thd: bool = False, full_analysis: bool = False) -> AudioInfo:
+def parse_audioinfo(
+    file: PathLike, track: int = 0, caller: Any = None, is_thd: bool = False, full_analysis: bool = False, quiet: bool = False
+) -> AudioInfo:
     f_compiled = re.compile(AUDIOFRAME_REGEX, re.IGNORECASE)
     s_compiled = re.compile(AUDIOSTATS_REGEX, re.IGNORECASE)
     file = ensure_path_exists(file, parse_audioinfo)
@@ -106,11 +108,12 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: Any = None, is_thd: 
             out_var,
         ]
     )
-    if not caller:
-        caller = parse_audioinfo
-        debug(f"Parsing frames and stats for '{file.stem}'", caller)
-    else:
-        debug("Parsing frames and stats...", caller)
+    if not quiet:
+        if not caller:
+            caller = parse_audioinfo
+            debug(f"Parsing frames and stats for '{file.stem}'", caller)
+        else:
+            debug("Parsing frames and stats...", caller)
     out = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="ignore")
     frames = []
     stats = AudioStats()
@@ -137,8 +140,8 @@ def parse_audioinfo(file: PathLike, track: int = 0, caller: Any = None, is_thd: 
                     val = float(val) if isinstance(getattr(stats, attr), float) else val
                     val = int(val) if isinstance(getattr(stats, attr), int) else val
                     setattr(stats, attr, val)
-
-    debug("Done", caller)
+    if not quiet:
+        debug("Done", caller)
     return AudioInfo(stats, frames)
 
 

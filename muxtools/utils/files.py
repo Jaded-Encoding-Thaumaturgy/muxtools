@@ -8,7 +8,7 @@ from typing import Any
 from collections.abc import Callable
 from pymediainfo import Track, MediaInfo
 
-from .log import crit, error
+from .log import crit, error, LoggingException
 from .glob import GlobSearch
 from .types import PathLike, TrackType
 from .env import get_temp_workdir, get_workdir
@@ -227,13 +227,15 @@ def find_tracks(
     return tracks
 
 
-def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: Any = None) -> Track:
+def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: Any = None, quiet_fail: bool = False) -> Track:
     """
     Finds the absolute track for a relative track number of a specific type.
 
-    :param file:    String or pathlib based Path
-    :param track:   Relative track number
-    :param type:    TrackType of the requested relative track
+    :param file:        String or pathlib based Path
+    :param track:       Relative track number
+    :param type:        TrackType of the requested relative track
+    :param quiet_fail:  Raise an exception but don't print it before.
+                        Only used for internals.
     """
     caller = caller if caller else get_absolute_track
     file = ensure_path_exists(file, caller)
@@ -242,6 +244,8 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: Any 
     videos = [track for track in tracks if track.track_type.casefold() == "Video".casefold()]
     audios = [track for track in tracks if track.track_type.casefold() == "Audio".casefold()]
     subtitles = [track for track in tracks if track.track_type.casefold() == "Text".casefold()]
+    no_track_msg = "Your requested track doesn't exist."
+
     match type:
         case TrackType.VIDEO:
             if not videos:
@@ -249,21 +253,21 @@ def get_absolute_track(file: PathLike, track: int, type: TrackType, caller: Any 
             try:
                 return videos[track]
             except:
-                raise error("Your requested track doesn't exist.", caller)
+                raise error(no_track_msg, caller) if not quiet_fail else LoggingException(no_track_msg)
         case TrackType.AUDIO:
             if not audios:
                 raise error(f"No audio tracks have been found in '{file.name}'!", caller)
             try:
                 return audios[track]
             except:
-                raise error("Your requested track doesn't exist.", caller)
+                raise error(no_track_msg, caller) if not quiet_fail else LoggingException(no_track_msg)
         case TrackType.SUB:
             if not subtitles:
                 raise error(f"No subtitle tracks have been found in '{file.name}'!", caller)
             try:
                 return subtitles[track]
             except:
-                raise error("Your requested track doesn't exist.", caller)
+                raise error(no_track_msg, caller) if not quiet_fail else LoggingException(no_track_msg)
         case _:
             raise error("Not implemented for anything other than Video, Audio or Subtitles.", caller)
 

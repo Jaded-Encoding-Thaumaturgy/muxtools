@@ -45,7 +45,6 @@ class FLAC(LosslessEncoder):
         debug(f"Encoding '{fileIn.file.stem}' to FLAC using libFLAC...", self)
 
         args = [flac, f"-{self.compression_level}", "-o", str(output)] + self.get_custom_args()
-        print(self.get_custom_args())
         if self.verify:
             args.append("--verify")
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")

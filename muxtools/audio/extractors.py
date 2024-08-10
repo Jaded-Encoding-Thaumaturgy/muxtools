@@ -2,6 +2,7 @@ from shlex import split as splitcommand
 from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
+from typing import Sequence
 from pathlib import Path
 import os
 import re
@@ -22,6 +23,11 @@ __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
 
 
 EAC3TO_DELAY_REGEX = r"remaining delay of (?P<delay>(?:-|\+)?\d+)ms could not"
+
+
+def _escape_name(s: str) -> str:
+    """Makes filepaths suitable for ffmpeg concat files"""
+    return s.replace("\\", "\\\\").replace("'", "\\'").replace(" ", "\\ ")
 
 
 @dataclass
@@ -106,26 +112,27 @@ class FFMpeg(HasExtractor, HasTrimmer):
         output: PathLike | None = None
         full_analysis: bool = False
 
-        def extract_audio(self, input: PathLike, quiet: bool = True) -> AudioFile:
+        def extract_audio(self, input: PathLike, quiet: bool = True, is_temp: bool = False, force_flac: bool = False) -> AudioFile:
             ffmpeg = get_executable("ffmpeg")
             input = ensure_path_exists(input, self)
-            track = get_absolute_track(input, self.track, TrackType.AUDIO, self)
+            track = get_absolute_track(input, self.track, TrackType.AUDIO, self, quiet_fail=self._no_print)
             form = format_from_track(track)
-            info(f"Extracting audio track {self.track} from '{input.stem}'...", self)
+            if not self._no_print:
+                info(f"Extracting audio track {self.track} from '{input.stem}'...", self)
             if not form:
-                ainfo = parse_audioinfo(input, self.track, self, full_analysis=self.full_analysis)
+                ainfo = parse_audioinfo(input, self.track, self, full_analysis=self.full_analysis, quiet=self._no_print)
                 lossy = getattr(track, "compression_mode", "lossless").lower() == "lossy"
                 if lossy:
                     raise error(f"Unrecognized lossy format found: {track.format}", self)
                 else:
                     extension = "wav"
                     warn("Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
-                    out = make_output(input, extension, f"extracted_{self.track}", self.output)
+                    out = make_output(input, extension, f"extracted_{self.track}", self.output, temp=is_temp)
             else:
-                ainfo = parse_audioinfo(input, self.track, self, form.ext == "thd", full_analysis=self.full_analysis)
+                ainfo = parse_audioinfo(input, self.track, self, form.ext == "thd", full_analysis=self.full_analysis, quiet=self._no_print)
                 lossy = form.lossy
                 extension = form.ext
-                out = make_output(input, extension, f"extracted_{self.track}", self.output)
+                out = make_output(input, extension, f"extracted_{self.track}", self.output, temp=is_temp)
 
             args = [ffmpeg, "-hide_banner", "-i", str(input.resolve()), "-map_chapters", "-1", "-map", f"0:a:{self.track}"]
 
@@ -135,16 +142,21 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 debug(f"Detected fake/padded {specified_depth} bit. Actual depth is {actual_depth} bit.", self)
                 if specified_depth - actual_depth > 4:
                     debug("Track will be outputted as flac and truncated to 16 bit instead.", self)
-                    out = make_output(input, "flac", f"extracted_{self.track}", self.output)
+                    out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
                     args.extend(["-c:a", "flac", "-sample_fmt", "s16"])
             else:
-                if extension == "wav":
-                    args.extend(["-c:a", "pcm_s16le" if specified_depth == 16 else "pcm_s24le", "-rf64", "auto"])
+                if force_flac and extension in ["dts", "wav"] and not lossy:
+                    out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
+                    args.extend(["-c:a", "flac", "-compression_level", "0"])
                 else:
-                    args.extend(["-c:a", "copy"])
-                    if extension == "dtshd" or extension == "dts":
-                        # FFMPEG screams about dtshd not being a known output format but ffmpeg -formats lists it....
-                        args.extend(["-f", "dts"])
+                    if extension == "wav":
+                        args.extend(["-c:a", "pcm_s16le" if specified_depth <= 16 else "pcm_s24le", "-rf64", "auto"])
+                    else:
+                        args.extend(["-c:a", "copy"])
+                        if extension == "dtshd" or extension == "dts":
+                            # FFMPEG screams about dtshd not being a known output format but ffmpeg -formats lists it....
+                            args.extend(["-f", "dts"])
+
             args.append(str(out))
             duration = duration_from_file(input, self.track)
             if not run_cmd_pb(args, quiet, ProgressBarConfig("Extracting...", duration)):
@@ -173,10 +185,6 @@ class FFMpeg(HasExtractor, HasTrimmer):
         fps: Fraction | PathLike = Fraction(24000, 1001)
         num_frames: int = 0
         output: PathLike | None = None
-
-        def _escape_name(self, s: str) -> str:
-            """Makes filepaths suitable for ffmpeg concat files"""
-            return s.replace("\\", "\\\\").replace("'", "\\'").replace(" ", "\\ ")
 
         def _calc_delay(self, delay: int = 0, num_samples: int = 0, sample_rate: int = 48000) -> int:
             """
@@ -278,7 +286,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 info("Concatenating the tracks...", self)
                 concat_f = os.path.join(get_temp_workdir(), "concat.txt")
                 with open(concat_f, "w") as f:
-                    f.writelines([f"file {self._escape_name(c)}\n" for c in concat])
+                    f.writelines([f"file {_escape_name(c)}\n" for c in concat])
 
                 args[3] = concat_f
                 args[2:1] = ["-f", "concat", "-safe", "0"]
@@ -291,6 +299,63 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 else:
                     clean_temp_files()
                     raise error("Failed to trim audio using FFMPEG!", self)
+
+    @dataclass
+    class Concat:
+        """
+        Concat two or more audio files using FFMPEG.
+        (Also transcodes to FLAC if the formats don't match)
+
+        :param files:       List of PathLike or AudioFile to concat.
+
+        """
+
+        files: Sequence[PathLike] | Sequence[AudioFile]
+        output: PathLike | None = None
+
+        def concat_audio(self, quiet: bool = True) -> AudioFile:
+            audio_files = list[AudioFile]()
+            for f in self.files:
+                if isinstance(f, AudioFile):
+                    audio_files.append(f)
+                    continue
+                audio_files.append(FFMpeg.Extractor().extract_audio(f))
+
+            if any([af.has_multiple_tracks(self) for af in audio_files]):
+                raise error("One or more files passed have more than one audio track!", self)
+
+            info(f"Concatenating {len(audio_files)} audio tracks...", self)
+
+            concat_file = get_temp_workdir() / "concat.txt"
+            with open(concat_file, "w", encoding="utf-8") as f:
+                f.writelines([f"file {_escape_name(str(af.file.resolve()))}\n" for af in audio_files])
+
+            first_format = format_from_track(audio_files[0].get_mediainfo())
+
+            format_mismatch = not all([format_from_track(af.get_mediainfo()).format == first_format.format for af in audio_files[1:]])
+            if format_mismatch or first_format.ext == "wav":
+                out_codec = "flac"
+                out_ext = "flac"
+            else:
+                out_codec = "copy"
+                out_ext = first_format.ext
+
+            output = make_output(audio_files[0].file, out_ext, "concat", self.output)
+            args = [get_executable("ffmpeg"), "-f", "concat", "-safe", "0", "-i", str(concat_file), "-c", out_codec, str(output)]
+
+            if not run_commandline(args, quiet):
+                debug("Done", self)
+                clean_temp_files()
+
+                durations = [af.duration for af in audio_files if af.duration]
+                final_dura = timedelta(milliseconds=0)
+                for dura in durations:
+                    final_dura += dura
+
+                return AudioFile(output, audio_files[0].container_delay, audio_files[0].source, duration=final_dura)
+            else:
+                clean_temp_files()
+                raise error("Failed to trim audio using FFMPEG!", self)
 
 
 @dataclass
