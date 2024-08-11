@@ -6,7 +6,7 @@ __all__ = ["GlobSearch"]
 
 
 class GlobSearch:
-    paths: Path | list[Path] = None
+    paths: list[Path] = []
 
     def __init__(
         self,
@@ -25,20 +25,14 @@ class GlobSearch:
         """
 
         dir = Path(dir) if isinstance(dir, str) else dir
+
         if dir is None:
             dir = Path(os.getcwd()).resolve()
 
         search = dir.rglob(pattern) if recursive else dir.glob(pattern)
-        # print(search)
+
         for f in search:
-            if allow_multiple:
-                if self.paths:
-                    self.paths.append(f)
-                else:
-                    init: list[Path] = [
-                        f,
-                    ]
-                    self.paths = init
-            else:
-                self.paths = f
+            self.paths.append(f)
+
+            if not allow_multiple:
                 break
