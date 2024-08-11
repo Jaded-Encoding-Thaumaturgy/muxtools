@@ -6,13 +6,13 @@ __all__ = ["GlobSearch"]
 
 
 class GlobSearch:
-    paths: Path | list[Path] = None
+    paths: list[Path] = []
 
     def __init__(
         self,
         pattern: str,
         allow_multiple: bool = False,
-        dir: PathLike = None,
+        target_dir: PathLike = None,
         recursive: bool = True,
     ) -> None:
         """
@@ -20,25 +20,19 @@ class GlobSearch:
 
         :param pattern:         Glob pattern
         :param allow_multiple:  Will return all file matches if True and only the first if False
-        :param dir:             Directory to run the search in. Defaults to current working dir.
+        :param target_dir:      Directory to run the search in. Defaults to current working dir.
         :param recursive:       Search recursively
         """
 
-        dir = Path(dir) if isinstance(dir, str) else dir
-        if dir is None:
-            dir = Path(os.getcwd()).resolve()
+        target_dir = Path(target_dir) if isinstance(target_dir, str) else target_dir
 
-        search = dir.rglob(pattern) if recursive else dir.glob(pattern)
-        # print(search)
+        if target_dir is None:
+            target_dir = Path(os.getcwd()).resolve()
+
+        search = target_dir.rglob(pattern) if recursive else target_dir.glob(pattern)
+
         for f in search:
-            if allow_multiple:
-                if self.paths:
-                    self.paths.append(f)
-                else:
-                    init: list[Path] = [
-                        f,
-                    ]
-                    self.paths = init
-            else:
-                self.paths = f
+            self.paths.append(f)
+
+            if not allow_multiple:
                 break
