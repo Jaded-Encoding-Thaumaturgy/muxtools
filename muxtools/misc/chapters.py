@@ -42,7 +42,7 @@ class Chapters:
         else:
             # Handle both OGM .txt files and xml files
             if isinstance(chapter_source, GlobSearch):
-                chapter_source = chapter_source.paths[0] if isinstance(chapter_source.paths, list) else chapter_source.paths
+                chapter_source = chapter_source.paths[0]
             chapter_source = chapter_source if isinstance(chapter_source, Path) else Path(chapter_source)
 
             self.chapters = parse_xml(chapter_source) if chapter_source.suffix.lower() == ".xml" else parse_ogm(chapter_source)
