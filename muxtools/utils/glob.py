@@ -12,7 +12,7 @@ class GlobSearch:
         self,
         pattern: str,
         allow_multiple: bool = False,
-        target_dir: PathLike = None,
+        dir: PathLike = None,
         recursive: bool = True,
     ) -> None:
         """
@@ -20,16 +20,16 @@ class GlobSearch:
 
         :param pattern:         Glob pattern
         :param allow_multiple:  Will return all file matches if True and only the first if False
-        :param target_dir:      Directory to run the search in. Defaults to current working dir.
+        :param dir:             Directory to run the search in. Defaults to current working dir.
         :param recursive:       Search recursively
         """
 
-        target_dir = Path(target_dir) if isinstance(target_dir, str) else target_dir
+        dir = Path(dir) if isinstance(dir, str) else dir
 
-        if target_dir is None:
-            target_dir = Path(os.getcwd()).resolve()
+        if dir is None:
+            dir = Path(os.getcwd()).resolve()
 
-        search = target_dir.rglob(pattern) if recursive else target_dir.glob(pattern)
+        search = dir.rglob(pattern) if recursive else dir.glob(pattern)
 
         for f in search:
             self.paths.append(f)
