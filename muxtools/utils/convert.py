@@ -10,7 +10,7 @@ from ..utils.log import error
 
 __all__: list[str] = [
     "mpls_timestamp_to_timedelta",
-    "timedelta_to_frame",
+    "ms_to_frame",
     "frame_to_ms",
     "format_timedelta",
     "timedelta_from_formatted",
@@ -52,38 +52,30 @@ def _frame_from_timecodes(timecodes: PathLike, time: timedelta) -> int:
     return len([t for t in parsed if t < time.total_seconds()]) - 1
 
 
-def timedelta_to_frame(
-    time: timedelta, fps: Fraction | PathLike = Fraction(24000, 1001), exclude_boundary: bool = False, allow_rounding: bool = True
+def ms_to_frame(
+    ms: int, time_type: TimeType, time_scale: Fraction, fps: Fraction | PathLike = Fraction(24000, 1001), rounding_method: RoundingMethod = RoundingMethod.ROUND
 ) -> int:
     """
     Converts a timedelta to a frame number.
 
-    :param time:                The timedelta
-    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
-
-    :param exclude_boundary:    Associate frame boundaries with the previous frame rather than the current one.
-                                Use this option when dealing with subtitle start/end times.
-
-    :param allow_rounding:      Use the next int if the difference to the next frame is smaller than 0.01.
-                                This should *probably* not be used for subtitles. We are not sure.
-
-    :return:                    The resulting frame number
+    :param ms:                  The time in millisecond.
+    :param time_type:           The time type.
+    :param time_scale:          The time scale.
+    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v1, v2, v4) file.
+    :param rounding_method:     If you want to be compatible with mkv, use RoundingMethod.ROUND else RoundingMethod.FLOOR.
+                                For more information, see the documentation of [timestamps](https://github.com/moi15moi/VideoTimestamps/blob/578373a5b83402d849d0e83518da7549edf8e03d/video_timestamps/abc_timestamps.py#L13-L26)
+    :return:                    The resulting frame number.
     """
-    if exclude_boundary:
-        return timedelta_to_frame(time - timedelta(milliseconds=1), fps, allow_rounding=False)
 
-    if not isinstance(fps, Fraction):
-        return _frame_from_timecodes(fps, time)
+    if isinstance(fps, Fraction):
+        timestamps = FPSTimestamps(rounding_method, time_scale, fps)
+    else:
+        timestamps_file = ensure_path_exists(fps, ms_to_frame)
+        timestamps = TextFileTimestamps(timestamps_file, time_scale, rounding_method)
 
-    ms = int(Decimal(time.total_seconds()).__round__(3) * 1000)
-    frame = ms * fps / 1000
-    frame_dec = Decimal(frame.numerator) / Decimal(frame.denominator)
+    frame = timestamps.time_to_frame(ms, time_type, 3)
 
-    # Return next int if difference is less than 0.03
-    if allow_rounding and abs(frame_dec.__round__(3) - frame_dec.__ceil__()) < 0.03:
-        return frame_dec.__ceil__()
-
-    return int(frame)
+    return frame
 
 
 def frame_to_ms(f: int, time_type: TimeType, time_scale: Fraction, fps: Fraction | PathLike = Fraction(24000, 1001),

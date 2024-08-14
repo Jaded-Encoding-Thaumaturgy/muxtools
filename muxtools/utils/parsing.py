@@ -13,7 +13,7 @@ from .log import error, warn, debug, info
 from .download import get_executable
 from .convert import (
     timedelta_from_formatted,
-    timedelta_to_frame,
+    ms_to_frame,
     frame_to_ms,
     mpls_timestamp_to_timedelta,
     format_timedelta,
@@ -220,7 +220,7 @@ def parse_chapters_bdmv(
                         chapters.append((time, f"Chapter {i:02.0f}"))
                     if chapters and _print:
                         for time, name in chapters:
-                            print(f"{name}: {format_timedelta(time)} | {timedelta_to_frame(time, fps)}")
+                            print(f"{name}: {format_timedelta(time)} | {ms_to_frame(int(time.total_seconds() * 1000), TimeType.EXACT, fps)}")
 
         if chapters:
             break

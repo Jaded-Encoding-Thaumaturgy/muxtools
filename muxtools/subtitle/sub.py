@@ -18,7 +18,7 @@ from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import PathLike, TrackType
 from ..utils.log import debug, error, info, warn
-from ..utils.convert import frame_to_ms, timedelta_to_frame
+from ..utils.convert import frame_to_ms, ms_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
 from ..muxing.muxfiles import MuxingFile
@@ -306,8 +306,8 @@ class SubFile(BaseSubFile):
         def _func(lines: LINES):
             for line in lines:
                 if not allowed_styles or line.style.lower() in allowed_styles:
-                    line.start = frame_to_ms(timedelta_to_frame(line.start, fps, exclude_boundary=True), TimeType.START, fps)
-                    line.end = frame_to_ms(timedelta_to_frame(line.end, fps, exclude_boundary=True), TimeType.END, fps)
+                    line.start = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps), TimeType.START, fps))
+                    line.end = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps), TimeType.END, fps))
 
         return self.manipulate_lines(_func)
 
@@ -350,7 +350,7 @@ class SubFile(BaseSubFile):
             if target is None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
-                    target = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
+                    target = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
 
         if target is None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
@@ -368,7 +368,7 @@ class SubFile(BaseSubFile):
                 sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
-                second_sync = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
+                second_sync = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
                 mergedoc.events.remove(line)
                 break
 
@@ -377,7 +377,7 @@ class SubFile(BaseSubFile):
         # Assume the first line to be the second syncpoint if none was found
         if second_sync is None:
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
+                second_sync = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
                 break
 
         # Merge lines from file
@@ -389,8 +389,8 @@ class SubFile(BaseSubFile):
 
             # Apply frame offset
             offset = (target or -1) - second_sync
-            line.start = frame_to_ms(timedelta_to_frame(line.start, fps, exclude_boundary=True) + offset, TimeType.START, fps)
-            line.end = frame_to_ms(timedelta_to_frame(line.end, fps, exclude_boundary=True) + offset, TimeType.END, fps)
+            line.start = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + offset, TimeType.START, fps))
+            line.end = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps) + offset, TimeType.END, fps))
             tomerge.append(line)
 
         if tomerge:
@@ -656,13 +656,13 @@ class SubFile(BaseSubFile):
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
             for line in lines:
-                start = timedelta_to_frame(line.start, fps, exclude_boundary=True) + frames
+                start = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + frames
                 if start < 0:
                     if delete_before_zero:
                         continue
                     start = 0
                 start = timedelta(milliseconds=frame_to_ms(start, TimeType.START, fps))
-                end = timedelta_to_frame(line.end, fps, exclude_boundary=True) + frames
+                end = ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps) + frames
                 if end < 0:
                     continue
                 end = timedelta(milliseconds=frame_to_ms(end, TimeType.END, fps))
@@ -715,7 +715,7 @@ class SubFile(BaseSubFile):
         def srt_timedelta(timestamp: str, time_type: TimeType) -> timedelta:
             args = timestamp.split(",")[0].split(":")
             parsed = timedelta(hours=int(args[0]), minutes=int(args[1]), seconds=int(args[2]), milliseconds=int(timestamp.split(",")[1]))
-            cope = timedelta_to_frame(parsed, fps, exclude_boundary=True)
+            cope = ms_to_frame(int(parsed.total_seconds() * 1000), time_type, fps)
             cope = timedelta(milliseconds=frame_to_ms(cope, time_type, fps))
             return cope
 

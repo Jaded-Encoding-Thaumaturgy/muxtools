@@ -16,7 +16,7 @@ from ..utils.types import Chapter, PathLike
 from ..utils.parsing import parse_ogm, parse_xml
 from ..utils.files import clean_temp_files, ensure_path_exists, ensure_path
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
-from ..utils.convert import format_timedelta, frame_to_ms, timedelta_to_frame
+from ..utils.convert import format_timedelta, frame_to_ms, ms_to_frame
 
 __all__ = ["Chapters"]
 
@@ -68,10 +68,10 @@ class Chapters:
         if trim_start > 0:
             chapters: list[Chapter] = []
             for chapter in self.chapters:
-                if timedelta_to_frame(chapter[0]) == 0:
+                if ms_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, self.fps) == 0:
                     chapters.append(chapter)
                     continue
-                if timedelta_to_frame(chapter[0]) - trim_start < 0:
+                if ms_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, self.fps) - trim_start < 0:
                     continue
                 current = list(chapter)
                 current[0] = current[0] - timedelta(milliseconds=frame_to_ms(trim_start, TimeType.EXACT, self.fps, False))
@@ -85,7 +85,7 @@ class Chapters:
             if trim_end > 0:
                 chapters: list[Chapter] = []
                 for chapter in self.chapters:
-                    if timedelta_to_frame(chapter[0], self.fps) < trim_end:
+                    if ms_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, self.fps) < trim_end:
                         chapters.append(chapter)
                 self.chapters = chapters
 
@@ -144,15 +144,9 @@ class Chapters:
         :param shift_amount:    Frames to shift by
         """
         ch = list(self.chapters[chapter])
-        # TODO Call frame_to_ms and ms_to_frame to properly handle VFR content.
-        shift_delta = frame_to_ms(abs(shift_amount), TimeType.EXACT, self.fps, False)
-        if shift_amount < 0:
-            shifted_frame = ch[0] - shift_delta
-        else:
-            shifted_frame = ch[0] + shift_delta
-
-        if shifted_frame.total_seconds() > 0:
-            ch[0] = shifted_frame
+        ch_frame = ms_to_frame(int(ch[0].total_seconds() * 1000), TimeType.START, self.fps) + abs(shift_amount)
+        if ch_frame >= 0:
+            ch[0] = timedelta(milliseconds=frame_to_ms(ch_frame, TimeType.EXACT, self.fps, False))
         else:
             ch[0] = timedelta(seconds=0)
         self.chapters[chapter] = tuple(ch)
@@ -172,7 +166,7 @@ class Chapters:
         """
         info("Chapters:")
         for time, name in self.chapters:
-            print(f"{name}: {format_timedelta(time)} | {timedelta_to_frame(time, self.fps)}")
+            print(f"{name}: {format_timedelta(time)} | {ms_to_frame(int(time.total_seconds() * 1000), TimeType.START, self.fps)}")
         print("", end="\n")
         return self
 
