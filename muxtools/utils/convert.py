@@ -17,10 +17,6 @@ __all__: list[str] = [
 ]
 
 
-def _fraction_to_decimal(f: Fraction) -> Decimal:
-    return Decimal(f.numerator) / Decimal(f.denominator)
-
-
 def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
     """
     Converts a mpls timestamp (from BDMV Playlist files) to a timedelta.
