@@ -4,6 +4,7 @@ from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
 from typing import TypeVar
+from video_timestamps import TimeType
 import os
 import re
 
@@ -15,7 +16,7 @@ from ..utils.types import Chapter, PathLike
 from ..utils.parsing import parse_ogm, parse_xml
 from ..utils.files import clean_temp_files, ensure_path_exists, ensure_path
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
-from ..utils.convert import format_timedelta, frame_to_timedelta, timedelta_to_frame
+from ..utils.convert import format_timedelta, frame_to_ms, timedelta_to_frame
 
 __all__ = ["Chapters"]
 
@@ -54,7 +55,7 @@ class Chapters:
         for ch in self.chapters:
             if isinstance(ch[0], int):
                 current = list(ch)
-                current[0] = frame_to_timedelta(current[0], self.fps)
+                current[0] = timedelta(milliseconds=frame_to_ms(current[0], TimeType.EXACT, self.fps, False))
                 chapters.append(tuple(current))
             else:
                 chapters.append(ch)
@@ -73,9 +74,9 @@ class Chapters:
                 if timedelta_to_frame(chapter[0]) - trim_start < 0:
                     continue
                 current = list(chapter)
-                current[0] = current[0] - frame_to_timedelta(trim_start, self.fps)
+                current[0] = current[0] - timedelta(milliseconds=frame_to_ms(trim_start, TimeType.EXACT, self.fps, False))
                 if num_frames:
-                    if current[0] > frame_to_timedelta(num_frames - 1, self.fps):
+                    if current[0] > timedelta(milliseconds=frame_to_ms(num_frames - 1, TimeType.EXACT, self.fps, False)):
                         continue
                 chapters.append(tuple(current))
 
@@ -125,7 +126,7 @@ class Chapters:
         for ch in chapters:
             if isinstance(ch[0], int):
                 current = list(ch)
-                current[0] = frame_to_timedelta(current[0], self.fps)
+                current[0] = timedelta(milliseconds=frame_to_ms(current[0], TimeType.EXACT, self.fps, False))
                 converted.append(tuple(current))
             else:
                 converted.append(ch)
@@ -143,7 +144,8 @@ class Chapters:
         :param shift_amount:    Frames to shift by
         """
         ch = list(self.chapters[chapter])
-        shift_delta = frame_to_timedelta(abs(shift_amount), self.fps)
+        # TODO Call frame_to_ms and ms_to_frame to properly handle VFR content.
+        shift_delta = frame_to_ms(abs(shift_amount), TimeType.EXACT, self.fps, False)
         if shift_amount < 0:
             shifted_frame = ch[0] - shift_delta
         else:

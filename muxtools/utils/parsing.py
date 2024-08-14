@@ -1,10 +1,12 @@
 import re
 import os
 import subprocess
+from datetime import timedelta
 from pathlib import Path
 from fractions import Fraction
 from typing import Any
 from pyparsebluray import mpls
+from video_timestamps import TimeType
 from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame
 from .files import ensure_path_exists
 from .log import error, warn, debug, info
@@ -12,7 +14,7 @@ from .download import get_executable
 from .convert import (
     timedelta_from_formatted,
     timedelta_to_frame,
-    frame_to_timedelta,
+    frame_to_ms,
     mpls_timestamp_to_timedelta,
     format_timedelta,
 )
@@ -213,7 +215,7 @@ def parse_chapters_bdmv(
 
                     for i, lmark in enumerate(linked_marks, start=1):
                         time = mpls_timestamp_to_timedelta(lmark.mark_timestamp - offset)
-                        if clip_frames > 0 and time > frame_to_timedelta(clip_frames - 50, fps):
+                        if clip_frames > 0 and time > timedelta(milliseconds=frame_to_ms(clip_frames - 50, TimeType.EXACT, fps, False)):
                             continue
                         chapters.append((time, f"Chapter {i:02.0f}"))
                     if chapters and _print:

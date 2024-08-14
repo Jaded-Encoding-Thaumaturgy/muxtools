@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
+from video_timestamps import TimeType
 import shutil
 import json
 import re
@@ -17,7 +18,7 @@ from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import PathLike, TrackType
 from ..utils.log import debug, error, info, warn
-from ..utils.convert import frame_to_timedelta, timedelta_to_frame
+from ..utils.convert import frame_to_ms, timedelta_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
 from ..muxing.muxfiles import MuxingFile
@@ -305,8 +306,8 @@ class SubFile(BaseSubFile):
         def _func(lines: LINES):
             for line in lines:
                 if not allowed_styles or line.style.lower() in allowed_styles:
-                    line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps, exclude_boundary=True), fps, True)
-                    line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps, exclude_boundary=True), fps, True)
+                    line.start = frame_to_ms(timedelta_to_frame(line.start, fps, exclude_boundary=True), TimeType.START, fps)
+                    line.end = frame_to_ms(timedelta_to_frame(line.end, fps, exclude_boundary=True), TimeType.END, fps)
 
         return self.manipulate_lines(_func)
 
@@ -388,8 +389,8 @@ class SubFile(BaseSubFile):
 
             # Apply frame offset
             offset = (target or -1) - second_sync
-            line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps, exclude_boundary=True) + offset, fps, True)
-            line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps, exclude_boundary=True) + offset, fps, True)
+            line.start = frame_to_ms(timedelta_to_frame(line.start, fps, exclude_boundary=True) + offset, TimeType.START, fps)
+            line.end = frame_to_ms(timedelta_to_frame(line.end, fps, exclude_boundary=True) + offset, TimeType.END, fps)
             tomerge.append(line)
 
         if tomerge:
@@ -660,11 +661,11 @@ class SubFile(BaseSubFile):
                     if delete_before_zero:
                         continue
                     start = 0
-                start = frame_to_timedelta(start, fps, compensate=True)
+                start = timedelta(milliseconds=frame_to_ms(start, TimeType.START, fps))
                 end = timedelta_to_frame(line.end, fps, exclude_boundary=True) + frames
                 if end < 0:
                     continue
-                end = frame_to_timedelta(end, fps, compensate=True)
+                end = timedelta(milliseconds=frame_to_ms(end, TimeType.END, fps))
                 line.start = start
                 line.end = end
                 new_list.append(line)
@@ -711,11 +712,11 @@ class SubFile(BaseSubFile):
 
         compiled = re.compile(SRT_REGEX, re.MULTILINE)
 
-        def srt_timedelta(timestamp: str) -> timedelta:
+        def srt_timedelta(timestamp: str, time_type: TimeType) -> timedelta:
             args = timestamp.split(",")[0].split(":")
             parsed = timedelta(hours=int(args[0]), minutes=int(args[1]), seconds=int(args[2]), milliseconds=int(timestamp.split(",")[1]))
             cope = timedelta_to_frame(parsed, fps, exclude_boundary=True)
-            cope = frame_to_timedelta(cope, fps, compensate=True)
+            cope = timedelta(milliseconds=frame_to_ms(cope, time_type, fps))
             return cope
 
         def convert_tags(text: str) -> tuple[str, bool]:
@@ -737,8 +738,8 @@ class SubFile(BaseSubFile):
         with open(file, "r", encoding=encoding) as reader:
             content = reader.read() + "\n"
             for match in compiled.finditer(content):
-                start = srt_timedelta(match["start"])
-                end = srt_timedelta(match["end"])
+                start = srt_timedelta(match["start"], TimeType.START)
+                end = srt_timedelta(match["end"], TimeType.END)
                 text, sign = convert_tags(match["text"])
                 doc.events.append(Dialogue(layer=99, start=start, end=end, text=text, style="Sign" if sign and style_all_caps else "Default"))
 

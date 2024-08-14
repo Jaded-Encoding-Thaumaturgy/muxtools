@@ -4,6 +4,7 @@ from datetime import timedelta
 from fractions import Fraction
 from typing import Sequence
 from pathlib import Path
+from video_timestamps import TimeType
 import os
 import re
 
@@ -17,7 +18,7 @@ from ..utils.files import get_absolute_track
 from ..utils.types import Trim, PathLike, TrackType
 from ..utils.env import get_temp_workdir, run_commandline, communicate_stdout
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
-from ..utils.convert import frame_to_timedelta, format_timedelta, frame_to_ms
+from ..utils.convert import frame_to_ms, format_timedelta
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
 
@@ -208,13 +209,13 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 if self.trim_use_ms:
                     arg += f" -ss {format_timedelta(timedelta(milliseconds=trim[0]))}"
                 else:
-                    arg += f" -ss {format_timedelta(frame_to_timedelta(trim[0], self.fps))}"
+                    arg += f" -ss {format_timedelta(timedelta(milliseconds=frame_to_ms(trim[0], TimeType.EXACT, self.fps, False)))}"
             if trim[1] is not None and trim[1] != 0:
                 end_frame = self.num_frames + trim[1] if trim[1] < 0 else trim[1]
                 if self.trim_use_ms:
                     arg += f" -to {format_timedelta(timedelta(milliseconds=trim[1]))}"
                 else:
-                    arg += f" -to {format_timedelta(frame_to_timedelta(end_frame, self.fps))}"
+                    arg += f" -to {format_timedelta(timedelta(milliseconds=frame_to_ms(end_frame, TimeType.EXACT, self.fps, False)))}"
             return arg
 
         def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
@@ -248,7 +249,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 args.append(str(out.resolve()))
                 if not run_commandline(args, quiet):
                     if tr[0] and lossy:
-                        ms = tr[0] if self.trim_use_ms else frame_to_ms(tr[0], self.fps)
+                        ms = tr[0] if self.trim_use_ms else frame_to_ms(tr[0], TimeType.EXACT, self.fps, False)
                         cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
                         debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
                         if self.preserve_delay:
@@ -386,7 +387,7 @@ class Sox(Trimmer):
         if self.trim_use_ms:
             return abs(val) / 1000
         else:
-            return frame_to_timedelta(abs(val), self.fps).total_seconds()
+            return frame_to_ms(abs(val), TimeType.EXACT, self.fps, False) / 1000
 
     def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
         import sox
