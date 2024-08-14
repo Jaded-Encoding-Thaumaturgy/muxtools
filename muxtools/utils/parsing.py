@@ -157,7 +157,7 @@ def parse_chapters_bdmv(
     Attempts to parse chapters from the bluray metadata
 
     :param src:         The m2ts file you're currently using
-    :param clip_fps:    The fps of the clip. Also accepts a timecode (v2) file.
+    :param clip_fps:    The fps of the clip. Also accepts a timecode (v2, v4) file.
     :param clip_frames: Total frames of the clip
     :param _print:      Prints the chapters after parsing if true
 

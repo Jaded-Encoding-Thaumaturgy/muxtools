@@ -32,7 +32,7 @@ class Chapters:
         Convenience class for chapters
 
         :param chapter_source:      Input either txt with ogm chapters, xml or (a list of) self defined chapters.
-        :param fps:                 Needed for timestamp convertion. Assumes 24000/1001 by default. Also accepts a timecode (v2) file.
+        :param fps:                 Needed for timestamp convertion. Assumes 24000/1001 by default. Also accepts a timecode (v2, v4) file.
         :param _print:              Prints chapters after parsing and after trimming.
         """
         self.fps = fps
@@ -205,7 +205,7 @@ class Chapters:
         Extract chapters from an ass file or a SubFile.
 
         :param file:            Input ass file or SubFile
-        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
+        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2, v4) file.
         :param use_actor_field: Uses the actor field instead of the effect field for identification.
         :param markers:         Markers to check for.
         :param _print:          Prints the chapters after parsing
@@ -251,7 +251,7 @@ class Chapters:
         Extract chapters from mkv.
 
         :param file:            Input mkv file
-        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
+        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2, v4) file.
         :param _print:          Prints the chapters after parsing
         """
         caller = "Chapters.from_mkv"

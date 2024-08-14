@@ -38,7 +38,7 @@ def ms_to_frame(
     :param ms:                  The time in millisecond.
     :param time_type:           The time type.
     :param time_scale:          The time scale.
-    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v1, v2, v4) file.
+    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v2, v4) file.
     :param rounding_method:     If you want to be compatible with mkv, use RoundingMethod.ROUND else RoundingMethod.FLOOR.
                                 For more information, see the documentation of [timestamps](https://github.com/moi15moi/VideoTimestamps/blob/578373a5b83402d849d0e83518da7549edf8e03d/video_timestamps/abc_timestamps.py#L13-L26)
     :return:                    The resulting frame number.

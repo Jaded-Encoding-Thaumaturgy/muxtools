@@ -33,7 +33,7 @@ def do_audio(
     :param fileIn:          Input file
     :param track:           Audio track number
     :param trims:           Frame ranges to trim and/or combine, e.g. (24, -24) or [(24, 500), (700, 900)]
-    :param fps:             FPS Fraction used for the conversion to time. Also accepts a timecode (v2) file.
+    :param fps:             FPS Fraction used for the conversion to time. Also accepts a timecode (v2, v4) file.
     :param num_frames:      Total number of frames, used for negative numbers in trims
     :param extractor:       Tool used to extract the audio
     :param trimmer:         Tool used to trim the audio
