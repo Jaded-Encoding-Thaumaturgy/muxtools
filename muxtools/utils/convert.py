@@ -29,15 +29,6 @@ def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
     return timedelta(seconds=float(seconds))
 
 
-def _frame_from_timecodes(timecodes: PathLike, time: timedelta) -> int:
-    timecode_file = ensure_path_exists(timecodes, _frame_from_timecodes)
-    # Subtract 0.5 from timecodes to ensure correct behavior even with small rounding errors
-    # (A timedelta of 42ms should belong to frame [42, 83) with a timecode list [0, 42, 83, ...])
-    parsed = [(float(x) - 0.5) / 1000 for x in open(timecode_file, "r").read().splitlines()[1:]]
-
-    return len([t for t in parsed if t < time.total_seconds()]) - 1
-
-
 def ms_to_frame(
     ms: int, time_type: TimeType, time_scale: Fraction, fps: Fraction | PathLike = Fraction(24000, 1001), rounding_method: RoundingMethod = RoundingMethod.ROUND
 ) -> int:
