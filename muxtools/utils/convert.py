@@ -2,6 +2,7 @@ from math import trunc
 from decimal import Decimal, ROUND_HALF_DOWN
 from fractions import Fraction
 from datetime import timedelta
+from video_timestamps import RoundingMethod, TimeType, TimestampsFactory
 
 from ..utils.types import PathLike
 from ..utils.files import ensure_path_exists
@@ -10,10 +11,9 @@ from ..utils.log import error
 __all__: list[str] = [
     "mpls_timestamp_to_timedelta",
     "timedelta_to_frame",
-    "frame_to_timedelta",
+    "frame_to_ms",
     "format_timedelta",
     "timedelta_from_formatted",
-    "frame_to_ms",
 ]
 
 
@@ -86,52 +86,37 @@ def timedelta_to_frame(
     return int(frame)
 
 
-def frame_to_timedelta(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False, rounding: bool = True) -> timedelta:
+def frame_to_ms(f: int, time_type: TimeType, fps: Fraction | PathLike = Fraction(24000, 1001),
+        rounding: bool = True, rounding_method: RoundingMethod = RoundingMethod.ROUND
+    ) -> int:
     """
     Converts a frame number to a timedelta.
     Mostly used in the conversion for manually defined chapters.
 
-    :param f:           The frame number
-    :param fps:         A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
-    :param compensate:  Whether to place the timestamp in the middle of said frame
-                        Useful for subtitles, not so much for audio where you'd want to be accurate
-    :param rounding:    Round compensated value to centi seconds if True
-    :return:            The resulting timedelta
+    :param f:                   The frame number.
+    :param time_type:           The time type.
+    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v1, v2, v4) file.
+    :param rounding:            Round compensated value to centi seconds if True.
+    :param rounding_method:     If you want to be compatible with mkv, use RoundingMethod.ROUND else RoundingMethod.FLOOR.
+                                For more information, see the documentation of [timestamps](https://github.com/moi15moi/VideoTimestamps/blob/683a8b48ad394d60ced0deda0ddb87b70e0bfa83/video_timestamps/timestamps.py#L14-L29)
+    :return:                    The resulting time in milliseconds.
     """
-    result = None
+    if f <= 0:
+        return 0
 
-    if compensate:
-        result = (frame_to_timedelta(f, fps, rounding=False) + frame_to_timedelta(f + 1, fps, rounding=False)) / 2
+    if isinstance(fps, Fraction):
+        timestamps = TimestampsFactory.from_fps(fps, rounding_method=rounding_method)
     else:
-        if not f or f < 0:
-            return timedelta(seconds=0)
+        timestamps_file = ensure_path_exists(fps, frame_to_ms)
+        timestamps = TimestampsFactory.from_timestamps_file(timestamps_file, rounding_method=rounding_method)
 
-        if isinstance(fps, Fraction):
-            fps_dec = _fraction_to_decimal(fps)
-            seconds = Decimal(f) / fps_dec
-            result = timedelta(seconds=float(seconds))
-        else:
-            result = _timedelta_from_timecodes(fps, f)
+    ms = timestamps.frames_to_ms(f, time_type)
 
     if not rounding:
-        return result
-    rounded = round(result.total_seconds(), 2)
-    return timedelta(seconds=rounded)
+        return ms
 
-
-def frame_to_ms(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False) -> float:
-    """
-    Converts a frame number to it's ms value.
-
-    :param f:           The frame number
-    :param fps:         A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
-    :param compensate:  Whether to place the timestamp in the middle of said frame
-                        Useful for subtitles, not so much for audio where you'd want to be accurate
-
-    :return:            The resulting ms
-    """
-    td = frame_to_timedelta(f, fps, compensate)
-    return td.total_seconds() * 1000
+    rounded_ms = (ms + 5) - (ms + 5) % 10
+    return rounded_ms
 
 
 def format_timedelta(time: timedelta, precision: int = 3) -> str:
