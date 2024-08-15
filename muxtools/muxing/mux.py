@@ -148,7 +148,7 @@ def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: l
     show_name = get_setup_attr("show_name", "Example")
     episode = get_setup_attr("episode", "01")
     filename = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
-    title = get_setup_attr("mkv_title_naming", R"$show$ - $ep$")
+    title = get_setup_attr("mkv_title_naming", "")
 
     try:
         if " " in episode:
