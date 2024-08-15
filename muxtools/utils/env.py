@@ -68,13 +68,12 @@ def run_commandline(
         shell = True
     if quiet:
         returncode, stdout = communicate_stdout(command, shell, stdin=stdin, **kwargs)
+        if returncode > (1 if mkvmerge else 0) and stdout and quiet and (lines := stdout):
+            print("\n----------------------")
+            print(lines.strip())
+            print("----------------------")
     else:
         p = subprocess.Popen(command, stdin=stdin, shell=shell, **kwargs)
         returncode = p.wait()
-
-    if returncode > (1 if mkvmerge else 0) and p.stdout and quiet and (lines := stdout):
-        print("\n----------------------")
-        print(lines.strip())
-        print("----------------------")
 
     return returncode
