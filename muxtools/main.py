@@ -69,12 +69,12 @@ class Setup:
                     "debug": self.debug,
                 }
 
-                with open(config_name, "w") as config_file:
+                with open(config_name, "w", encoding="utf-8") as config_file:
                     config.write(config_file)
 
                 raise error(f"Template config created at {Path(config_name).resolve()}.\nPlease set it up!")
 
-            config.read(config_name)
+            config.read(config_name, encoding="utf-8")
             settings = config["SETUP"]
 
             valid_bools = ["true", "1", "t", "y", "yes"]
