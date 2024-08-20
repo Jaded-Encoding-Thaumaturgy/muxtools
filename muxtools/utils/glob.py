@@ -6,7 +6,7 @@ __all__ = ["GlobSearch"]
 
 
 class GlobSearch:
-    paths: list[Path] = []
+    paths: list[Path]
 
     def __init__(
         self,
@@ -23,7 +23,7 @@ class GlobSearch:
         :param dir:             Directory to run the search in. Defaults to current working dir.
         :param recursive:       Search recursively
         """
-
+        self.paths = []
         dir = Path(dir) if isinstance(dir, str) else dir
 
         if dir is None:
