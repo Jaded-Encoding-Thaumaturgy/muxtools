@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import subprocess
 from pathlib import Path
@@ -77,3 +78,15 @@ def run_commandline(
         returncode = p.wait()
 
     return returncode
+
+
+def get_binary_version(executable: Path, regex: str, args: list[str] | None = None) -> str | None:
+    args = [executable] + args if args else [executable]
+    _, readout = communicate_stdout(args)
+
+    reg = re.compile(regex, re.I)
+
+    if match := reg.search(readout):
+        return match.group(1)
+
+    return None

@@ -12,11 +12,11 @@ from ..utils.files import make_output, ensure_path_exists
 from ..muxing.muxfiles import AudioFile
 from ..utils.log import debug, warn, error
 from ..utils.download import get_executable
-from ..utils.env import get_temp_workdir
+from ..utils.env import get_temp_workdir, communicate_stdout
 from ..utils.types import Trim, AudioFormat, ValidInputType, PathLike
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 
-__all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "has_libFLAC", "has_libFDK"]
+__all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "qaac_compatcheck", "has_libFDK"]
 
 
 def sanitize_pre(preprocess: Preprocessor | Sequence[Preprocessor] | None = None) -> list[Preprocessor]:
@@ -293,33 +293,28 @@ def has_libFDK() -> bool:
     Returns if whatever installation of ffmpeg being used has been compiled with libFDK
     """
     exe = get_executable("ffmpeg")
-    p = subprocess.run([exe, "-encoders"], capture_output=True, text=True)
-    output = p.stderr + p.stdout
-    for line in output.splitlines():
+    _, readout = communicate_stdout([exe, "-encoders"])
+    for line in readout.splitlines():
         if "libfdk_aac" in line.lower():
             return True
     return False
 
 
-def has_libFLAC() -> bool:
+def qaac_compatcheck() -> str:
     """
-    Returns if whatever installation of qaac being used has libFLAC
-    and as such can accept flac input
+    Checks if the qAAC installation has libflac and returns the qaac version.
     """
     exe = get_executable("qaac")
-    p = subprocess.run([exe, "--check"], capture_output=True, text=True)
-    output = p.stderr + p.stdout
-    for line in output.splitlines():
-        if "libflac" in line.lower():
-            return True
-    return False
-
-
-def qaac_compatcheck():
-    if not has_libFLAC():
+    _, readout = communicate_stdout([exe, "--check"])
+    if "libflac" not in readout.lower():
         raise error(
             "Your installation of qaac does not have libFLAC.\nIt is needed for proper piping from ffmpeg etc."
-            + "\nYou can download it from https://github.com/xiph/flac/releases"
+            + "\nYou can download it from https://github.com/xiph/flac/releases or run muxtools deps"
             + "\nFor installation check https://github.com/nu774/qaac/wiki/Installation",
             "QAAC",
         )
+
+    if match := re.search(r"qaac (\d+\.\d+(?:\.\d+)?)", readout, re.I):
+        return match.group(1)
+
+    return "Unknown version"

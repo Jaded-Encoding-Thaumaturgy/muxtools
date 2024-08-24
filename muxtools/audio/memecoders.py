@@ -14,7 +14,7 @@ from .preprocess import Preprocessor, Resample
 from .tools import Encoder, LosslessEncoder
 from ..utils.log import crit, debug, error
 from ..muxing.muxfiles import AudioFile
-from ..utils.env import get_temp_workdir
+from ..utils.env import get_temp_workdir, get_binary_version
 from ..utils.download import get_executable
 from ..utils.files import clean_temp_files, make_output
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
@@ -45,15 +45,17 @@ class qALAC(Encoder):
         output = make_output(fileIn.file, "alac", "qaac", self.output)
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
         qaac = get_executable("qaac")
-        qaac_compatcheck()
+        ver = qaac_compatcheck()
+        tags = dict[str, str](ENCODER=f"qaac {ver}")
 
         debug(f"Encoding '{fileIn.file.stem}' to ALAC using qAAC...", self)
         args = [qaac, "-A", "--no-optimize", "--threading", "-o", str(output)] + self.get_custom_args()
         args.append(str(source.file))
 
         if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
+            tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
-            return AudioFile(output, fileIn.container_delay, fileIn.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
         else:
             raise crit("Encoding to ALAC using qAAC failed!", self)
 
@@ -79,6 +81,7 @@ class TTA(LosslessEncoder):
         if not isinstance(fileIn, AudioFile):
             fileIn = AudioFile.from_file(fileIn, self)
         output = make_output(fileIn.file, "tta", "encoded", self.output)
+        tags = dict[str, str](ENCODER="ffmpeg -c:a tta")
 
         args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(fileIn.file.resolve()), "-map", "0:a:0", "-c:a", "tta"]
         args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self) + self.get_custom_args())
@@ -86,8 +89,9 @@ class TTA(LosslessEncoder):
 
         debug(f"Encoding '{fileIn.file.stem}' to TTA using ffmpeg...", self)
         if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...", duration_from_file(fileIn))):
+            tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
-            return AudioFile(output, fileIn.container_delay, fileIn.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
         else:
             raise crit("Encoding to TTA using ffmpeg failed!", self)
 
@@ -116,18 +120,21 @@ class Wavpack(LosslessEncoder):
         if not isinstance(fileIn, AudioFile):
             fileIn = AudioFile.from_file(fileIn, self)
 
-        valid_in = ensure_valid_in(fileIn, False, self.preprocess, valid_type=ValidInputType.AIFF, caller=self)
+        valid_in = ensure_valid_in(fileIn, False, self.preprocess, valid_type=ValidInputType.RF64, caller=self)
         output = make_output(fileIn.file, "wv", "wavpack", self.output)
 
         wavpack = get_executable("wavpack")
+        tags = dict[str, str](ENCODER=f"WAVPACK ({get_binary_version(wavpack, r'WAVPACK .+? Version (\d\.\d+\.\d+)')})")
+
         args = [wavpack, "-f" if self.fast else "-h"] + self.get_custom_args()
         args.extend([str(valid_in.file), str(output)])
         debug(f"Encoding '{fileIn.file.stem}' to wavpack...", self)
         if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             raise error("Failed to encode audio to wavpack!", self)
 
+        tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
         clean_temp_files()
-        return AudioFile(output, fileIn.container_delay, fileIn.source)
+        return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
 
 
 @dataclass(config=allow_extra)

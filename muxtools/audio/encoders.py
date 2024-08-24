@@ -6,7 +6,7 @@ import os
 from .tools import Encoder, LosslessEncoder
 from .preprocess import Preprocessor, Resample, Downmix
 from ..muxing.muxfiles import AudioFile
-from ..utils.env import run_commandline
+from ..utils.env import run_commandline, get_binary_version
 from ..utils.dataclass import allow_extra
 from ..utils.download import get_executable
 from ..utils.log import warn, crit, debug, error
@@ -39,6 +39,7 @@ class FLAC(LosslessEncoder):
         if not isinstance(fileIn, AudioFile):
             fileIn = AudioFile.from_file(fileIn, self)
         flac = get_executable("flac")
+        tags = dict[str, str](ENCODER=f"flac {get_binary_version(flac, r'flac .+? version (\d\.\d+\.\d+)')}")
         output = make_output(fileIn.file, "flac", "libflac", self.output)
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False)
         debug(f"Encoding '{fileIn.file.stem}' to FLAC using libFLAC...", self)
@@ -51,8 +52,9 @@ class FLAC(LosslessEncoder):
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
         if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding..."), shell=False, stdin=stdin):
+            tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
-            return AudioFile(output, fileIn.container_delay, fileIn.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
         else:
             raise crit("Encoding to FLAC using libFLAC failed!", self)
 
@@ -80,6 +82,7 @@ class FLACCL(LosslessEncoder):
         if not isinstance(fileIn, AudioFile):
             fileIn = AudioFile.from_file(fileIn, self)
         flaccl = get_executable("CUETools.FLACCL.cmd")
+        tags = dict[str, str](ENCODER=f"flaccl {get_binary_version(flaccl, r'CUETools FLACCL (\d\.\d+\.\d+)')}")
         output = make_output(fileIn.file, "flac", "flaccl", self.output)
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=False)
         debug(f"Encoding '{fileIn.file.stem}' to FLAC using FLACCL...", self)
@@ -94,9 +97,9 @@ class FLACCL(LosslessEncoder):
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
         if not run_commandline(args, quiet, False, stdin):
-            debug("Done", self)
+            tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
-            return AudioFile(output, fileIn.container_delay, fileIn.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
         else:
             raise crit("Encoding to FLAC using FLACCL failed!", self)
 
@@ -133,12 +136,13 @@ class FF_FLAC(LosslessEncoder):
         else:
             debug(f"Encoding '{fileIn.file.stem}' to FLAC using ffmpeg...", self)
         args = self._base_command(fileIn, self.compression_level)
+        tags = dict[str, str](ENCODER="ffmpeg -c:a flac", ENCODER_SETTINGS=self.get_mediainfo_settings(args))
         args.append(str(output.resolve()))
 
         if not run_cmd_pb(
             args, quiet, ProgressBarConfig("Preparing..." if "temp" in kwargs.keys() else "Encoding...", duration_from_file(fileIn, 0))
         ):
-            return AudioFile(output, fileIn.container_delay, fileIn.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
         else:
             raise crit("Encoding to flac using ffmpeg failed!", self)
 
@@ -174,6 +178,7 @@ class Opus(Encoder):
             fileIn = AudioFile.from_file(fileIn, self)
 
         exe = get_executable("opusenc")
+        tags = dict[str, str](ENCODER=f"opusenc ({get_binary_version(exe, r'opusenc (opus-tools .+?\(using libopus \d+\.\d+\))', ['-V'])})")
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True)
         bitrate = self.bitrate
         if not bitrate:
@@ -203,8 +208,9 @@ class Opus(Encoder):
             config = ProgressBarConfig("Encoding...", duration_from_file(fileIn, 0), regex=r".*\] (\d+:\d+:\d+.\d+).*")
 
         if not run_cmd_pb(args, quiet, config, shell=False, stdin=stdin):
+            tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
-            return AudioFile(output, fileIn.container_delay, fileIn.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
         else:
             raise crit("Encoding to opus using opusenc failed!", self)
 
@@ -232,7 +238,8 @@ class qAAC(Encoder):
         output = make_output(fileIn.file, "aac", "qaac", self.output)
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
         qaac = get_executable("qaac")
-        qaac_compatcheck()
+        ver = qaac_compatcheck()
+        tags = dict[str, str](ENCODER=f"qaac {ver}")
 
         debug(f"Encoding '{fileIn.file.stem}' to AAC using qAAC...", self)
         args = [qaac, "--no-delay", "--no-optimize", "--threading", f"--{self.mode.name.lower()}", str(self.q)]
@@ -242,8 +249,9 @@ class qAAC(Encoder):
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
         if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding..."), shell=False, stdin=stdin):
+            tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
-            return AudioFile(output, fileIn.container_delay, fileIn.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
         else:
             raise crit("Encoding to AAC using qAAC failed!", self)
 
@@ -294,31 +302,33 @@ class FDK_AAC(Encoder):
         if os.name == "nt":
             warn("It is strongly recommended to use qAAC on windows. See docs.", self, 5)
         debug(f"Encoding '{fileIn.file.stem}' to AAC using libFDK...", self)
-        # fmt: off
+
+        tags = dict[str, str]()
         if self.use_binary:
-            source = ensure_valid_in(
-                fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.RF64, supports_pipe=False
-            )
+            tags.update(ENCODER=f"fdkaac {get_binary_version(exe, r'fdkaac (\d\.\d\.\d)')}")
+            source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.RF64, supports_pipe=False)
             args = [exe, "-m", str(self.bitrate_mode), "-w", str(self.cutoff), "-a", "1"]
             if self.bitrate_mode == 0:
                 args.extend(["-b", str(self.bitrate)])
             args.extend(self.get_custom_args() + ["-o", str(output), str(source.file)])
         else:
+            tags.update(ENCODER="ffmpeg -c:a libfdk_aac")
             args = [exe, "-hide_banner", "-i", str(fileIn.file), "-map", "0:a:0", "-c:a", "libfdk_aac", "-cutoff", str(self.cutoff)]
             if self.bitrate_mode > 0:
-                args.extend(['-vbr', str(self.bitrate_mode)])
+                args.extend(["-vbr", str(self.bitrate_mode)])
             else:
-                args.extend(['-b:a', f'{self.bitrate}k'])
+                args.extend(["-b:a", f"{self.bitrate}k"])
             args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self) + self.get_custom_args())
             args.append(str(output))
-        # fmt: on
+
         if self.use_binary:
             config = ProgressBarConfig("Encoding...")
         else:
             config = ProgressBarConfig("Encoding...", duration_from_file(fileIn, 0))
         if not run_cmd_pb(args, quiet, config, shell=False):
+            tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
-            return AudioFile(output, fileIn.container_delay, fileIn.source)
+            return AudioFile(output, fileIn.container_delay, fileIn.source, tags)
         else:
             raise crit("Encoding to AAC using libFDK failed!", self)
 

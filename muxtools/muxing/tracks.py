@@ -84,7 +84,7 @@ class _track:
 
         args = ["--no-global-tags", "--track-name", f"0:{self.name}"]
 
-        if self.tags:
+        if self.tags and not all([not bool(v) for _, v in self.tags.items()]):
             tags_file = make_output(self.file, "xml", "_tags", temp=True)
             create_tags_xml(tags_file, self.tags)
             args.extend(["--tags", f"0:{str(tags_file)}"])

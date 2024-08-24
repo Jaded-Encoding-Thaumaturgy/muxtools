@@ -1,8 +1,9 @@
+import os
 from abc import ABC
 from math import ceil
 from typing import Any
-from shlex import split
 from psutil import Process
+from shlex import split, join
 from multiprocessing import cpu_count
 from pydantic.dataclasses import ConfigDict, dataclass  # noqa: F401
 
@@ -76,6 +77,35 @@ class CLIKwargs(ABC):
     def update_process_affinity(self, pid: int):
         if not isinstance((affinity := self.get_process_affinity()), bool):
             Process(pid).cpu_affinity(affinity)
+
+    def get_mediainfo_settings(self, args: list[str], skip_first: bool = True) -> str:
+        to_delete = [it.casefold() for it in ["-hide_banner", "-"]]
+        to_delete_with_next = [it.casefold() for it in ["-map", "-i", "-o", "-c:a"]]
+
+        new_args = list[str]()
+        skip_next = False
+        for param in args:
+            if skip_first:
+                skip_first = False
+                continue
+
+            if skip_next:
+                skip_next = False
+                continue
+
+            if param.casefold() in to_delete:
+                continue
+
+            if param.casefold() in to_delete_with_next:
+                skip_next = True
+                continue
+
+            if os.path.isfile(param):
+                continue
+
+            new_args.append(param)
+
+        return join(new_args)
 
     def get_custom_args(self) -> list[str]:
         init_args: dict[str, Any]

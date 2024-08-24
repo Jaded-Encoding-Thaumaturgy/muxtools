@@ -160,7 +160,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             args.append(str(out))
             duration = duration_from_file(input, self.track)
             if not run_cmd_pb(args, quiet, ProgressBarConfig("Extracting...", duration)):
-                return AudioFile(out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, ainfo, duration)
+                return AudioFile(out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, None, ainfo, duration)
             else:
                 raise error("Failed to extract audio track using ffmpeg", self)
 

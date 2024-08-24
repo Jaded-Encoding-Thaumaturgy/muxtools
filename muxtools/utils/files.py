@@ -110,6 +110,8 @@ def create_tags_xml(fileOut: PathLike, tags: dict[str, Any]) -> None:
     targettype.text = "50"
 
     for k, v in tags.items():
+        if not v:
+            continue
         simple = ET.SubElement(tag, "Simple")
         key = ET.SubElement(simple, "Name")
         key.text = k
