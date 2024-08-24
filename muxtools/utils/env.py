@@ -7,7 +7,17 @@ from typing import Any
 
 from ..main import Setup
 
-__all__ = ["save_setup", "get_setup_attr", "get_setup_dir", "get_workdir", "get_temp_workdir", "is_debug", "download_allowed", "run_commandline"]
+__all__ = [
+    "save_setup",
+    "get_setup_attr",
+    "get_setup_dir",
+    "get_workdir",
+    "get_temp_workdir",
+    "is_debug",
+    "download_allowed",
+    "run_commandline",
+    "get_binary_version",
+]
 
 
 def save_setup(setup: Setup):
