@@ -2,6 +2,7 @@ import os
 from abc import ABC
 from math import ceil
 from typing import Any
+from pathlib import Path
 from psutil import Process
 from shlex import split, join
 from multiprocessing import cpu_count
@@ -80,7 +81,7 @@ class CLIKwargs(ABC):
 
     def get_mediainfo_settings(self, args: list[str], skip_first: bool = True) -> str:
         to_delete = [it.casefold() for it in ["-hide_banner", "-"]]
-        to_delete_with_next = [it.casefold() for it in ["-map", "-i", "-o", "-c:a"]]
+        to_delete_with_next = [it.casefold() for it in ["-map", "-i", "-o", "-c:a", "-c:v", "--csv", "--output"]]
 
         new_args = list[str]()
         skip_next = False
@@ -101,7 +102,11 @@ class CLIKwargs(ABC):
                 continue
 
             if os.path.isfile(param):
-                continue
+                if "_keyframes" not in param.lower() and "qpfile" not in param.lower():
+                    continue
+
+                keyframes_file = Path(param)
+                param = keyframes_file.name
 
             new_args.append(param)
 
