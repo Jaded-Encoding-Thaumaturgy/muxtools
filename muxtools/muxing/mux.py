@@ -1,8 +1,8 @@
 from shlex import join as joincommand
 from pymediainfo import MediaInfo
-from typing import Any
 from shutil import rmtree
 from pathlib import Path
+from typing import Any
 import subprocess
 import wget
 import re
@@ -16,12 +16,15 @@ from ..subtitle.sub import FontFile
 from ..utils.glob import GlobSearch
 from ..misc.chapters import Chapters
 from .tracks import Attachment, _track
-from ..utils.log import debug, error, info, warn
 from ..utils.download import get_executable
-from ..utils.files import ensure_path, ensure_path_exists, get_crc32
+from ..utils.log import debug, error, info, warn
 from ..utils.env import get_setup_attr, get_setup_dir, get_workdir, run_commandline
+from ..utils.files import ensure_path, ensure_path_exists, get_crc32, clean_temp_files
 
 __all__ = ["mux"]
+
+
+writing_lib_regex = re.compile(r"libebml.v(\d.\d.\d).+?libmatroska.v(\d.\d.\d)", re.I)
 
 
 def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True, print_cli: bool = False) -> PathLike:
@@ -94,8 +97,12 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
         mkvpropedit = get_executable("mkvpropedit", False, False)
         muxtools_version = version("muxtools")
         version_tag = f" + muxtools v{muxtools_version}"
-        if mkvpropedit and (muxing_application := getattr(container_info, "writing_library", None)) and "muxtools" not in muxing_application:
-            args = [mkvpropedit, "--edit", "info", "--set", f"muxing-application={muxing_application + version_tag}", str(outfile.resolve())]
+
+        muxing_application = getattr(container_info, "writing_library", None)
+
+        if mkvpropedit and muxing_application and (match := writing_lib_regex.search(muxing_application)):
+            muxing_application = f"libebml v{match.group(1)} + libmatroska v{match.group(2)}" + version_tag
+            args = [mkvpropedit, "--edit", "info", "--set", f"muxing-application={muxing_application}", str(outfile.resolve())]
             run_commandline(args)
     except:
         pass
@@ -110,6 +117,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
         else:
             rmtree(get_workdir())
 
+    clean_temp_files()
     debug("Done", "Mux")
     return outfile
 

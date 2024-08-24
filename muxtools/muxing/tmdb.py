@@ -1,4 +1,3 @@
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from enum import IntEnum
 import requests
@@ -6,6 +5,7 @@ import logging
 
 from ..utils.types import PathLike
 from ..utils.log import debug, error, info
+from ..utils.files import create_tags_xml
 
 
 # https://github.com/Radarr/Radarr/blob/29ba6fe5563e737f0f87919e48f556e39284e6bb/src/NzbDrone.Common/Cloud/RadarrCloudRequestBuilder.cs#L31
@@ -208,21 +208,7 @@ class TmdbConfig:
             tags.update(SYNOPSIS=episode.synopsis)
 
         outfile = make_output("tags", "xml")
-        main = ET.Element("Tags")
-        tag = ET.SubElement(main, "Tag")
-        target = ET.SubElement(tag, "Targets")
-        targettype = ET.SubElement(target, "TargetTypeValue")
-        targettype.text = "50"
-
-        for k, v in tags.items():
-            simple = ET.SubElement(tag, "Simple")
-            key = ET.SubElement(simple, "Name")
-            key.text = k
-            value = ET.SubElement(simple, "String")
-            value.text = str(v)
-
-        with open(outfile, "w") as f:
-            ET.ElementTree(main).write(f, encoding="unicode")
+        create_tags_xml(outfile, tags)
 
         return outfile
 

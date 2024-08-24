@@ -6,7 +6,6 @@ Thought they might be cool to have atleast.
 
 from pathlib import Path
 from pydantic.dataclasses import dataclass, Field
-from shlex import split as splitcommand
 from collections.abc import Sequence
 
 

@@ -26,6 +26,7 @@ class FileMixin:
     file: PathLike | list[PathLike] | GlobSearch
     container_delay: int = 0
     source: PathLike | None = None
+    tags: dict[str, str] | None = None
 
 
 @dataclass
@@ -36,7 +37,13 @@ class MuxingFile(FileMixin):
         self.file = ensure_path(self.file, self)
 
     def to_track(
-        self, name: str = "", lang: str = "", default: bool | None = None, forced: bool | None = None, args: list[str] | None = None
+        self,
+        name: str = "",
+        lang: str = "",
+        default: bool | None = None,
+        forced: bool | None = None,
+        args: list[str] | None = None,
+        tags: dict[str, str] | None = None,
     ) -> _track:
         from ..muxing.tracks import AudioTrack, SubTrack, Attachment
         from ..subtitle.sub import SubFile
@@ -48,6 +55,7 @@ class MuxingFile(FileMixin):
             default=True if default is None else default,
             forced=False if forced is None else forced,
             args=args,
+            tags=tags or self.tags,
         )
         if isinstance(self, AudioFile):
             return AudioTrack(**new_args, lang=lang if lang else "ja")
@@ -68,13 +76,14 @@ class VideoFile(MuxingFile):
         timecode_file: PathLike | GlobSearch | None = None,
         crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
         args: list[str] = [],
+        tags: dict[str, str] | None = None,
     ):
         """
         :param timecode_file:       Pass a path for proper vfr playback if needed.
         :param crop:                Container based cropping with (horizontal, vertical) or (left, top, right, bottom).
                                     Will crop the same on all sides if passed a single integer.
         """
-        return VideoTrack(self.file, name, lang, default, forced, self.container_delay, timecode_file, crop, args)
+        return VideoTrack(self.file, name, lang, default, forced, self.container_delay, timecode_file, crop, args, tags or self.tags)
 
 
 @dataclass

@@ -1,10 +1,11 @@
 import os
 import re
 import binascii
+from typing import Any
 from pathlib import Path
 from shutil import rmtree
 from copy import deepcopy
-from typing import Any
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from pymediainfo import Track, MediaInfo
 
@@ -99,6 +100,25 @@ def get_crc32(file: PathLike) -> str:
 
 def clean_temp_files():
     rmtree(get_temp_workdir())
+
+
+def create_tags_xml(fileOut: PathLike, tags: dict[str, Any]) -> None:
+    main = ET.Element("Tags")
+    tag = ET.SubElement(main, "Tag")
+    target = ET.SubElement(tag, "Targets")
+    targettype = ET.SubElement(target, "TargetTypeValue")
+    targettype.text = "50"
+
+    for k, v in tags.items():
+        simple = ET.SubElement(tag, "Simple")
+        key = ET.SubElement(simple, "Name")
+        key.text = k
+
+        value = ET.SubElement(simple, "String")
+        value.text = str(v)
+
+    with open(fileOut, "w") as f:
+        ET.ElementTree(main).write(f, "unicode")
 
 
 def make_output(source: PathLike, ext: str, suffix: str = "", user_passed: PathLike | None = None, temp: bool = False) -> Path:

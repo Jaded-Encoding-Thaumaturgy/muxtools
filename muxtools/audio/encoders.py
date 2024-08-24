@@ -1,4 +1,3 @@
-from shlex import split as splitcommand
 from collections.abc import Sequence
 from pydantic.dataclasses import dataclass, Field
 import subprocess
