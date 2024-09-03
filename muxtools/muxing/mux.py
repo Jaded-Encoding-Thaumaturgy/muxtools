@@ -17,7 +17,7 @@ from ..utils.glob import GlobSearch
 from ..misc.chapters import Chapters
 from .tracks import Attachment, _track
 from ..utils.download import get_executable
-from ..utils.log import debug, error, info, warn
+from ..utils.log import debug, error, info, warn, danger
 from ..utils.env import get_setup_attr, get_setup_dir, get_workdir, run_commandline
 from ..utils.files import ensure_path, ensure_path_exists, get_crc32, clean_temp_files
 
@@ -164,7 +164,7 @@ def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: l
         epint = int(episode)
     except:
         if tmdb and not tmdb.movie:
-            warn(f"{episode} is not a valid integer! TMDB will be skipped.", "Mux", 3)
+            danger(f"{episode} is not a valid integer! TMDB will be skipped.", "Mux", 3)
             tmdb = None
             filename = clean_name(re.sub(re.escape(R"$title$"), "", filename))
             title = clean_name(re.sub(re.escape(R"$title$"), "", title))
@@ -219,6 +219,6 @@ def check_mkvmerge_version():
         if match:
             version = match.group("version")
             if version and float(version) < 77:
-                warn("Please update your mkvtoolnix/mkvmerge for optimal behavior.", sleep=10)
+                danger("Please update your mkvtoolnix/mkvmerge for optimal behavior.", sleep=10)
     except:
         pass

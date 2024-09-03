@@ -10,7 +10,7 @@ from pymediainfo import Track, MediaInfo
 from .preprocess import Preprocessor, Resample
 from ..utils.files import make_output, ensure_path_exists
 from ..muxing.muxfiles import AudioFile
-from ..utils.log import debug, warn, error
+from ..utils.log import debug, warn, error, danger
 from ..utils.download import get_executable
 from ..utils.env import get_temp_workdir, communicate_stdout
 from ..utils.types import Trim, AudioFormat, ValidInputType, PathLike
@@ -50,7 +50,7 @@ def ensure_valid_in(
         warn("Encoding tracks with special DTS Features or Atmos is very much discouraged.", caller, 10)
     form = trackinfo.format.lower()
     if fileIn.is_lossy():
-        warn(f"It's strongly recommended to not reencode lossy audio! ({trackinfo.format})", caller, 5)
+        danger(f"It's strongly recommended to not reencode lossy audio! ({trackinfo.format})", caller, 5)
 
     wont_process = not any([p.can_run(trackinfo, preprocess) for p in preprocess])
 

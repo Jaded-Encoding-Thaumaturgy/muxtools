@@ -1,7 +1,7 @@
 from fractions import Fraction
 from datetime import timedelta
 
-from .utils.log import warn, error, info
+from .utils.log import warn, error, info, danger
 from .muxing.muxfiles import AudioFile
 from .audio.audioutils import is_fancy_codec
 from .audio.encoders import Opus
@@ -66,7 +66,7 @@ def do_audio(
                     setattr(extractor, "track", track)
                     duration = af.duration or timedelta(milliseconds=0)
                     if duration > timedelta(seconds=2):
-                        warn(f"Could not find valid track {track} in '{f.name}' and falling back resulted in suspiciously long file.", do_audio, 1)
+                        danger(f"Could not find valid track {track} in '{f.name}' and falling back resulted in suspiciously long file.", do_audio, 1)
                         continue
 
                     duration = format_timedelta(duration)

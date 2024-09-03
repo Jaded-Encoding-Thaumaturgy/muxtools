@@ -1,9 +1,12 @@
 import logging
 from rich.logging import RichHandler
+from rich.console import Console
+from rich.theme import Theme
+from rich.markup import escape as log_escape
 from typing import Any
 import time
 
-__all__ = ["crit", "debug", "error", "exit", "info", "warn", "logger", "LoggingException"]
+__all__ = ["crit", "debug", "error", "exit", "info", "warn", "logger", "danger", "LoggingException", "log_escape"]
 
 
 class LoggingException(Exception):
@@ -11,8 +14,11 @@ class LoggingException(Exception):
 
 
 FORMAT = "%(name)s | %(message)s"  #
-logging.basicConfig(format=FORMAT, datefmt="[%X]", handlers=[RichHandler(markup=True, omit_repeated_times=False, show_path=False)])
+console = Console(theme=Theme({"logging.level.warn": "gold3", "logging.level.danger": "red"}))
+logging.basicConfig(format=FORMAT, datefmt="[%X]", handlers=[RichHandler(markup=True, omit_repeated_times=False, show_path=False, console=console)])
 
+logging.addLevelName(logging.WARNING, "WARN")
+logging.addLevelName(35, "DANGER")
 logger = logging.getLogger("muxtools")
 logger.setLevel(logging.DEBUG)
 
@@ -46,7 +52,14 @@ def info(msg: str, caller: Any = None):
 
 def warn(msg: str, caller: Any = None, sleep: int = 0):
     message = _format_msg(msg, caller)
-    logger.warning(message)
+    logger.warn(message)
+    if sleep:
+        time.sleep(sleep)
+
+
+def danger(msg: str, caller: Any = None, sleep: int = 0):
+    message = _format_msg(msg, caller)
+    logger.log(35, message)
     if sleep:
         time.sleep(sleep)
 

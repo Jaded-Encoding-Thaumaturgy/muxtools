@@ -5,7 +5,7 @@ from font_collector import ABCFontFace, VariableFontFace
 
 from .sub import SubFile, FontFile as MTFontFile
 from ..utils.env import get_workdir
-from ..utils.log import warn, error, info
+from ..utils.log import warn, error, info, danger
 
 
 def _weight_to_name(weight: int) -> str | int:
@@ -92,7 +92,7 @@ def collect_fonts(
             if error_missing:
                 raise error(msg, collect_fonts)
             else:
-                warn(msg, collect_fonts, 3)
+                danger(msg, collect_fonts, 3)
         else:
             fontname = _get_fontname(query.font_face)
             fontpath = Path(query.font_face.font_file.filename)
@@ -123,7 +123,7 @@ def collect_fonts(
 
             missing_glyphs = query.font_face.get_missing_glyphs(usage_data.characters_used)
             if len(missing_glyphs) != 0:
-                warn(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts, 3)
+                danger(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts, 3)
 
             if not outpath.exists():
                 shutil.copy(fontpath, outpath)
