@@ -178,7 +178,9 @@ class Opus(Encoder):
             fileIn = AudioFile.from_file(fileIn, self)
 
         exe = get_executable("opusenc")
-        tags = dict[str, str](ENCODER=f"opusenc ({get_binary_version(exe, r'opusenc (opus-tools .+?\(using libopus \d+\.\d+\))', ['-V'])})")
+        tags = dict[str, str](
+            ENCODER=f"opusenc ({get_binary_version(exe, r'opusenc (opus-tools .+?\(using libopus \d+\.\d+(?:\.\d)?.+?\)?)', ['-V'])})"
+        )
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True)
         bitrate = self.bitrate
         if not bitrate:
