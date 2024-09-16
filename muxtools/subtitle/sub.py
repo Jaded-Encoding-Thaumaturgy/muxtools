@@ -407,17 +407,20 @@ class SubFile(BaseSubFile):
         additional_fonts: list[PathLike] = [],
         collect_draw_fonts: bool = True,
         error_missing: bool = False,
+        use_ntfs_compliant_names: bool | None = None,
     ) -> list[FontFile]:
         """
         Collects fonts for current subtitle.
         Note that this places all fonts into the workdir for the episode/Setup and all fonts in it.
 
-        :param use_system_fonts:        Parses and checks against all installed fonts
-        :param search_current_dir:      Recursively checks the current work directory for fonts
-        :param additional_fonts:        Can be a directory or a path to a file directly (or a list of either)
-        :param collect_draw_fonts:      Whether or not to include fonts used for drawing (usually Arial)
-                                        See https://github.com/libass/libass/issues/617 for details.
-        :param error_missing:           Raise an error instead of just warnings when a font is missing.
+        :param use_system_fonts:            Parses and checks against all installed fonts
+        :param search_current_dir:          Recursively checks the current work directory for fonts
+        :param additional_fonts:            Can be a directory or a path to a file directly (or a list of either)
+        :param collect_draw_fonts:          Whether or not to include fonts used for drawing (usually Arial)
+                                            See https://github.com/libass/libass/issues/617 for details.
+        :param error_missing:               Raise an error instead of just warnings when a font is missing.
+        :param use_ntfs_compliant_names:    Ensure that filenames will work on a NTFS (Windows) filesystem.
+                                            The `None` default means it'll use them but only if you're running the script on windows.
 
         :return:                        A list of FontFile objects
         """
@@ -445,7 +448,10 @@ class SubFile(BaseSubFile):
 
         info(f"Collecting fonts for '{self.file.stem}'...", self)
 
-        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing)
+        if use_ntfs_compliant_names is None:
+            use_ntfs_compliant_names = os.name == "nt"
+
+        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing, use_ntfs_compliant_names)
 
     def restyle(
         self: SubFileSelf, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True

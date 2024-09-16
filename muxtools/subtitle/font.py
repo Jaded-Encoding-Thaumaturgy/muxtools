@@ -1,3 +1,4 @@
+import re
 import shutil
 import logging
 from pathlib import Path
@@ -65,8 +66,19 @@ def _get_fontname(font: ABCFontFace) -> str:
 
 
 def collect_fonts(
-    sub: SubFile, use_system_fonts: bool = True, additional_fonts: list[Path] = [], collect_draw_fonts: bool = True, error_missing: bool = False
+    sub: SubFile,
+    use_system_fonts: bool = True,
+    additional_fonts: list[Path] = [],
+    collect_draw_fonts: bool = True,
+    error_missing: bool = False,
+    use_ntfs_compliant_names: bool = False,
 ) -> list[MTFontFile]:
+    def clean_name(fontname: str) -> str:
+        removed_slash = fontname.replace("/", "_")
+        if not use_ntfs_compliant_names:
+            return removed_slash
+        return re.sub(r"[\<\>\*\\\:\|\?\"]", "_", removed_slash)
+
     from font_collector import set_loglevel
 
     set_loglevel(logging.CRITICAL)
@@ -96,7 +108,7 @@ def collect_fonts(
         else:
             fontname = _get_fontname(query.font_face)
             fontpath = Path(query.font_face.font_file.filename)
-            outpath = get_workdir() / f"{fontname}{fontpath.suffix}"
+            outpath = get_workdir() / f"{clean_name(fontname)}{fontpath.suffix}"
             family_name = query.font_face.get_best_family_name().value
 
             if isinstance(query.font_face, VariableFontFace):
