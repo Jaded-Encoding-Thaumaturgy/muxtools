@@ -12,12 +12,12 @@ from collections.abc import Sequence
 from .encoders import FLAC
 from .preprocess import Preprocessor, Resample
 from .tools import Encoder, LosslessEncoder
-from ..utils.log import crit, debug, error
+from ..utils.log import crit, error, info
 from ..muxing.muxfiles import AudioFile
-from ..utils.env import get_temp_workdir, get_binary_version
 from ..utils.download import get_executable
 from ..utils.files import clean_temp_files, make_output
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
+from ..utils.env import get_temp_workdir, version_settings_dict
 from .audioutils import ensure_valid_in, qaac_compatcheck, duration_from_file, get_preprocess_args
 from ..utils.types import LossyWavQuality, PathLike, ValidInputType
 from ..utils.dataclass import allow_extra
@@ -48,7 +48,7 @@ class qALAC(Encoder):
         ver = qaac_compatcheck()
         tags = dict[str, str](ENCODER=f"qaac {ver}")
 
-        debug(f"Encoding '{fileIn.file.stem}' to ALAC using qAAC...", self)
+        info(f"Encoding '{fileIn.file.stem}' to ALAC using qAAC...", self)
         args = [qaac, "-A", "--no-optimize", "--threading", "-o", str(output)] + self.get_custom_args()
         args.append(str(source.file))
 
@@ -87,7 +87,7 @@ class TTA(LosslessEncoder):
         args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self) + self.get_custom_args())
         args.append(str(output))
 
-        debug(f"Encoding '{fileIn.file.stem}' to TTA using ffmpeg...", self)
+        info(f"Encoding '{fileIn.file.stem}' to TTA using ffmpeg...", self)
         if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...", duration_from_file(fileIn))):
             tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
@@ -124,15 +124,14 @@ class Wavpack(LosslessEncoder):
         output = make_output(fileIn.file, "wv", "wavpack", self.output)
 
         wavpack = get_executable("wavpack")
-        tags = dict[str, str](ENCODER=f"WAVPACK ({get_binary_version(wavpack, r'WAVPACK .+? Version (\d\.\d+\.\d+)')})")
 
         args = [wavpack, "-f" if self.fast else "-h"] + self.get_custom_args()
         args.extend([str(valid_in.file), str(output)])
-        debug(f"Encoding '{fileIn.file.stem}' to wavpack...", self)
+        info(f"Encoding '{fileIn.file.stem}' to wavpack...", self)
         if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             raise error("Failed to encode audio to wavpack!", self)
 
-        tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
+        tags = version_settings_dict(self.get_mediainfo_settings(args), wavpack, r"WAVPACK .+? Version (\d\.\d+\.\d+)", prepend="WavPack")
         clean_temp_files()
         return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
 
@@ -183,7 +182,7 @@ class LossyWav(Encoder):
             "-o",
             str(get_temp_workdir()),
         ]
-        debug("Doing lossywav magic...", self)
+        info("Creating LossyWAV intermediary...", self)
         if run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
             raise crit("LossyWAV conversion failed!", self)
 

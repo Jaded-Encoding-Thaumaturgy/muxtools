@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ..main import Setup
+from .types import PathLike
 
 __all__ = [
     "save_setup",
@@ -103,8 +104,17 @@ def get_binary_version(executable: Path, regex: str, args: list[str] | None = No
     return None
 
 
-def version_settings_dict(settings: str, executable: Path, regex: str, args: list[str] | None = None) -> dict[str, str] | None:
+def version_settings_dict(
+    settings: str, executable: PathLike, regex: str, args: list[str] | None = None, prepend: str | None = None
+) -> dict[str, str] | None:
+    if not isinstance(executable, Path):
+        from .files import ensure_path
+
+        executable = ensure_path(executable, None)
+
     version = get_binary_version(executable, regex, args)
     if version:
+        if prepend:
+            version = f"{prepend} {version}"
         return dict(ENCODER=version, ENCODER_SETTINGS=settings)
     return None
