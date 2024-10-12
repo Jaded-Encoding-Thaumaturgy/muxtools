@@ -17,6 +17,7 @@ __all__ = [
     "download_allowed",
     "run_commandline",
     "get_binary_version",
+    "version_settings_dict",
 ]
 
 
@@ -99,4 +100,11 @@ def get_binary_version(executable: Path, regex: str, args: list[str] | None = No
     if match := reg.search(readout):
         return match.group(1)
 
+    return None
+
+
+def version_settings_dict(settings: str, executable: Path, regex: str, args: list[str] | None = None) -> dict[str, str] | None:
+    version = get_binary_version(executable, regex, args)
+    if version:
+        return dict(ENCODER=version, ENCODER_SETTINGS=settings)
     return None
