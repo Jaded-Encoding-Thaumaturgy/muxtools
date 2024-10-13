@@ -86,10 +86,8 @@ class LossyWavQuality(IntEnum):
 
 class ValidInputType(IntEnum):
     FLAC = 1
-    AIFF = 2
     W64 = 3
     RF64 = 4
-    AIFF_OR_FLAC = 5
     W64_OR_FLAC = 6
     RF64_OR_FLAC = 7
 
@@ -98,14 +96,12 @@ class ValidInputType(IntEnum):
 
     def remove_flac(self):
         match self:
-            case ValidInputType.AIFF_OR_FLAC:
-                return ValidInputType.AIFF
             case ValidInputType.RF64_OR_FLAC:
                 return ValidInputType.RF64
             case ValidInputType.W64_OR_FLAC:
                 return ValidInputType.W64
 
-        return ValidInputType.AIFF
+        return ValidInputType.RF64
 
 
 @dataclass
