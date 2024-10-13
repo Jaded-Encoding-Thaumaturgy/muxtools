@@ -53,7 +53,10 @@ def run_cmd_pb(cmd: str | list[str], silent: bool = True, pbc: ProgressBarConfig
                         pro.update(task, completed=rounded)
                         prev = rounded
                 else:
-                    current = timedelta_from_formatted(matches[pbc.groupnum])
+                    current_string: str = matches[pbc.groupnum]
+                    if current_string.count(":") == 1:
+                        current_string = f"0:{current_string}"
+                    current = timedelta_from_formatted(current_string)
                     percentage = current.total_seconds() / pbc.target.total_seconds() * 100
                     if prev < percentage:
                         pro.update(task, completed=ceil(percentage))

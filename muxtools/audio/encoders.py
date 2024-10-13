@@ -235,7 +235,7 @@ class qAAC(Encoder):
         if not isinstance(fileIn, AudioFile):
             fileIn = AudioFile.from_file(fileIn, self)
         output = make_output(fileIn.file, "aac", "qaac", self.output)
-        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
+        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.RF64, supports_pipe=True)
         qaac = get_executable("qaac")
         ver = qaac_compatcheck()
         tags = dict[str, str](ENCODER=f"qaac {ver}")
@@ -247,7 +247,12 @@ class qAAC(Encoder):
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
-        if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding..."), shell=False, stdin=stdin):
+        if isinstance(source, AudioFile):
+            config = ProgressBarConfig("Encoding...")
+        else:
+            config = ProgressBarConfig("Encoding...", duration_from_file(fileIn, 0), regex=r".*\] (\d+:\d+:\d+.\d+).*")
+
+        if not run_cmd_pb(args, quiet, config, shell=False, stdin=stdin):
             tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
             return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)

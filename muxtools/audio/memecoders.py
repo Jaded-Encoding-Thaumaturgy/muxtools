@@ -7,6 +7,7 @@ Thought they might be cool to have atleast.
 from pathlib import Path
 from pydantic.dataclasses import dataclass, Field
 from collections.abc import Sequence
+import subprocess
 
 
 from .encoders import FLAC
@@ -43,16 +44,23 @@ class qALAC(Encoder):
         if not isinstance(fileIn, AudioFile):
             fileIn = AudioFile.from_file(fileIn, self)
         output = make_output(fileIn.file, "alac", "qaac", self.output)
-        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.AIFF_OR_FLAC, supports_pipe=False)
+        source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.RF64, supports_pipe=True)
         qaac = get_executable("qaac")
         ver = qaac_compatcheck()
         tags = dict[str, str](ENCODER=f"qaac {ver}")
 
         info(f"Encoding '{fileIn.file.stem}' to ALAC using qAAC...", self)
-        args = [qaac, "-A", "--no-optimize", "--threading", "-o", str(output)] + self.get_custom_args()
-        args.append(str(source.file))
+        args = [qaac, "-A", "--no-optimize", "--threading"] + self.get_custom_args()
+        args.extend(["-o", str(output), str(source.file.resolve()) if isinstance(source, AudioFile) else "-"])
 
-        if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding...")):
+        stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
+
+        if isinstance(source, AudioFile):
+            config = ProgressBarConfig("Encoding...")
+        else:
+            config = ProgressBarConfig("Encoding...", duration_from_file(fileIn, 0), regex=r".*\] (\d+:\d+:\d+.\d+).*")
+
+        if not run_cmd_pb(args, quiet, config, shell=False, stdin=stdin):
             tags.update(ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
             return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)

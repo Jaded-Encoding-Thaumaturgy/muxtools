@@ -102,8 +102,7 @@ def get_pcm(
 ) -> AudioFile | subprocess.Popen:
     ffmpeg = get_executable("ffmpeg")
     args = [ffmpeg, "-i", str(fileIn.file), "-map", "0:a:0"]
-    cope = "pcm_s24be" if valid_type == ValidInputType.AIFF else "pcm_s24le"
-    codec = "pcm_s16le" if getattr(minfo, "bit_depth", 16) == 16 else cope
+    codec = "pcm_s16le" if getattr(minfo, "bit_depth", 16) == 16 else "pcm_s24le"
     filters = list[str]()
     preprocess = sanitize_pre(preprocess)
     for pre in preprocess:
@@ -115,7 +114,7 @@ def get_pcm(
             if filt:
                 filters.append(filt)
         if isinstance(pre, Resample):
-            codec = "pcm_s16le" if can_run and (pre.depth or getattr(minfo, "bit_depth", 16)) == 16 else cope
+            codec = "pcm_s16le" if can_run and (pre.depth or getattr(minfo, "bit_depth", 16)) == 16 else "pcm_s24le"
     if filters:
         args.extend(["-filter:a", ",".join(filters)])
     args.extend(["-c:a", codec])
@@ -123,11 +122,11 @@ def get_pcm(
         args.extend(["-rf64", "auto"])
         output = make_output(fileIn.file, "wav", "ffmpeg", temp=True)
     else:
-        output = make_output(fileIn.file, "aiff" if valid_type == ValidInputType.AIFF else "w64", "ffmpeg", temp=True)
+        output = make_output(fileIn.file, "w64", "ffmpeg", temp=True)
 
-    if supports_pipe and valid_type != ValidInputType.RF64:
+    if supports_pipe:
         debug("Piping audio to ensure valid input using ffmpeg...", caller)
-        args.extend(["-f", "aiff" if valid_type == ValidInputType.AIFF else "w64", "-"])
+        args.extend(["-f", "wav" if valid_type == ValidInputType.RF64 else "w64", "-"])
         p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
         return p
     else:
