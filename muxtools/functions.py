@@ -1,5 +1,6 @@
 from fractions import Fraction
 from datetime import timedelta
+from collections.abc import Sequence
 
 from .utils.log import warn, error, info, danger
 from .muxing.muxfiles import AudioFile
@@ -18,7 +19,7 @@ def do_audio(
     fileIn: PathLike | list[PathLike],
     track: int = 0,
     trims: Trim | list[Trim] | None = None,
-    fps: Fraction | PathLike = Fraction(24000, 1001),
+    fps: Fraction | PathLike | Sequence[int] = Fraction(24000, 1001),
     num_frames: int = 0,
     extractor: Extractor = FFMpeg.Extractor(),
     trimmer: Trimmer | None = AutoTrimmer(),
@@ -98,6 +99,8 @@ def do_audio(
             encoder = Opus()
 
     if trimmer and trims:
+        if not isinstance(fps, str) and isinstance(fps, Sequence):
+            fps = Fraction(*fps)
         setattr(trimmer, "trim", trims)
         setattr(trimmer, "fps", fps)
         setattr(trimmer, "num_frames", num_frames)
