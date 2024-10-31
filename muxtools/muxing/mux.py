@@ -131,7 +131,7 @@ def clean_name(name: str) -> str:
     stripped = name.strip()
 
     dont_match = [R"$show$", R"$ep$", "$crc32$"]
-    for match in re.findall(r"\$[^ ]+\$", name):
+    for match in re.findall(r"\$[^ ]+?\$", name):
         if match not in dont_match:
             stripped = stripped.replace(match, "").strip()
             warn(f"Unknown token '{match}' was removed.", "Mux")
