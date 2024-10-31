@@ -85,6 +85,7 @@ class TmdbConfig:
     :param write_cover:     Download episode thumbnail from TMDB to use as cover art attachment for the MKV.
     :param write_summary:   Writes the series summary/synopsis to the `SUMMARY` mkv tag if True
     :param write_synopsis:  Writes the individual episode synopsis to the `SYNOPSIS` mkv tag if True
+    :param replace_spaces:  Replaces spaces in titles with dots if True and with whatever string you passed if a string.
     """
 
     id: int
@@ -100,6 +101,7 @@ class TmdbConfig:
     write_cover: bool = False
     write_summary: bool = False
     write_synopsis: bool = False
+    replace_spaces: str | bool = False
 
     def needs_xml(self) -> bool:
         return self.write_ids or self.write_date or self.write_title or self.write_summary or self.write_synopsis
@@ -172,12 +174,18 @@ class TmdbConfig:
                 self.episodes = json_resp["episodes"]
 
         try:
-            episode = self.episodes[(num + self.offset) - 1]
+            episode: dict = self.episodes[(num + self.offset) - 1]
         except:
             raise error(f"Failed to find or parse episode {num:02}!", self)
 
+        title: str = episode.get("name", "")
+        if self.replace_spaces is True:
+            title = title.replace(" ", ".")
+        elif isinstance(self.replace_spaces, str):
+            title = title.replace(" ", self.replace_spaces)
+
         return EpisodeMetadata(
-            episode.get("name", ""),
+            title,
             episode.get("air_date", ""),
             episode.get("overview", ""),
             f"https://image.tmdb.org/t/p/w780{episode.get('still_path')}" if self.write_cover else "",
