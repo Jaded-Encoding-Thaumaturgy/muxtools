@@ -318,6 +318,7 @@ class SubFile(BaseSubFile):
         fps: Fraction | PathLike = Fraction(24000, 1001),
         use_actor_field: bool = False,
         no_error: bool = False,
+        sort_lines: bool = False,
     ) -> SubFileSelf:
         """
         Merge another subtitle file with syncing if needed.
@@ -329,6 +330,8 @@ class SubFile(BaseSubFile):
         :param fps:             The fps used for time calculations. Also accepts a timecode (v2) file.
         :param use_actor_field: Checks the actor field instead of effect for the names if True.
         :param no_error:        Don't error and warn instead if syncpoint not found.
+        :param sort_lines:      Sort the lines by the starting timestamp.
+                                This was done by default before but may cause issues with subtitles relying on implicit layering.
         """
 
         file = ensure_path_exists(file, self)
@@ -377,7 +380,7 @@ class SubFile(BaseSubFile):
                 break
 
         # Merge lines from file
-        for line in sorted_lines:
+        for line in sorted_lines if sort_lines else mergedoc.events:
             # Don't apply any offset if sync=None for plain merging or if target == source
             if target is None or target == second_sync:
                 tomerge.append(line)
