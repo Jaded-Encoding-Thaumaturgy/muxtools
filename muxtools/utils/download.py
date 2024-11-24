@@ -66,7 +66,7 @@ def get_executable(type: str, can_download: bool | None = None, can_error: bool 
         else:
             path = download_binary(type)
 
-    return path
+    return str(path)
 
 
 def download_binary(type: str) -> str:
