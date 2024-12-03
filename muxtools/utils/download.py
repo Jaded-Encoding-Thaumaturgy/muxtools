@@ -46,9 +46,8 @@ tools = [
 def get_executable(type: str, can_download: bool | None = None, can_error: bool = True) -> str:
     if can_download is None:
         can_download = download_allowed()
-    type = type.lower()
     path = sh.which(type)
-    env = os.environ.get(f"vof_exe_{type}", None)
+    env = os.environ.get(f"vof_exe_{type.lower()}", None)
     if env:
         path = Path(env)
         if path.exists():
@@ -64,7 +63,7 @@ def get_executable(type: str, can_download: bool | None = None, can_error: bool 
                 return None
             raise crit(f"{type.lower()} executable not found in path!", get_executable)
         else:
-            path = download_binary(type)
+            path = download_binary(type.lower())
 
     return str(path)
 
