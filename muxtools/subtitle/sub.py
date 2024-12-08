@@ -131,7 +131,7 @@ class SubFile(BaseSubFile):
         """
         doc = self._read_doc()
         used_styles = {line.style for line in doc.events if line.TYPE == "Dialogue"}
-        regex = re.compile(r"\{.*?\\r([^\\]+)\}")
+        regex = re.compile(r"\{[^}]*\\r([^\\}]+)[^}]*\}")
         for line in [line for line in doc.events if line.TYPE == "Dialogue"]:
             for match in regex.finditer(line.text):
                 used_styles.add(match.group(1))
