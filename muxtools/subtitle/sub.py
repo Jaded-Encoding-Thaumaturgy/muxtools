@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
+from video_timestamps import TimeType
 import shutil
 import json
 import re
@@ -17,7 +18,7 @@ from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import PathLike, TrackType
 from ..utils.log import debug, error, info, warn
-from ..utils.convert import frame_to_timedelta, timedelta_to_frame
+from ..utils.convert import frame_to_ms, ms_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
 from ..muxing.muxfiles import MuxingFile
@@ -298,15 +299,15 @@ class SubFile(BaseSubFile):
 
         This does not currently exactly reproduce the aegisub behaviour but it should have the same effect.
 
-        :param fps:             The fps fraction used for conversions. Also accepts a timecode (v2) file.
+        :param fps:             The fps fraction used for conversions. Also accepts a timecode (v1, v2, v4) file.
         :param allowed_styles:  A list of style names this will run on. Will run on every line if None.
         """
 
         def _func(lines: LINES):
             for line in lines:
                 if not allowed_styles or line.style.lower() in allowed_styles:
-                    line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps, exclude_boundary=True), fps, True)
-                    line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps, exclude_boundary=True), fps, True)
+                    line.start = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps), TimeType.START, fps))
+                    line.end = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps), TimeType.END, fps))
 
         return self.manipulate_lines(_func)
 
@@ -327,7 +328,7 @@ class SubFile(BaseSubFile):
         :param sync:            Can be None to not adjust timing at all, an int for a frame number or a string for a syncpoint name.
         :param sync2:           The syncpoint you want to use for the second file.
                                 This is needed if you specified a frame for sync and still want to use a specific syncpoint.
-        :param fps:             The fps used for time calculations. Also accepts a timecode (v2) file.
+        :param fps:             The fps used for time calculations. Also accepts a timecode (v1, v2, v4) file.
         :param use_actor_field: Checks the actor field instead of effect for the names if True.
         :param no_error:        Don't error and warn instead if syncpoint not found.
         :param sort_lines:      Sort the lines by the starting timestamp.
@@ -349,7 +350,7 @@ class SubFile(BaseSubFile):
             if target is None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
-                    target = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
+                    target = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
 
         if target is None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
@@ -367,7 +368,7 @@ class SubFile(BaseSubFile):
                 sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
-                second_sync = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
+                second_sync = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
                 mergedoc.events.remove(line)
                 break
 
@@ -376,7 +377,7 @@ class SubFile(BaseSubFile):
         # Assume the first line to be the second syncpoint if none was found
         if second_sync is None:
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = timedelta_to_frame(line.start, fps, exclude_boundary=True) + 1
+                second_sync = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
                 break
 
         # Merge lines from file
@@ -388,8 +389,8 @@ class SubFile(BaseSubFile):
 
             # Apply frame offset
             offset = (target or -1) - second_sync
-            line.start = frame_to_timedelta(timedelta_to_frame(line.start, fps, exclude_boundary=True) + offset, fps, True)
-            line.end = frame_to_timedelta(timedelta_to_frame(line.end, fps, exclude_boundary=True) + offset, fps, True)
+            line.start = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + offset, TimeType.START, fps))
+            line.end = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps) + offset, TimeType.END, fps))
             tomerge.append(line)
 
         if tomerge:
@@ -648,23 +649,23 @@ class SubFile(BaseSubFile):
         Shifts all lines by any frame number.
 
         :param frames:              Number of frames to shift by
-        :param fps:                 FPS needed for the timing calculations. Also accepts a timecode (v2) file.
+        :param fps:                 FPS needed for the timing calculations. Also accepts a timecode (v1, v2, v4) file.
         :param delete_before_zero:  Delete lines that would be before 0 after shifting.
         """
 
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
             for line in lines:
-                start = timedelta_to_frame(line.start, fps, exclude_boundary=True) + frames
+                start = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + frames
                 if start < 0:
                     if delete_before_zero:
                         continue
                     start = 0
-                start = frame_to_timedelta(start, fps, compensate=True)
-                end = timedelta_to_frame(line.end, fps, exclude_boundary=True) + frames
+                start = timedelta(milliseconds=frame_to_ms(start, TimeType.START, fps))
+                end = ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps) + frames
                 if end < 0:
                     continue
-                end = frame_to_timedelta(end, fps, compensate=True)
+                end = timedelta(milliseconds=frame_to_ms(end, TimeType.END, fps))
                 line.start = start
                 line.end = end
                 new_list.append(line)
@@ -703,7 +704,7 @@ class SubFile(BaseSubFile):
         :param file:            Input srt file
         :param an8_all_caps:    Automatically an8 every full caps line with over 7 characters because they're usually signs.
         :param style_all_caps:  Also set the style of these lines to "Sign" wether it exists or not.
-        :param fps:             FPS needed for the time conversion. Also accepts a timecode (v2) file.
+        :param fps:             FPS needed for the time conversion. Also accepts a timecode (v1, v2, v4) file.
         :param encoding:        Encoding used to read the file. Defaults to UTF8.
         """
         caller = "SubFile.from_srt"
@@ -711,11 +712,11 @@ class SubFile(BaseSubFile):
 
         compiled = re.compile(SRT_REGEX, re.MULTILINE)
 
-        def srt_timedelta(timestamp: str) -> timedelta:
+        def srt_timedelta(timestamp: str, time_type: TimeType) -> timedelta:
             args = timestamp.split(",")[0].split(":")
             parsed = timedelta(hours=int(args[0]), minutes=int(args[1]), seconds=int(args[2]), milliseconds=int(timestamp.split(",")[1]))
-            cope = timedelta_to_frame(parsed, fps, exclude_boundary=True)
-            cope = frame_to_timedelta(cope, fps, compensate=True)
+            cope = ms_to_frame(int(parsed.total_seconds() * 1000), time_type, fps)
+            cope = timedelta(milliseconds=frame_to_ms(cope, time_type, fps))
             return cope
 
         def convert_tags(text: str) -> tuple[str, bool]:
@@ -737,8 +738,8 @@ class SubFile(BaseSubFile):
         with open(file, "r", encoding=encoding) as reader:
             content = reader.read() + "\n"
             for match in compiled.finditer(content):
-                start = srt_timedelta(match["start"])
-                end = srt_timedelta(match["end"])
+                start = srt_timedelta(match["start"], TimeType.START)
+                end = srt_timedelta(match["end"], TimeType.END)
                 text, sign = convert_tags(match["text"])
                 doc.events.append(Dialogue(layer=99, start=start, end=end, text=text, style="Sign" if sign and style_all_caps else "Default"))
 
