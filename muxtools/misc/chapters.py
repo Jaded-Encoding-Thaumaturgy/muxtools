@@ -4,6 +4,7 @@ from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
 from typing import TypeVar
+from video_timestamps import TimeType
 import os
 import re
 
@@ -15,7 +16,7 @@ from ..utils.types import Chapter, PathLike
 from ..utils.parsing import parse_ogm, parse_xml
 from ..utils.files import clean_temp_files, ensure_path_exists, ensure_path
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
-from ..utils.convert import format_timedelta, frame_to_timedelta, timedelta_to_frame
+from ..utils.convert import format_timedelta, frame_to_ms, ms_to_frame
 
 __all__ = ["Chapters"]
 
@@ -31,7 +32,7 @@ class Chapters:
         Convenience class for chapters
 
         :param chapter_source:      Input either txt with ogm chapters, xml or (a list of) self defined chapters.
-        :param fps:                 Needed for timestamp convertion. Assumes 24000/1001 by default. Also accepts a timecode (v2) file.
+        :param fps:                 Needed for timestamp convertion. Assumes 24000/1001 by default. Also accepts a timecode (v2, v4) file.
         :param _print:              Prints chapters after parsing and after trimming.
         """
         self.fps = fps
@@ -54,7 +55,7 @@ class Chapters:
         for ch in self.chapters:
             if isinstance(ch[0], int):
                 current = list(ch)
-                current[0] = frame_to_timedelta(current[0], self.fps)
+                current[0] = timedelta(milliseconds=frame_to_ms(current[0], TimeType.EXACT, self.fps, False))
                 chapters.append(tuple(current))
             else:
                 chapters.append(ch)
@@ -67,15 +68,15 @@ class Chapters:
         if trim_start > 0:
             chapters: list[Chapter] = []
             for chapter in self.chapters:
-                if timedelta_to_frame(chapter[0]) == 0:
+                if ms_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, self.fps) == 0:
                     chapters.append(chapter)
                     continue
-                if timedelta_to_frame(chapter[0]) - trim_start < 0:
+                if ms_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, self.fps) - trim_start < 0:
                     continue
                 current = list(chapter)
-                current[0] = current[0] - frame_to_timedelta(trim_start, self.fps)
+                current[0] = current[0] - timedelta(milliseconds=frame_to_ms(trim_start, TimeType.EXACT, self.fps, False))
                 if num_frames:
-                    if current[0] > frame_to_timedelta(num_frames - 1, self.fps):
+                    if current[0] > timedelta(milliseconds=frame_to_ms(num_frames - 1, TimeType.EXACT, self.fps, False)):
                         continue
                 chapters.append(tuple(current))
 
@@ -84,7 +85,7 @@ class Chapters:
             if trim_end > 0:
                 chapters: list[Chapter] = []
                 for chapter in self.chapters:
-                    if timedelta_to_frame(chapter[0], self.fps) < trim_end:
+                    if ms_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, self.fps) < trim_end:
                         chapters.append(chapter)
                 self.chapters = chapters
 
@@ -125,7 +126,7 @@ class Chapters:
         for ch in chapters:
             if isinstance(ch[0], int):
                 current = list(ch)
-                current[0] = frame_to_timedelta(current[0], self.fps)
+                current[0] = timedelta(milliseconds=frame_to_ms(current[0], TimeType.EXACT, self.fps, False))
                 converted.append(tuple(current))
             else:
                 converted.append(ch)
@@ -143,14 +144,9 @@ class Chapters:
         :param shift_amount:    Frames to shift by
         """
         ch = list(self.chapters[chapter])
-        shift_delta = frame_to_timedelta(abs(shift_amount), self.fps)
-        if shift_amount < 0:
-            shifted_frame = ch[0] - shift_delta
-        else:
-            shifted_frame = ch[0] + shift_delta
-
-        if shifted_frame.total_seconds() > 0:
-            ch[0] = shifted_frame
+        ch_frame = ms_to_frame(int(ch[0].total_seconds() * 1000), TimeType.START, self.fps) + abs(shift_amount)
+        if ch_frame >= 0:
+            ch[0] = timedelta(milliseconds=frame_to_ms(ch_frame, TimeType.EXACT, self.fps, False))
         else:
             ch[0] = timedelta(seconds=0)
         self.chapters[chapter] = tuple(ch)
@@ -170,7 +166,7 @@ class Chapters:
         """
         info("Chapters:")
         for time, name in self.chapters:
-            print(f"{name}: {format_timedelta(time)} | {timedelta_to_frame(time, self.fps)}")
+            print(f"{name}: {format_timedelta(time)} | {ms_to_frame(int(time.total_seconds() * 1000), TimeType.START, self.fps)}")
         print("", end="\n")
         return self
 
@@ -209,7 +205,7 @@ class Chapters:
         Extract chapters from an ass file or a SubFile.
 
         :param file:            Input ass file or SubFile
-        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
+        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2, v4) file.
         :param use_actor_field: Uses the actor field instead of the effect field for identification.
         :param markers:         Markers to check for.
         :param _print:          Prints the chapters after parsing
@@ -255,7 +251,7 @@ class Chapters:
         Extract chapters from mkv.
 
         :param file:            Input mkv file
-        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
+        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2, v4) file.
         :param _print:          Prints the chapters after parsing
         """
         caller = "Chapters.from_mkv"
