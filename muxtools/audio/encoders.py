@@ -206,7 +206,7 @@ class Opus(Encoder):
 
         if not run_cmd_pb(args, quiet, config, shell=False, stdin=stdin):
             tags = version_settings_dict(
-                self.get_mediainfo_settings(args), exe, r"opusenc (opus-tools .+?\(using libopus \d+\.\d+(?:\.\d)?.+?\)?)", ["-V"], prepend="opusenc"
+                self.get_mediainfo_settings(args), exe, r"opusenc (opus-tools .+?\(using libopus \d+\.\d+(?:\.\d)?.+\)?)", ["-V"], prepend="opusenc"
             )
             clean_temp_files()
             return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
