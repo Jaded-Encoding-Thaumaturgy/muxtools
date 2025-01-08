@@ -16,7 +16,7 @@ from .subutils import create_document, dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import PathLike, TrackType
-from ..utils.log import debug, error, info, warn
+from ..utils.log import debug, error, info, warn, log_escape
 from ..utils.convert import frame_to_timedelta, timedelta_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
@@ -188,12 +188,12 @@ class SubFile(BaseSubFile):
         - A comment line with effect or name set to `***` will be set to a dialogue.
 
 
-        `inline_tag_markers` can be used to swap ASS tags as well.
+        `inline_tag_markers` can be used to swap ASS tags as well. Keep in mind that "\" and "/" will be swapped, so override tags aren't applied.
 
         Assuming the markers are as default, except inline_tag_markers = `[]`:
-        - `{*}{\i1}abc{*[\b1]def}` becomes `{*}{\b1}def{*[\i1]abc}` (AB Swap)
-        - `abc{**[\b1]def}` becomes `abc{*}{\b1}def{*}` (Show Word)
-        - `abc{*}{\b1}def{*}` becomes `abc{**[\b1]def}` (Hide Word)
+        - `{*}{\i1}abc{*[/b1]def}` becomes `{*}{\b1}def{*[/i1]abc}` (AB Swap)
+        - `abc{**[/b1]def}` becomes `abc{*}{\b1}def{*}` (Show Word)
+        - `abc{*}{\b1}def{*}` becomes `abc{**[/b1]def}` (Hide Word)
 
 
         :param allowed_styles:          List of allowed styles to do the swapping on
@@ -235,7 +235,7 @@ class SubFile(BaseSubFile):
                         if inline_tag_markers:
                             to_swap.update(
                                 {
-                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}')}{{{inline_marker}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1])}}}"
+                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', '\\')}{{{inline_marker}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1], ).replace('\\', '/')}}}"
                                 }
                             )
                         else:
@@ -250,7 +250,7 @@ class SubFile(BaseSubFile):
                         if inline_tag_markers:
                             to_swap.update(
                                 {
-                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}')}{{{inline_marker}}}"
+                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', '\\')}{{{inline_marker}}}"
                                 }
                             )
                         else:
@@ -261,7 +261,7 @@ class SubFile(BaseSubFile):
                         if inline_tag_markers:
                             to_swap.update(
                                 {
-                                    f"{match.group(0)}": f"{{{inline_marker*2}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1])}}}"
+                                    f"{match.group(0)}": f"{{{inline_marker*2}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1]).replace('\\', '/')}}}"
                                 }
                             )
                         else:
@@ -269,18 +269,18 @@ class SubFile(BaseSubFile):
 
                     for key, val in to_swap.items():
                         if print_swaps:
-                            info(f'autoswapper: Swapped "{key}" for "{val}" on line {i}', self)
+                            info(f'autoswapper: Swapped "{log_escape(key)}" for "{log_escape(val)}" on line {i}', self)
                         line.text = line.text.replace(key, val)
 
                     if line.effect.strip() == line_marker or line.name.strip() == line_marker:
                         if isinstance(line, Comment):
                             line.TYPE = "Dialogue"
                             if print_swaps:
-                                info(f'autoswapper: Uncommented Line {i} - "{line.text}"', self)
+                                info(f'autoswapper: Uncommented Line {i} - "{log_escape(line.text)}"', self)
                         elif isinstance(line, Dialogue):
                             line.TYPE = "Comment"
                             if print_swaps:
-                                info(f'autoswapper: Commented Line {i} - "{line.text}"', self)
+                                info(f'autoswapper: Commented Line {i} - "{log_escape(line.text)}"', self)
 
         self.manipulate_lines(_do_autoswap)
         return self
