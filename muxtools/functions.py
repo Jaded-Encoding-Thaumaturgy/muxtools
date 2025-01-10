@@ -21,7 +21,7 @@ def do_audio(
     trims: Trim | list[Trim] | None = None,
     fps: Fraction | PathLike | Sequence[int] = Fraction(24000, 1001),
     num_frames: int = 0,
-    extractor: Extractor = FFMpeg.Extractor(),
+    extractor: Extractor | None = FFMpeg.Extractor(),
     trimmer: Trimmer | None = AutoTrimmer(),
     encoder: Encoder | None = AutoEncoder(),
     quiet: bool = True,
@@ -77,6 +77,8 @@ def do_audio(
             audio = FFMpeg.Concat(extracted).concat_audio()
         else:
             audio = extractor.extract_audio(fileIn, quiet)
+    else:
+        audio = ensure_path_exists(fileIn, do_audio)
 
     if not isinstance(audio, AudioFile):
         audio = AudioFile.from_file(audio, do_audio)
