@@ -226,6 +226,8 @@ class SubFile(BaseSubFile):
         show_word_regex = re.compile(rf"{{{marker}{marker}([^}}]+)}}")
         hide_word_regex = re.compile(rf"{{{marker}}}(.*?){{{marker} *}}")
 
+        backslash = "\\" # This is to ensure support for previous python versions that don't allow backslashes in f-strings.
+
         def _do_autoswap(lines: LINES):
             for i, line in enumerate(lines):
                 if not allowed_styles or str(line.style).casefold() in {style.casefold() for style in allowed_styles}:
@@ -235,7 +237,7 @@ class SubFile(BaseSubFile):
                         if inline_tag_markers:
                             to_swap.update(
                                 {
-                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', '\\')}{{{inline_marker}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1], ).replace('\\', '/')}}}"
+                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', backslash)}{{{inline_marker}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1], ).replace(backslash, '/')}}}"
                                 }
                             )
                         else:
@@ -250,7 +252,7 @@ class SubFile(BaseSubFile):
                         if inline_tag_markers:
                             to_swap.update(
                                 {
-                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', '\\')}{{{inline_marker}}}"
+                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', backslash)}{{{inline_marker}}}"
                                 }
                             )
                         else:
@@ -261,7 +263,7 @@ class SubFile(BaseSubFile):
                         if inline_tag_markers:
                             to_swap.update(
                                 {
-                                    f"{match.group(0)}": f"{{{inline_marker*2}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1]).replace('\\', '/')}}}"
+                                    f"{match.group(0)}": f"{{{inline_marker*2}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1]).replace(backslash, '/')}}}"
                                 }
                             )
                         else:
