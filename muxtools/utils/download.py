@@ -59,8 +59,12 @@ def get_executable(type: str, can_download: bool | None = None, can_error: bool 
 
     if path is None:
         if not can_download or can_download is False:
+            if os.name == "nt" and (exe := _find_downloaded_binary(type)):
+                return str(exe)
+
             if not can_error:
                 return None
+
             raise crit(f"{type.lower()} executable not found in path!", get_executable)
         else:
             path = download_binary(type.lower())
@@ -68,21 +72,28 @@ def get_executable(type: str, can_download: bool | None = None, can_error: bool 
     return str(path)
 
 
-def download_binary(type: str) -> str:
-    if os.name != "nt":
-        raise EnvironmentError("Of course only Windows is supported for downloading of binaries!")
-
+def _find_downloaded_binary(type: str) -> Path | None:
     binary_dir = Path(os.path.join(os.getcwd(), "_binaries"))
     binary_dir.mkdir(exist_ok=True)
 
     type = type.lower()
 
-    executable: Path = None
     executables = binary_dir.rglob(type + "*.exe")
 
     for exe in sorted(executables):
         if exe.is_file():
             return exe.resolve()
+    return None
+
+
+def download_binary(type: str) -> str:
+    if os.name != "nt":
+        raise EnvironmentError("Of course only Windows is supported for downloading of binaries!")
+
+    if exe := _find_downloaded_binary(type):
+        return str(exe)
+
+    binary_dir = Path(os.path.join(os.getcwd(), "_binaries"))
 
     info(f"Downloading {type} executables...", get_executable)
     url = None
@@ -103,11 +114,7 @@ def download_binary(type: str) -> str:
     info("Done.", get_executable)
     unpack_all(binary_dir)
 
-    executables = binary_dir.rglob(type.lower() + "*.exe")
-
-    for exe in sorted(executables):
-        if exe.is_file():
-            executable = exe
+    executable = _find_downloaded_binary(type)
 
     if executable is None:
         raise error(f"Binary for '{type}' could not have been found!", get_executable)
