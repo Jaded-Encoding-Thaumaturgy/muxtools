@@ -222,7 +222,7 @@ class SubFile(BaseSubFile):
 
         marker = re.escape(inline_marker)
 
-        ab_swap_regex = re.compile(rf"{{{marker}}}(.*?){{{marker}([^}}*]+)}}")
+        ab_swap_regex = re.compile(rf"{{{marker}}}(.*?){{{marker}([^}}]+)}}")
         show_word_regex = re.compile(rf"{{{marker}{marker}([^}}]+)}}")
         hide_word_regex = re.compile(rf"{{{marker}}}(.*?){{{marker} *}}")
 
