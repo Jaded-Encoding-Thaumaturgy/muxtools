@@ -304,7 +304,7 @@ class FDK_AAC(Encoder):
             exe = get_executable("ffmpeg") if not self.use_binary else get_executable("fdkaac")
 
         if os.name == "nt":
-            warn("It is strongly recommended to use qAAC on windows. See docs.", self, 5)
+            warn("It is strongly recommended to use qAAC on windows. See docs.", self, 1)
         info(f"Encoding '{fileIn.file.stem}' to AAC using libFDK...", self)
 
         tags = dict[str, str]()

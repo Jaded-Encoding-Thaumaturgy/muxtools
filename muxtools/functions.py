@@ -5,12 +5,13 @@ from collections.abc import Sequence
 from .utils.log import warn, error, info, danger
 from .muxing.muxfiles import AudioFile
 from .audio.audioutils import is_fancy_codec
-from .audio.encoders import Opus
+from .audio.encoders import Opus, qAAC, FDK_AAC
 from .utils.types import PathLike, Trim
 from .audio.extractors import FFMpeg, Sox
 from .utils.files import ensure_path, ensure_path_exists
 from .audio.tools import AutoEncoder, AutoTrimmer, Encoder, Trimmer, Extractor
 from .utils.convert import format_timedelta
+from .utils.download import get_executable
 
 __all__ = ["do_audio"]
 
@@ -40,7 +41,7 @@ def do_audio(
                             AutoTrimmer means it will choose ffmpeg for lossy and Sox for lossless
 
     :param encoder:         Tool used to encode the audio
-                            AutoEncoder means it won't reencode lossy and choose opus otherwise
+                            AutoEncoder means it won't reencode lossy and choose opus (for 2.0) or qAAC/FDKAAC (for >2.0) otherwise
 
     :param quiet:           Whether the tool output should be visible
     :param output:          Custom output file or directory, extensions will be automatically added
@@ -91,14 +92,25 @@ def do_audio(
         else:
             trimmer = Sox()
 
+    mediainfo = audio.get_mediainfo()
+
     if isinstance(encoder, AutoEncoder):
         if lossy:
             encoder = None
-        elif is_fancy_codec(audio.get_mediainfo()):
+        elif is_fancy_codec(mediainfo):
             encoder = None
             warn("Audio will not be reencoded due to having Atmos or special DTS features.", do_audio, 2)
         else:
-            encoder = Opus()
+            channels = getattr(mediainfo, "channel_s", None) or 2
+            if channels <= 2:
+                encoder = Opus()
+            else:
+                has_qaac = bool(get_executable("qaac", False, False))
+                if has_qaac:
+                    encoder = qAAC(100, lowpass=20000)
+                else:
+                    warn("Attempting to fall back to FDK_AAC because of a lack of qAAC in current PATH.", do_audio, 1)
+                    encoder = FDK_AAC()
 
     if trimmer and trims:
         if not isinstance(fps, str) and isinstance(fps, Sequence):
