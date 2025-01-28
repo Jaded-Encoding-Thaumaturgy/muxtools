@@ -1,7 +1,7 @@
 
 [project]
 name = "muxtools"
-version = "0.2.2"
+version = "0.2.3"
 description = "A library for various muxing and automation tools for anything and everything fansubbing related"
 authors = [{ name = "Vodes", email = "vodes.imp@gmail.com" }]
 dependencies = [
