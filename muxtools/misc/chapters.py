@@ -22,7 +22,7 @@ __all__ = ["Chapters"]
 
 
 class Chapters:
-    chapters: list[Chapter] = []
+    chapters: list[Chapter]
     fps: Fraction | PathLike
 
     def __init__(
@@ -186,7 +186,7 @@ class Chapters:
         with open(out_file, "w", encoding="UTF-8") as f:
             f.writelines(
                 [
-                    f"CHAPTER{i:02d}={format_timedelta(chapter[0])}\nCHAPTER{i:02d}NAME=" f'{chapter[1] if chapter[1] else ""}\n'
+                    f"CHAPTER{i:02d}={format_timedelta(chapter[0])}\nCHAPTER{i:02d}NAME={chapter[1] if chapter[1] else ''}\n"
                     for i, chapter in enumerate(self.chapters)
                 ]
             )

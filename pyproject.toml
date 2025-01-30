@@ -1,7 +1,7 @@
 
 [project]
 name = "muxtools"
-version = "0.2.0"
+version = "0.2.3"
 description = "A library for various muxing and automation tools for anything and everything fansubbing related"
 authors = [{ name = "Vodes", email = "vodes.imp@gmail.com" }]
 dependencies = [
@@ -50,7 +50,8 @@ indent-width = 4
 target-version = "py310"
 
 [tool.ruff.lint]
-ignore = ["E722"]
+select = ["F", "E", "RUF012"]
+ignore = ["E722", "E501"]
 fixable = ["F541", "F401", "E712", "E711"]
 exclude = ["__init__.py"]
 

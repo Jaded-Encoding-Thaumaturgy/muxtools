@@ -206,7 +206,7 @@ class Opus(Encoder):
 
         if not run_cmd_pb(args, quiet, config, shell=False, stdin=stdin):
             tags = version_settings_dict(
-                self.get_mediainfo_settings(args), exe, r"opusenc (opus-tools .+?\(using libopus \d+\.\d+(?:\.\d)?.+?\)?)", ["-V"], prepend="opusenc"
+                self.get_mediainfo_settings(args), exe, r"opusenc (opus-tools .+?\(using libopus \d+\.\d+(?:\.\d)?.+\)?)", ["-V"], prepend="opusenc"
             )
             clean_temp_files()
             return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
@@ -304,7 +304,7 @@ class FDK_AAC(Encoder):
             exe = get_executable("ffmpeg") if not self.use_binary else get_executable("fdkaac")
 
         if os.name == "nt":
-            warn("It is strongly recommended to use qAAC on windows. See docs.", self, 5)
+            warn("It is strongly recommended to use qAAC on windows. See docs.", self, 1)
         info(f"Encoding '{fileIn.file.stem}' to AAC using libFDK...", self)
 
         tags = dict[str, str]()

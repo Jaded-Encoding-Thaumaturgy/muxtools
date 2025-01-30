@@ -17,7 +17,7 @@ from .subutils import create_document, dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import PathLike, TrackType
-from ..utils.log import debug, error, info, warn
+from ..utils.log import debug, error, info, warn, log_escape
 from ..utils.convert import frame_to_ms, ms_to_frame
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
@@ -170,19 +170,43 @@ class SubFile(BaseSubFile):
         print_swaps: bool = False,
         inline_marker: str = "*",
         line_marker: str = "***",
+        inline_tag_markers: str | None = None,
     ) -> SubFileSelf:
-        """
-        autoswapper does the swapping.
-        Too lazy to explain
+        r"""
+        autoswapper allows replacing text in the script with a different text.
+        Useful for creating honorific tracks.
 
-        :param allowed_styles:      List of allowed styles to do the swapping on
-                                    Will run on every line if passed `None`
-        :param print_swaps:         Prints the swaps
-        :param inline_marker:       Marker to use for inline swaps.
-                                    Should be one character. Default `*`
-        :param line_marker:         Marker to use for full-line swaps. Default `***`
+        Assuming the markers are as default:
 
-        :return:                    This SubTrack
+        - `{*}abc{*def}` becomes `{*}def{*abc}` (AB Swap)
+        - `abc{**def}` becomes `abc{*}def{*}` (Show Word)
+        - `abc{*}def{*}` becomes `abc{**def}` (Hide Word)
+
+        Note: AB Swap and Hide Word will remove `{}` from the swapped text, to ensure the comment isn't broken.
+
+        You can also comment in or out entire lines by using the line marker in either the `effect` or `name` field.
+        - A dialogue line with effect or name set to `***` will be commented.
+        - A comment line with effect or name set to `***` will be set to a dialogue.
+
+
+        `inline_tag_markers` can be used to swap ASS tags as well. Keep in mind that "\" and "/" will be swapped, so override tags aren't applied.
+
+        Assuming the markers are as default, except inline_tag_markers = `[]`:
+        - `{*}{\i1}abc{*[/b1]def}` becomes `{*}{\b1}def{*[/i1]abc}` (AB Swap)
+        - `abc{**[/b1]def}` becomes `abc{*}{\b1}def{*}` (Show Word)
+        - `abc{*}{\b1}def{*}` becomes `abc{**[/b1]def}` (Hide Word)
+
+
+        :param allowed_styles:          List of allowed styles to do the swapping on
+                                        Will run on every line if passed `None`
+        :param print_swaps:             Prints the swaps
+        :param inline_marker:           Marker to use for inline swaps.
+                                        Should be one character. Default `*`
+        :param line_marker:             Marker to use for full-line swaps. Default `***`
+        :param inline_tag_markers:      Two characters that will be replaced with `{}` respectively in the inline swaps.
+                                        Defaults to `None`, which will just remove the `{}` from the swapped text.
+
+        :return:                        This SubTrack
         """
         if not isinstance(inline_marker, str) or not inline_marker.strip():
             warn("Given invalid inline marker. Using default '*'.", self)
@@ -192,11 +216,18 @@ class SubFile(BaseSubFile):
             warn("Given invalid line marker. Using default '***'.", self)
             line_marker = "***"
 
+        if inline_tag_markers:
+            if len(inline_tag_markers) != 2 or inline_tag_markers[0] == inline_tag_markers[1] or any([m in "{}" for m in inline_tag_markers]):
+                warn("Given invalid inline comment markers. Using default 'None'.", self)
+                inline_tag_markers = None
+
         marker = re.escape(inline_marker)
 
-        ab_swap_regex = re.compile(rf"{{{marker}}}([^{{]*){{{marker}([^}}*]+)}}")
+        ab_swap_regex = re.compile(rf"{{{marker}}}(.*?){{{marker}([^}}]+)}}")
         show_word_regex = re.compile(rf"{{{marker}{marker}([^}}]+)}}")
-        hide_word_regex = re.compile(rf"{{{marker}}}([^{{]*){{{marker} *}}")
+        hide_word_regex = re.compile(rf"{{{marker}}}(.*?){{{marker} *}}")
+
+        backslash = "\\"  # This is to ensure support for previous python versions that don't allow backslashes in f-strings.
 
         def _do_autoswap(lines: LINES):
             for i, line in enumerate(lines):
@@ -204,30 +235,55 @@ class SubFile(BaseSubFile):
                     to_swap: dict = {}
                     # {*}This will be replaced{*With this}
                     for match in re.finditer(ab_swap_regex, line.text):
-                        to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2)}{{{inline_marker}{match.group(1)}}}"})
+                        if inline_tag_markers:
+                            to_swap.update(
+                                {
+                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', backslash)}{{{inline_marker}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1]).replace(backslash, '/')}}}"
+                                }
+                            )
+                        else:
+                            to_swap.update(
+                                {
+                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2)}{{{inline_marker}{match.group(1).replace('{', '').replace('}', '')}}}"
+                                }
+                            )
 
                     # This sentence is no longer{** incomplete}
                     for match in re.finditer(show_word_regex, line.text):
-                        to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1)}{{{inline_marker}}}"})
+                        if inline_tag_markers:
+                            to_swap.update(
+                                {
+                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', backslash)}{{{inline_marker}}}"
+                                }
+                            )
+                        else:
+                            to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1)}{{{inline_marker}}}"})
 
-                    # This sentence is no longer{*} incomplete{*}
+                    # This sentence is no longer{*} complete{*}
                     for match in re.finditer(hide_word_regex, line.text):
-                        to_swap.update({f"{match.group(0)}": f"{{{inline_marker*2}{match.group(1)}}}"})
-                    # print(to_swap)
+                        if inline_tag_markers:
+                            to_swap.update(
+                                {
+                                    f"{match.group(0)}": f"{{{inline_marker * 2}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1]).replace(backslash, '/')}}}"
+                                }
+                            )
+                        else:
+                            to_swap.update({f"{match.group(0)}": f"{{{inline_marker * 2}{match.group(1).replace('{', '').replace('}', '')}}}"})
+
                     for key, val in to_swap.items():
                         if print_swaps:
-                            info(f'autoswapper: Swapped "{key}" for "{val}" on line {i}', self)
+                            info(f'autoswapper: Swapped "{log_escape(key)}" for "{log_escape(val)}" on line {i}', self)
                         line.text = line.text.replace(key, val)
 
                     if line.effect.strip() == line_marker or line.name.strip() == line_marker:
                         if isinstance(line, Comment):
                             line.TYPE = "Dialogue"
                             if print_swaps:
-                                info(f'autoswapper: Uncommented Line {i} - "{line.text}"', self)
+                                info(f'autoswapper: Uncommented Line {i} - "{log_escape(line.text)}"', self)
                         elif isinstance(line, Dialogue):
                             line.TYPE = "Comment"
                             if print_swaps:
-                                info(f'autoswapper: Commented Line {i} - "{line.text}"', self)
+                                info(f'autoswapper: Commented Line {i} - "{log_escape(line.text)}"', self)
 
         self.manipulate_lines(_do_autoswap)
         return self
@@ -306,8 +362,12 @@ class SubFile(BaseSubFile):
         def _func(lines: LINES):
             for line in lines:
                 if not allowed_styles or line.style.lower() in allowed_styles:
-                    line.start = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps), TimeType.START, fps))
-                    line.end = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps), TimeType.END, fps))
+                    line.start = timedelta(
+                        milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps), TimeType.START, fps)
+                    )
+                    line.end = timedelta(
+                        milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps), TimeType.END, fps)
+                    )
 
         return self.manipulate_lines(_func)
 
@@ -389,8 +449,12 @@ class SubFile(BaseSubFile):
 
             # Apply frame offset
             offset = (target or -1) - second_sync
-            line.start = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + offset, TimeType.START, fps))
-            line.end = timedelta(milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps) + offset, TimeType.END, fps))
+            line.start = timedelta(
+                milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + offset, TimeType.START, fps)
+            )
+            line.end = timedelta(
+                milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps) + offset, TimeType.END, fps)
+            )
             tomerge.append(line)
 
         if tomerge:
