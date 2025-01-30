@@ -6,7 +6,6 @@ from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, 
 
 from ..utils.types import PathLike
 from ..utils.files import ensure_path_exists
-from ..utils.log import error
 
 __all__: list[str] = [
     "mpls_timestamp_to_timedelta",
@@ -30,7 +29,11 @@ def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
 
 
 def ms_to_frame(
-    ms: int, time_type: TimeType, time_scale: Fraction, fps: Fraction | PathLike = Fraction(24000, 1001), rounding_method: RoundingMethod = RoundingMethod.ROUND
+    ms: int,
+    time_type: TimeType,
+    time_scale: Fraction,
+    fps: Fraction | PathLike = Fraction(24000, 1001),
+    rounding_method: RoundingMethod = RoundingMethod.ROUND,
 ) -> int:
     """
     Converts a timedelta to a frame number.
@@ -55,9 +58,14 @@ def ms_to_frame(
     return frame
 
 
-def frame_to_ms(f: int, time_type: TimeType, time_scale: Fraction, fps: Fraction | PathLike = Fraction(24000, 1001),
-        rounding: bool = True, rounding_method: RoundingMethod = RoundingMethod.ROUND
-    ) -> int:
+def frame_to_ms(
+    f: int,
+    time_type: TimeType,
+    time_scale: Fraction,
+    fps: Fraction | PathLike = Fraction(24000, 1001),
+    rounding: bool = True,
+    rounding_method: RoundingMethod = RoundingMethod.ROUND,
+) -> int:
     """
     Converts a frame number to a timedelta.
     Mostly used in the conversion for manually defined chapters.
@@ -101,7 +109,7 @@ def format_timedelta(time: timedelta, precision: int = 3) -> str:
     s %= 60
     h = m // 60
     m %= 60
-    return f'{h:02d}:{m:02d}:{s:02d}.{str(rounded).split(".")[1].ljust(precision, "0")}'
+    return f"{h:02d}:{m:02d}:{s:02d}.{str(rounded).split('.')[1].ljust(precision, '0')}"
 
 
 def timedelta_from_formatted(formatted: str) -> timedelta:

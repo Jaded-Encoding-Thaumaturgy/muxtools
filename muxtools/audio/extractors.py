@@ -64,7 +64,7 @@ class Eac3to(Extractor):
         info(f"Extracting audio track {self.track} from '{input.stem}'...", self)
 
         out = make_output(input, extension, f"extracted_{self.track}", self.output)
-        code, stdout = communicate_stdout(f'"{eac3to}" "{input}" {track.track_id+1}: "{out}" {self.append}')
+        code, stdout = communicate_stdout(f'"{eac3to}" "{input}" {track.track_id + 1}: "{out}" {self.append}')
         if code == 0:
             if not out.exists():
                 pattern_str = rf"{re.escape(out.stem)} DELAY.*\.{extension}"
