@@ -100,6 +100,13 @@ def is_video_file(file: Path) -> bool:
     if not streams:
         return False
 
+    format: dict[str, Any] = out_json.get("format", None)
+    if not format:
+        return False
+
+    if "tty" in format["format_name"]:
+        return False
+
     for stream in streams:
         type: str = stream["codec_type"]
         if type.lower() == "video":

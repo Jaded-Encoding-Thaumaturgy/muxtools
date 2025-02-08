@@ -2,11 +2,12 @@ import os
 import json
 from typing import Any
 from math import trunc
-from decimal import Decimal, ROUND_HALF_DOWN
-from dataclasses import dataclass, asdict
+from enum import IntEnum
 from fractions import Fraction
 from datetime import timedelta
-from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, TimeType, VideoTimestamps, ABCTimestamps
+from dataclasses import dataclass, asdict
+from decimal import Decimal, ROUND_HALF_DOWN
+from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, VideoTimestamps, ABCTimestamps, TimeType
 
 from ..utils.types import PathLike
 from ..utils.log import info, warn, crit, debug
@@ -15,10 +16,13 @@ from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video
 
 __all__: list[str] = [
     "mpls_timestamp_to_timedelta",
-    "ms_to_frame",
-    "frame_to_ms",
     "format_timedelta",
     "timedelta_from_formatted",
+    "TimeScale",
+    "VideoMeta",
+    "get_timemeta_from_video",
+    "resolve_timesource_and_scale",
+    "TimeType",
 ]
 
 
@@ -45,6 +49,12 @@ class VideoMeta:
         return json.dumps(asdict(self), cls=FractionEncoder, indent=4)
 
 
+class TimeScale(IntEnum):
+    MKV = 1000
+    MATROSKA = MKV
+    M2TS = 9000
+
+
 def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = None, caller: Any | None = None) -> VideoMeta:
     video_file = ensure_path_exists(video_file, get_timemeta_from_video)
     if not out_file:
@@ -66,8 +76,8 @@ def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = No
 
 
 def resolve_timesource_and_scale(
-    timesource: PathLike | Fraction | float | list[int] | VideoMeta | None = None,
-    timescale: Fraction | int | None = None,
+    timesource: PathLike | Fraction | float | list[int] | VideoMeta | ABCTimestamps | None = None,
+    timescale: TimeScale | Fraction | int | None = None,
     rounding_method: RoundingMethod = RoundingMethod.ROUND,
     allow_warn: bool = True,
     caller: Any | None = None,
@@ -82,11 +92,14 @@ def resolve_timesource_and_scale(
     if timesource is None:
         if allow_warn:
             warn("No timesource was given, generating timestamps for FPS (24000/1001).", caller)
-        timescale = check_timescale()
+        timescale = check_timescale(timescale)
         return FPSTimestamps(rounding_method, timescale, Fraction(24000, 1001))
 
     if isinstance(timesource, VideoMeta):
         return VideoTimestamps(timesource.pts, timesource.timescale, fps=timesource.fps, rounding_method=rounding_method)
+
+    if isinstance(timesource, ABCTimestamps):
+        return timesource
 
     if isinstance(timesource, PathLike):
         if os.path.isfile(timesource):
@@ -97,16 +110,16 @@ def resolve_timesource_and_scale(
                 meta = get_timemeta_from_video(timesource, caller=caller)
                 return VideoTimestamps(meta.pts, meta.timescale, fps=meta.fps, rounding_method=rounding_method)
             else:
-                timescale = check_timescale()
+                timescale = check_timescale(timescale)
                 return TextFileTimestamps(timesource, timescale, rounding_method=rounding_method)
 
     elif isinstance(timesource, list) and isinstance(timesource[0], int):
-        timescale = check_timescale()
+        timescale = check_timescale(timescale)
         return VideoTimestamps(timesource, timescale, rounding_method=rounding_method)
 
     if isinstance(timesource, float) or isinstance(timesource, str):
         fps = Fraction(timesource)
-        timescale = check_timescale()
+        timescale = check_timescale(timescale)
         return FPSTimestamps(rounding_method, timescale, fps)
 
     raise crit("Invalid timesource passed!", caller)
