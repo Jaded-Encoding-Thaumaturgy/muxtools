@@ -1,11 +1,17 @@
+import os
+import json
+from typing import Any
 from math import trunc
 from decimal import Decimal, ROUND_HALF_DOWN
+from dataclasses import dataclass, asdict
 from fractions import Fraction
 from datetime import timedelta
-from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, TimeType
+from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, TimeType, VideoTimestamps, ABCTimestamps
 
 from ..utils.types import PathLike
-from ..utils.files import ensure_path_exists
+from ..utils.log import info, warn, crit, debug
+from ..utils.dataclass import FractionEncoder, fraction_hook
+from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video_file
 
 __all__: list[str] = [
     "mpls_timestamp_to_timedelta",
@@ -26,6 +32,84 @@ def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
     """
     seconds = Decimal(timestamp) / Decimal(45000)
     return timedelta(seconds=float(seconds))
+
+
+@dataclass
+class VideoMeta:
+    pts: list[int]
+    fps: Fraction
+    timescale: Fraction
+    source: str
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), cls=FractionEncoder, indent=4)
+
+
+def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = None, caller: Any | None = None) -> VideoMeta:
+    video_file = ensure_path_exists(video_file, get_timemeta_from_video)
+    if not out_file:
+        out_file = get_workdir() / f"{video_file.stem}_meta.json"
+
+    out_file = ensure_path(out_file, get_timemeta_from_video)
+    if not out_file.exists() or out_file.stat().st_size < 1:
+        info(f"Generating timestamps for '{video_file.name}'...", caller)
+        timestamps = VideoTimestamps.from_video_file(video_file)
+        meta = VideoMeta(timestamps.pts_list, timestamps.fps, timestamps.time_scale, str(video_file.resolve()))
+        with open(out_file, "w") as f:
+            f.write(meta.to_json())
+    else:
+        with open(out_file, "r") as f:
+            meta_json = json.loads(f.read(), object_hook=fraction_hook)
+            meta = VideoMeta(**meta_json)
+            debug(f"Reusing existing timestamps for '{video_file.name}'", caller)
+    return meta
+
+
+def resolve_timesource_and_scale(
+    timesource: PathLike | Fraction | float | list[int] | VideoMeta | None = None,
+    timescale: Fraction | int | None = None,
+    rounding_method: RoundingMethod = RoundingMethod.ROUND,
+    allow_warn: bool = True,
+    caller: Any | None = None,
+) -> ABCTimestamps:
+    def check_timescale(timescale) -> Fraction:
+        if not timescale:
+            if allow_warn:
+                warn("No timescale was given, defaulting to Matroska scaling.", caller)
+            timescale = Fraction(1000)
+        return Fraction(timescale)
+
+    if timesource is None:
+        if allow_warn:
+            warn("No timesource was given, generating timestamps for FPS (24000/1001).", caller)
+        timescale = check_timescale()
+        return FPSTimestamps(rounding_method, timescale, Fraction(24000, 1001))
+
+    if isinstance(timesource, VideoMeta):
+        return VideoTimestamps(timesource.pts, timesource.timescale, fps=timesource.fps, rounding_method=rounding_method)
+
+    if isinstance(timesource, PathLike):
+        if os.path.isfile(timesource):
+            timesource = ensure_path(timesource, caller)
+            is_video = is_video_file(timesource)
+
+            if is_video:
+                meta = get_timemeta_from_video(timesource, caller=caller)
+                return VideoTimestamps(meta.pts, meta.timescale, fps=meta.fps, rounding_method=rounding_method)
+            else:
+                timescale = check_timescale()
+                return TextFileTimestamps(timesource, timescale, rounding_method=rounding_method)
+
+    elif isinstance(timesource, list) and isinstance(timesource[0], int):
+        timescale = check_timescale()
+        return VideoTimestamps(timesource, timescale, rounding_method=rounding_method)
+
+    if isinstance(timesource, float) or isinstance(timesource, str):
+        fps = Fraction(timesource)
+        timescale = check_timescale()
+        return FPSTimestamps(rounding_method, timescale, fps)
+
+    raise crit("Invalid timesource passed!", caller)
 
 
 def ms_to_frame(

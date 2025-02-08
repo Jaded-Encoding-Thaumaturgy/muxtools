@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import binascii
 from typing import Any
 from pathlib import Path
@@ -12,7 +13,7 @@ from pymediainfo import Track, MediaInfo
 from .log import crit, error, LoggingException
 from .glob import GlobSearch
 from .types import PathLike, TrackType
-from .env import get_temp_workdir, get_workdir
+from .env import get_temp_workdir, get_workdir, communicate_stdout
 
 __all__ = [
     "ensure_path",
@@ -83,6 +84,28 @@ def uniquify_path(path: PathLike) -> str:
         counter += 1
 
     return path
+
+
+def is_video_file(file: Path) -> bool:
+    from .download import get_executable
+
+    ffprobe = get_executable("ffprobe")
+    command = [ffprobe, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-i", str(file.resolve())]
+    res, out = communicate_stdout(command)
+    if res != 0:
+        return False
+
+    out_json: dict = json.loads(out)
+    streams: list[dict[str, Any]] = out_json.get("streams", None)
+    if not streams:
+        return False
+
+    for stream in streams:
+        type: str = stream["codec_type"]
+        if type.lower() == "video":
+            return True
+
+    return False
 
 
 def get_crc32(file: PathLike) -> str:
