@@ -2,27 +2,25 @@ import os
 import json
 from typing import Any
 from math import trunc
-from enum import IntEnum
+from pathlib import Path
 from fractions import Fraction
 from datetime import timedelta
-from dataclasses import dataclass, asdict
 from decimal import Decimal, ROUND_HALF_DOWN
 from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, VideoTimestamps, ABCTimestamps, TimeType
 
-from ..utils.types import PathLike
+from ..utils.types import PathLike, TimeScale, VideoMeta
 from ..utils.log import info, warn, crit, debug
-from ..utils.dataclass import FractionEncoder, fraction_hook
+from ..utils.dataclass import fraction_hook
 from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video_file
 
 __all__: list[str] = [
     "mpls_timestamp_to_timedelta",
     "format_timedelta",
     "timedelta_from_formatted",
-    "TimeScale",
-    "VideoMeta",
     "get_timemeta_from_video",
     "resolve_timesource_and_scale",
     "TimeType",
+    "ABCTimestamps",
 ]
 
 
@@ -36,23 +34,6 @@ def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
     """
     seconds = Decimal(timestamp) / Decimal(45000)
     return timedelta(seconds=float(seconds))
-
-
-@dataclass
-class VideoMeta:
-    pts: list[int]
-    fps: Fraction
-    timescale: Fraction
-    source: str
-
-    def to_json(self) -> str:
-        return json.dumps(asdict(self), cls=FractionEncoder, indent=4)
-
-
-class TimeScale(IntEnum):
-    MKV = 1000
-    MATROSKA = MKV
-    M2TS = 9000
 
 
 def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = None, caller: Any | None = None) -> VideoMeta:
@@ -102,7 +83,7 @@ def resolve_timesource_and_scale(
         return timesource
 
     if isinstance(timesource, PathLike):
-        if os.path.isfile(timesource):
+        if isinstance(timesource, Path) or os.path.isfile(timesource):
             timesource = ensure_path(timesource, caller)
             is_video = is_video_file(timesource)
 
@@ -117,7 +98,7 @@ def resolve_timesource_and_scale(
         timescale = check_timescale(timescale)
         return VideoTimestamps(timesource, timescale, rounding_method=rounding_method)
 
-    if isinstance(timesource, float) or isinstance(timesource, str):
+    if isinstance(timesource, float) or isinstance(timesource, str) or isinstance(timesource, Fraction):
         fps = Fraction(timesource)
         timescale = check_timescale(timescale)
         return FPSTimestamps(rounding_method, timescale, fps)

@@ -1,8 +1,13 @@
+import json
 from enum import IntEnum
 from pathlib import Path
+from fractions import Fraction
 from typing import Union, Optional
 from datetime import timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from video_timestamps import ABCTimestamps
+
+from ..utils.dataclass import FractionEncoder
 
 __all__ = [
     "PathLike",
@@ -16,6 +21,8 @@ __all__ = [
     "Chapter",
     "DitherType",
     "LossyWavQuality",
+    "VideoMeta",
+    "TimeScale",
 ]
 
 PathLike = Union[Path, str, None]
@@ -34,6 +41,27 @@ class TrackType(IntEnum):
     ATTACHMENT = 4
     CHAPTERS = 5
     MKV = 6
+
+
+@dataclass
+class VideoMeta:
+    pts: list[int]
+    fps: Fraction
+    timescale: Fraction
+    source: str
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), cls=FractionEncoder, indent=4)
+
+
+class TimeScale(IntEnum):
+    MKV = 1000
+    MATROSKA = MKV
+    M2TS = 9000
+
+
+TimeSourceT = Union[PathLike, Fraction, float, list[int], VideoMeta, ABCTimestamps, None]
+TimeScaleT = Union[TimeScale, Fraction, int, None]
 
 
 @dataclass

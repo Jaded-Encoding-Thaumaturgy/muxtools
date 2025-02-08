@@ -4,7 +4,6 @@ from datetime import timedelta
 from fractions import Fraction
 from typing import Sequence
 from pathlib import Path
-from video_timestamps import TimeType
 import os
 import re
 
@@ -15,10 +14,10 @@ from ..utils.log import error, warn, debug, info
 from ..utils.download import get_executable
 from ..utils.parsing import parse_audioinfo
 from ..utils.files import get_absolute_track
-from ..utils.types import Trim, PathLike, TrackType
+from ..utils.types import Trim, PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScale
 from ..utils.env import get_temp_workdir, run_commandline, communicate_stdout
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
-from ..utils.convert import frame_to_ms, format_timedelta
+from ..utils.convert import format_timedelta, resolve_timesource_and_scale, TimeType, ABCTimestamps
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
 
@@ -173,8 +172,8 @@ class FFMpeg(HasExtractor, HasTrimmer):
 
         :param trim:                Can be a single trim or a sequence of trims.
         :param trim_use_ms:         Will use milliseconds instead of frame numbers
-        :param fps:                 Fps fraction that will be used for the conversion. Also accepts a timecode (v2, v4) file.
         :param preserve_delay:      Will preserve existing container delay
+
         :param num_frames:          Total number of frames used for calculations
         :param output:              Custom output. Can be a dir or a file.
                                     Do not specify an extension unless you know what you're doing.
@@ -183,7 +182,8 @@ class FFMpeg(HasExtractor, HasTrimmer):
         trim: Trim | list[Trim] | None = None
         preserve_delay: bool = False
         trim_use_ms: bool = False
-        fps: Fraction | PathLike = Fraction(24000, 1001)
+        timesource: TimeSourceT = Fraction(24000, 1001)
+        timescale: TimeScaleT = TimeScale.MKV
         num_frames: int = 0
         output: PathLike | None = None
 
@@ -209,18 +209,21 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 if self.trim_use_ms:
                     arg += f" -ss {format_timedelta(timedelta(milliseconds=trim[0]))}"
                 else:
-                    arg += f" -ss {format_timedelta(timedelta(milliseconds=frame_to_ms(trim[0], TimeType.EXACT, self.fps, False)))}"
+                    millis = self.resolved_ts.frame_to_time(trim[0], TimeType.EXACT, 3)
+                    arg += f" -ss {format_timedelta(timedelta(milliseconds=millis))}"
             if trim[1] is not None and trim[1] != 0:
                 end_frame = self.num_frames + trim[1] if trim[1] < 0 else trim[1]
                 if self.trim_use_ms:
                     arg += f" -to {format_timedelta(timedelta(milliseconds=trim[1]))}"
                 else:
-                    arg += f" -to {format_timedelta(timedelta(milliseconds=frame_to_ms(end_frame, TimeType.EXACT, self.fps, False)))}"
+                    millis = self.resolved_ts.frame_to_time(end_frame, TimeType.EXACT, 3)
+                    arg += f" -to {format_timedelta(timedelta(milliseconds=millis))}"
             return arg
 
         def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
             if not isinstance(input, AudioFile):
                 input = AudioFile.from_file(input, self)
+            self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
             self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, caller=self)
             minfo = input.get_mediainfo()
             form = format_from_track(minfo)
@@ -249,7 +252,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 args.append(str(out.resolve()))
                 if not run_commandline(args, quiet):
                     if tr[0] and lossy:
-                        ms = tr[0] if self.trim_use_ms else frame_to_ms(tr[0], TimeType.EXACT, self.fps, False)
+                        ms = tr[0] if self.trim_use_ms else self.resolved_ts.frame_to_time(tr[0], TimeType.EXACT, 3)
                         cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
                         debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
                         if self.preserve_delay:
@@ -376,7 +379,8 @@ class Sox(Trimmer):
     trim: Trim | list[Trim] | None = None
     preserve_delay: bool = False
     trim_use_ms: bool = False
-    fps: Fraction | PathLike = Fraction(24000, 1001)
+    timesource: TimeSourceT = Fraction(24000, 1001)
+    timescale: TimeScaleT = TimeScale.MKV
     num_frames: int = 0
     output: PathLike | None = None
 
@@ -387,7 +391,7 @@ class Sox(Trimmer):
         if self.trim_use_ms:
             return abs(val) / 1000
         else:
-            return frame_to_ms(abs(val), TimeType.EXACT, self.fps, False) / 1000
+            return self.resolved_ts.frame_to_time(abs(val), TimeType.EXACT, 3) / 1000
 
     def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
         import sox
@@ -395,6 +399,7 @@ class Sox(Trimmer):
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
         out = make_output(input.file, "flac", "trimmed", self.output)
+        self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
         self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
         source = ensure_valid_in(input, caller=self, supports_pipe=False)
 
