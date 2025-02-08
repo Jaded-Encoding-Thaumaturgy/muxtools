@@ -57,7 +57,7 @@ class VideoMeta:
 class TimeScale(IntEnum):
     MKV = 1000
     MATROSKA = MKV
-    M2TS = 9000
+    M2TS = 90000
 
 
 TimeSourceT = Union[PathLike, Fraction, float, list[int], VideoMeta, ABCTimestamps, None]
