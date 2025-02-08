@@ -1,6 +1,5 @@
 import os
 import re
-import binascii
 from typing import Any
 from pathlib import Path
 from shutil import rmtree
@@ -93,9 +92,21 @@ def get_crc32(file: PathLike) -> str:
 
     :return:            Checksum for file
     """
-    buf = open(file, "rb").read()
-    buf = binascii.crc32(buf) & 0xFFFFFFFF
-    return "%08X" % buf
+    try:
+        from zlib import crc32
+    except:
+        from binascii import crc32
+
+    buffer_size = 1024 * 1024 * 32
+    val = 0
+    with open(file, "rb") as f:
+        buffer = f.read(buffer_size)
+        while len(buffer) > 0:
+            val = crc32(buffer, val)
+            buffer = f.read(buffer_size)
+
+    val = val & 0xFFFFFFFF
+    return "%08X" % val
 
 
 def clean_temp_files():
