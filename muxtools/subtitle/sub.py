@@ -623,7 +623,7 @@ class SubFile(BaseSubFile):
 
             if heuristics and confidence < 2:
                 if line.name:
-                    if "onscreen" in line.name.lower().replace(" ", "") or line.name.lower() == "type":
+                    if "onscreen" in line.name.lower().replace(" ", "") or line.name.lower() == "type" or line.name.lower() == "sign":
                         confidence += 1
 
                 if R"\pos" in line.text:
