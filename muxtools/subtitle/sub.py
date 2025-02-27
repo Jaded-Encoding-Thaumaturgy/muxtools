@@ -708,7 +708,13 @@ class SubFile(BaseSubFile):
 
         return self.manipulate_lines(_func)
 
-    def shift(self: SubFileSelf, frames: int, fps: Fraction | PathLike = Fraction(24000, 1001), delete_before_zero: bool = False) -> SubFileSelf:
+    def shift(
+        self: SubFileSelf,
+        frames: int,
+        timesource: TimeSourceT = None,
+        timescale: TimeScaleT = None,
+        delete_before_zero: bool = False,
+    ) -> SubFileSelf:
         """
         Shifts all lines by any frame number.
 
@@ -716,20 +722,23 @@ class SubFile(BaseSubFile):
         :param fps:                 FPS needed for the timing calculations. Also accepts a timecode (v2, v4) file.
         :param delete_before_zero:  Delete lines that would be before 0 after shifting.
         """
+        # TODO: Retrieve from setup if None
+        resolved_ts = resolve_timesource_and_scale(timesource, timescale, caller=self)
 
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
             for line in lines:
-                start = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + frames
+                start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 2) + frames
                 if start < 0:
                     if delete_before_zero:
                         continue
                     start = 0
-                start = timedelta(milliseconds=frame_to_ms(start, TimeType.START, fps))
-                end = ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps) + frames
+
+                start = timedelta(milliseconds=resolved_ts.frame_to_time(start, TimeType.START, 2, True))
+                end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 2) + frames
                 if end < 0:
                     continue
-                end = timedelta(milliseconds=frame_to_ms(end, TimeType.END, fps))
+                end = timedelta(milliseconds=resolved_ts.frame_to_time(end, TimeType.END, 2, True) * 10)
                 line.start = start
                 line.end = end
                 new_list.append(line)
