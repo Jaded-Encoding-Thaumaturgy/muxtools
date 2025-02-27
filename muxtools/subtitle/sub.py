@@ -728,14 +728,14 @@ class SubFile(BaseSubFile):
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
             for line in lines:
-                start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 2) + frames
+                start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START) + frames
                 if start < 0:
                     if delete_before_zero:
                         continue
                     start = 0
 
-                start = timedelta(milliseconds=resolved_ts.frame_to_time(start, TimeType.START, 2, True))
-                end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 2) + frames
+                start = timedelta(milliseconds=resolved_ts.frame_to_time(start, TimeType.START, 2, True) * 10)
+                end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END) + frames
                 if end < 0:
                     continue
                 end = timedelta(milliseconds=resolved_ts.frame_to_time(end, TimeType.END, 2, True) * 10)
