@@ -60,7 +60,7 @@ class TimeScale(IntEnum):
     M2TS = 90000
 
 
-TimeSourceT = Union[PathLike, Fraction, float, list[int], VideoMeta, ABCTimestamps, None]
+TimeSourceT = Union[PathLike, Fraction, float, list, VideoMeta, ABCTimestamps, None]
 TimeScaleT = Union[TimeScale, Fraction, int, None]
 
 
