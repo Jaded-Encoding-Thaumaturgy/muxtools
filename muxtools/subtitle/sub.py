@@ -2,7 +2,7 @@ from __future__ import annotations
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
@@ -361,7 +361,7 @@ class SubFile(BaseSubFile):
         :param fps:             The fps fraction used for conversions. Also accepts a timecode (v2, v4) file.
         :param allowed_styles:  A list of style names this will run on. Will run on every line if None.
         """
-        resolved_ts = resolve_timesource_and_scale(timesource, timescale, caller=self)
+        resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
         def _func(lines: LINES):
             for line in lines:
@@ -381,7 +381,8 @@ class SubFile(BaseSubFile):
         file: PathLike | GlobSearch,
         sync: None | int | str = None,
         sync2: None | str = None,
-        fps: Fraction | PathLike = Fraction(24000, 1001),
+        timesource: TimeSourceT = None,
+        timescale: TimeScaleT = None,
         use_actor_field: bool = False,
         no_error: bool = False,
         sort_lines: bool = False,
@@ -399,6 +400,7 @@ class SubFile(BaseSubFile):
         :param sort_lines:      Sort the lines by the starting timestamp.
                                 This was done by default before but may cause issues with subtitles relying on implicit layering.
         """
+        resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
         file = ensure_path_exists(file, self)
         mergedoc = self._read_doc(file)
@@ -412,10 +414,11 @@ class SubFile(BaseSubFile):
         # Find syncpoint in current document if sync is a string
         for line in doc.events:
             events.append(line)
+            line = cast(_Line, line)
             if target is None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
-                    target = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
+                    target = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
 
         if target is None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
@@ -427,22 +430,24 @@ class SubFile(BaseSubFile):
         # Find second syncpoint if any
         second_sync: int | None = None
         for line in mergedoc.events:
+            line = cast(_Line, line)
             if not isinstance(sync, str) and not sync2:
                 break
             else:
                 sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
-                second_sync = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
+                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
                 mergedoc.events.remove(line)
                 break
 
         sorted_lines = sorted(mergedoc.events, key=lambda event: event.start)
+        sorted_lines = cast(list[_Line], sorted_lines)
 
         # Assume the first line to be the second syncpoint if none was found
         if second_sync is None:
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + 1
+                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
                 break
 
         # Merge lines from file
@@ -454,12 +459,15 @@ class SubFile(BaseSubFile):
 
             # Apply frame offset
             offset = (target or -1) - second_sync
-            line.start = timedelta(
-                milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps) + offset, TimeType.START, fps)
-            )
-            line.end = timedelta(
-                milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps) + offset, TimeType.END, fps)
-            )
+
+            start_frame = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
+            start = resolved_ts.frame_to_time(start_frame + offset, TimeType.START, 2, True)
+            line.start = timedelta(milliseconds=start * 10)
+
+            end_frame = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END)
+            end = resolved_ts.frame_to_time(end_frame + offset, TimeType.END, 2, True)
+            line.end = timedelta(milliseconds=end * 10)
+
             tomerge.append(line)
 
         if tomerge:
@@ -727,8 +735,7 @@ class SubFile(BaseSubFile):
         :param fps:                 FPS needed for the timing calculations. Also accepts a timecode (v2, v4) file.
         :param delete_before_zero:  Delete lines that would be before 0 after shifting.
         """
-        # TODO: Retrieve from setup if None
-        resolved_ts = resolve_timesource_and_scale(timesource, timescale, caller=self)
+        resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
