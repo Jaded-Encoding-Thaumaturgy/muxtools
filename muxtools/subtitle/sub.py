@@ -347,7 +347,10 @@ class SubFile(BaseSubFile):
         return self.manipulate_lines(_func).clean_styles()
 
     def shift_0(
-        self: SubFileSelf, fps: Fraction | PathLike = Fraction(24000, 1001), allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES
+        self: SubFileSelf,
+        timesource: TimeSourceT = None,
+        timescale: TimeScaleT = None,
+        allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES,
     ) -> SubFileSelf:
         """
         Does the famous shift by 0 frames to fix frame timing issues.
@@ -358,16 +361,18 @@ class SubFile(BaseSubFile):
         :param fps:             The fps fraction used for conversions. Also accepts a timecode (v2, v4) file.
         :param allowed_styles:  A list of style names this will run on. Will run on every line if None.
         """
+        resolved_ts = resolve_timesource_and_scale(timesource, timescale, caller=self)
 
         def _func(lines: LINES):
             for line in lines:
                 if not allowed_styles or line.style.lower() in allowed_styles:
-                    line.start = timedelta(
-                        milliseconds=frame_to_ms(ms_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, fps), TimeType.START, fps)
-                    )
-                    line.end = timedelta(
-                        milliseconds=frame_to_ms(ms_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, fps), TimeType.END, fps)
-                    )
+                    start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
+                    start = resolved_ts.frame_to_time(start, TimeType.START, 2, True)
+                    line.start = timedelta(milliseconds=start * 10)
+
+                    end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END)
+                    end = resolved_ts.frame_to_time(end, TimeType.END, 2, True)
+                    line.end = timedelta(milliseconds=end * 10)
 
         return self.manipulate_lines(_func)
 
