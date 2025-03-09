@@ -35,7 +35,7 @@ tools = [
     Tool("x265", "https://github.com/DJATOM/x265-aMod/releases/download/3.5+67/x265-x64-v3.5+67-aMod-gcc12.2.1+opt.7z"),
     Tool("qaac", "https://files.catbox.moe/z9q796.7z"), # 2.79 with flac, w64 and iTunes libraries included
     Tool("opusenc", "https://www.rarewares.org/files/opus/opus-tools%200.2-34-g98f3ddc-x64.zip"),
-    Tool("flac", "https://github.com/xiph/flac/releases/download/1.4.3/flac-1.4.3-win.zip"),
+    Tool("flac", "https://github.com/xiph/flac/releases/download/1.5.0/flac-1.5.0-win.zip"),
     Tool("wavpack", "https://github.com/dbry/WavPack/releases/download/5.7.0/wavpack-5.7.0-x64.zip")
 ]
 # fmt: on

@@ -118,7 +118,7 @@ def do_audio(
         setattr(trimmer, "trim", trims)
         setattr(trimmer, "fps", fps)
         setattr(trimmer, "num_frames", num_frames)
-        if not extractor and not encoder:
+        if not encoder:
             setattr(trimmer, "output", output)
         trimmed = trimmer.trim_audio(audio, quiet)
         ensure_path(audio.file, do_audio).unlink(missing_ok=True)

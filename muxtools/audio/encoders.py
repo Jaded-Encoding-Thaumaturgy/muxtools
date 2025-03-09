@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from pydantic.dataclasses import dataclass, Field
 import subprocess
 import os
+import re
 
 from .tools import Encoder, LosslessEncoder
 from .preprocess import Preprocessor, Resample, Downmix
@@ -26,6 +27,8 @@ class FLAC(LosslessEncoder):
     :param compression_level:   Any int value from 0 to 8 (Higher = better but slower)
     :param preprocess:          Any amount of preprocessors to run before passing it to the encoder.
     :param verify:              Make the encoder verify each encoded sample while encoding to ensure valid output.
+    :param threads:             Number of threads to use for encoding. (Requires FLAC 1.5.0)
+                                `None` will choose whatever your CPU has with a max of 8.
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
     """
@@ -33,12 +36,14 @@ class FLAC(LosslessEncoder):
     compression_level: int = 8
     preprocess: Preprocessor | Sequence[Preprocessor] | None = Field(default_factory=Resample)
     verify: bool = True
+    threads: int | None = None
     output: PathLike | None = None
 
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
         if not isinstance(fileIn, AudioFile):
             fileIn = AudioFile.from_file(fileIn, self)
         flac = get_executable("flac")
+        version = get_binary_version(flac, r"flac .+? version (\d\.\d+\.\d+)")
         output = make_output(fileIn.file, "flac", "libflac", self.output)
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.W64_OR_FLAC, supports_pipe=False)
         info(f"Encoding '{fileIn.file.stem}' to FLAC using libFLAC...", self)
@@ -46,12 +51,21 @@ class FLAC(LosslessEncoder):
         args = [flac, f"-{self.compression_level}", "-o", str(output)] + self.get_custom_args()
         if self.verify:
             args.append("--verify")
+
+        if self.threads or self.threads is None:
+            if re.search(r"1\.[2|3|4]\.\d+?", version):
+                warn("Using outdated FLAC encoder that does not support threading!", self)
+            else:
+                if self.threads is None:
+                    self.threads = min(os.cpu_count(), 8)
+                args.append(f"--threads={self.threads}")
+
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
 
         stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
 
         if not run_cmd_pb(args, quiet, ProgressBarConfig("Encoding..."), shell=False, stdin=stdin):
-            tags = version_settings_dict(self.get_mediainfo_settings(args), flac, r"flac .+? version (\d\.\d+\.\d+)", prepend="FLAC")
+            tags = dict(ENCODER=f"FLAC {version}", ENCODER_SETTINGS=self.get_mediainfo_settings(args))
             clean_temp_files()
             return AudioFile(output, fileIn.container_delay, fileIn.source, tags=tags)
         else:

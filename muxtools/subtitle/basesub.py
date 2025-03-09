@@ -168,7 +168,10 @@ class BaseSubFile(ABC, MuxingFile):
                     section.pop(corr.name)
                 section.update({corr.name.replace("_", " "): str(value)})
             else:
-                section.update({header: str(value)})
+                if value is None:
+                    section.pop(header, None)
+                else:
+                    section.update({header: str(value)})
         else:
             value = header.validate_input(value, "SubFile.set_header")
             if value is None and header.name != "YCbCr_Matrix":
