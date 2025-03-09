@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from configparser import ConfigParser
 
 from .utils.log import error
+from .utils.types import TimeScale
 
 __all__ = ["Setup"]
 
@@ -109,6 +110,20 @@ class Setup:
 
         save_setup(self)
         return self
+
+    def set_default_sub_timesource(
+        self: SetupSelf,
+        timesource: Path | str | float | list[int],
+        timescale: TimeScale | int | None = None,
+    ) -> SetupSelf:
+        if isinstance(timesource, Path):
+            timesource = str(timesource.resolve())
+
+        if isinstance(timescale, TimeScale):
+            timescale = timescale.value
+
+        self.edit("sub_timesource", timesource)
+        return self.edit("sub_timescale", timescale)
 
     def _toJson(self) -> str:
         return json.dumps(self.__dict__)

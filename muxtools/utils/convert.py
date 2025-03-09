@@ -8,10 +8,11 @@ from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_DOWN
 from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, VideoTimestamps, ABCTimestamps, TimeType
 
-from ..utils.types import PathLike, TimeScale, VideoMeta
-from ..utils.log import info, warn, crit, debug
+from ..utils.types import PathLike, TimeScale, VideoMeta, TimeSourceT, TimeScaleT
+from ..utils.log import info, warn, crit, debug, error
 from ..utils.dataclass import fraction_hook
 from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video_file
+from ..utils.env import get_setup_attr
 
 __all__: list[str] = [
     "mpls_timestamp_to_timedelta",
@@ -61,8 +62,21 @@ def resolve_timesource_and_scale(
     timescale: TimeScale | Fraction | int | None = None,
     rounding_method: RoundingMethod = RoundingMethod.ROUND,
     allow_warn: bool = True,
+    fetch_from_setup: bool = False,
     caller: Any | None = None,
 ) -> ABCTimestamps:
+    if fetch_from_setup:
+        if timesource is None and (setup_timesource := get_setup_attr("sub_timesource", None)) is not None:
+            if not isinstance(setup_timesource, TimeSourceT):
+                raise error("Invalid timesource type in Setup!", caller)
+            debug("Using default timesource from setup.", caller)
+            timesource = setup_timesource
+        if timescale is None and (setup_timescale := get_setup_attr("sub_timescale", None)) is not None:
+            if not isinstance(setup_timescale, TimeScaleT):
+                raise error("Invalid timescale type in Setup!", caller)
+            debug("Using default timescale from setup.", caller)
+            timescale = setup_timescale
+
     def check_timescale(timescale) -> Fraction:
         if not timescale:
             if allow_warn:

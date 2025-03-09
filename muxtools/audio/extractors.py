@@ -17,7 +17,7 @@ from ..utils.files import get_absolute_track
 from ..utils.types import Trim, PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScale
 from ..utils.env import get_temp_workdir, run_commandline, communicate_stdout
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
-from ..utils.convert import format_timedelta, resolve_timesource_and_scale, TimeType, ABCTimestamps
+from ..utils.convert import format_timedelta, resolve_timesource_and_scale, TimeType
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
 
