@@ -9,6 +9,7 @@ from configparser import ConfigParser
 
 from .utils.log import error
 from .utils.types import TimeScale
+from .utils.glob import GlobSearch
 
 __all__ = ["Setup"]
 
@@ -113,9 +114,12 @@ class Setup:
 
     def set_default_sub_timesource(
         self: SetupSelf,
-        timesource: Path | str | float | list[int],
+        timesource: Path | GlobSearch | str | float | list[int],
         timescale: TimeScale | int | None = None,
     ) -> SetupSelf:
+        if isinstance(timesource, GlobSearch):
+            timesource = timesource.paths[0]
+
         if isinstance(timesource, Path):
             timesource = str(timesource.resolve())
 
