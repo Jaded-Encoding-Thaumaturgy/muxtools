@@ -366,11 +366,11 @@ class SubFile(BaseSubFile):
         def _func(lines: LINES):
             for line in lines:
                 if not allowed_styles or line.style.lower() in allowed_styles:
-                    start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
+                    start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
                     start = resolved_ts.frame_to_time(start, TimeType.START, 2, True)
                     line.start = timedelta(milliseconds=start * 10)
 
-                    end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END)
+                    end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3)
                     end = resolved_ts.frame_to_time(end, TimeType.END, 2, True)
                     line.end = timedelta(milliseconds=end * 10)
 
@@ -400,7 +400,8 @@ class SubFile(BaseSubFile):
         :param sort_lines:      Sort the lines by the starting timestamp.
                                 This was done by default before but may cause issues with subtitles relying on implicit layering.
         """
-        resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
+        if sync is not None or sync2 is not None:
+            resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
         file = ensure_path_exists(file, self)
         mergedoc = self._read_doc(file)
@@ -418,7 +419,7 @@ class SubFile(BaseSubFile):
             if target is None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
-                    target = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
+                    target = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
 
         if target is None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
@@ -437,7 +438,7 @@ class SubFile(BaseSubFile):
                 sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
-                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
+                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
                 mergedoc.events.remove(line)
                 break
 
@@ -447,7 +448,7 @@ class SubFile(BaseSubFile):
         # Assume the first line to be the second syncpoint if none was found
         if second_sync is None:
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
+                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
                 break
 
         # Merge lines from file
@@ -460,9 +461,8 @@ class SubFile(BaseSubFile):
             # Apply frame offset
             offset = (target or -1) - second_sync
 
-            start_frame = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START)
+            start_frame = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
             start = resolved_ts.frame_to_time(start_frame + offset, TimeType.START, 2, True)
-            line.start = timedelta(milliseconds=start * 10)
 
             end_frame = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END)
             end = resolved_ts.frame_to_time(end_frame + offset, TimeType.END, 2, True)
@@ -740,14 +740,14 @@ class SubFile(BaseSubFile):
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
             for line in lines:
-                start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START) + frames
+                start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3) + frames
                 if start < 0:
                     if delete_before_zero:
                         continue
                     start = 0
 
                 start = timedelta(milliseconds=resolved_ts.frame_to_time(start, TimeType.START, 2, True) * 10)
-                end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END) + frames
+                end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3) + frames
                 if end < 0:
                     continue
                 end = timedelta(milliseconds=resolved_ts.frame_to_time(end, TimeType.END, 2, True) * 10)
