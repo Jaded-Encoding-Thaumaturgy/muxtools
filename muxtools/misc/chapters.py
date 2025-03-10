@@ -237,7 +237,7 @@ class Chapters:
             with open(file if not file else file, "r", encoding=encoding) as reader:
                 doc = parse_file(reader)
 
-        pattern = re.compile(r"\{([^\\].+?)\}")
+        pattern = re.compile(r"\{([^\\=].+?)\}")
         chapters = list[Chapter]()
         for line in doc.events:
             field_value = str(line.name).lower() if use_actor_field else str(line.effect).lower()
