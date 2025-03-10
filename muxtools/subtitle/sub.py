@@ -368,10 +368,14 @@ class SubFile(BaseSubFile):
                 if not allowed_styles or line.style.lower() in allowed_styles:
                     start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
                     start = resolved_ts.frame_to_time(start, TimeType.START, 2, True)
-                    line.start = timedelta(milliseconds=start * 10)
 
-                    end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3)
-                    end = resolved_ts.frame_to_time(end, TimeType.END, 2, True)
+                    if line.start == line.end:
+                        end = start
+                    else:
+                        end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3)
+                        end = resolved_ts.frame_to_time(end, TimeType.END, 2, True)
+
+                    line.start = timedelta(milliseconds=start * 10)
                     line.end = timedelta(milliseconds=end * 10)
 
         return self.manipulate_lines(_func)
@@ -464,8 +468,14 @@ class SubFile(BaseSubFile):
             start_frame = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
             start = resolved_ts.frame_to_time(start_frame + offset, TimeType.START, 2, True)
 
-            end_frame = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END)
-            end = resolved_ts.frame_to_time(end_frame + offset, TimeType.END, 2, True)
+            # Converting 0 to an End Type isn't allowed, dirty hack here
+            if line.start == line.end:
+                end = start
+            else:
+                end_frame = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3)
+                end = resolved_ts.frame_to_time(end_frame + offset, TimeType.END, 2, True)
+
+            line.start = timedelta(milliseconds=start * 10)
             line.end = timedelta(milliseconds=end * 10)
 
             tomerge.append(line)
