@@ -47,10 +47,10 @@ def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = No
         info(f"Generating timestamps for '{video_file.name}'...", caller)
         timestamps = VideoTimestamps.from_video_file(video_file)
         meta = VideoMeta(timestamps.pts_list, timestamps.fps, timestamps.time_scale, str(video_file.resolve()))
-        with open(out_file, "w") as f:
+        with open(out_file, "w", encoding="utf-8") as f:
             f.write(meta.to_json())
     else:
-        with open(out_file, "r") as f:
+        with open(out_file, "r", encoding="utf-8") as f:
             meta_json = json.loads(f.read(), object_hook=fraction_hook)
             meta = VideoMeta(**meta_json)
             debug(f"Reusing existing timestamps for '{video_file.name}'", caller)
