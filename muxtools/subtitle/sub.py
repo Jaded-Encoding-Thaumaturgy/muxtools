@@ -369,10 +369,9 @@ class SubFile(BaseSubFile):
                     start = resolved_ts.time_to_frame(Fraction(line.start.total_seconds()), TimeType.START)
                     start = resolved_ts.frame_to_time(start, TimeType.START, 2, True)
 
-                    if line.start == line.end:
+                    if Fraction(line.end.total_seconds()) <= resolved_ts.first_timestamps:
                         end = start
                     else:
-                        
                         end = resolved_ts.time_to_frame(Fraction(line.end.total_seconds()), TimeType.END)
                         end = resolved_ts.frame_to_time(end, TimeType.END, 2, True)
 
@@ -469,8 +468,7 @@ class SubFile(BaseSubFile):
             start_frame = resolved_ts.time_to_frame(Fraction(line.start.total_seconds()), TimeType.START)
             start = resolved_ts.frame_to_time(start_frame + offset, TimeType.START, 2, True)
 
-            # Converting 0 to an End Type isn't allowed, dirty hack here
-            if line.start == line.end:
+            if Fraction(line.end.total_seconds()) <= resolved_ts.first_timestamps:
                 end = start
             else:
                 end_frame = resolved_ts.time_to_frame(Fraction(line.end.total_seconds()), TimeType.END)
@@ -758,7 +756,12 @@ class SubFile(BaseSubFile):
                     start = 0
 
                 start = timedelta(milliseconds=resolved_ts.frame_to_time(start, TimeType.START, 2, True) * 10)
-                end = resolved_ts.time_to_frame(Fraction(line.end.total_seconds()), TimeType.END) + frames
+
+                if Fraction(line.end.total_seconds()) <= resolved_ts.first_timestamps:
+                    end = 0 + frames
+                else:
+                    end = resolved_ts.time_to_frame(Fraction(line.end.total_seconds()), TimeType.END) + frames
+
                 if end < 0:
                     continue
                 end = timedelta(milliseconds=resolved_ts.frame_to_time(end, TimeType.END, 2, True) * 10)
