@@ -450,7 +450,7 @@ class SubFile(BaseSubFile):
         sorted_lines = cast(list[_Line], sorted_lines)
 
         # Assume the first line to be the second syncpoint if none was found
-        if second_sync is None:
+        if second_sync is None and target is not None:
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
                 second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
                 break
