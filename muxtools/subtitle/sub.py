@@ -366,13 +366,14 @@ class SubFile(BaseSubFile):
         def _func(lines: LINES):
             for line in lines:
                 if not allowed_styles or line.style.lower() in allowed_styles:
-                    start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                    start = resolved_ts.time_to_frame(Fraction(line.start.total_seconds()), TimeType.START)
                     start = resolved_ts.frame_to_time(start, TimeType.START, 2, True)
 
                     if line.start == line.end:
                         end = start
                     else:
-                        end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3)
+                        
+                        end = resolved_ts.time_to_frame(Fraction(line.end.total_seconds()), TimeType.END)
                         end = resolved_ts.frame_to_time(end, TimeType.END, 2, True)
 
                     line.start = timedelta(milliseconds=start * 10)
@@ -423,7 +424,7 @@ class SubFile(BaseSubFile):
             if target is None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
-                    target = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                    target = resolved_ts.time_to_frame(Fraction(line.start.total_seconds()), TimeType.START)
 
         if target is None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
@@ -442,7 +443,7 @@ class SubFile(BaseSubFile):
                 sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
-                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                second_sync = resolved_ts.time_to_frame(Fraction(line.start.total_seconds()), TimeType.START)
                 mergedoc.events.remove(line)
                 break
 
@@ -452,7 +453,7 @@ class SubFile(BaseSubFile):
         # Assume the first line to be the second syncpoint if none was found
         if second_sync is None and target is not None:
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                second_sync = resolved_ts.time_to_frame(Fraction(line.start.total_seconds()), TimeType.START)
                 break
 
         # Merge lines from file
@@ -465,14 +466,14 @@ class SubFile(BaseSubFile):
             # Apply frame offset
             offset = (target or -1) - second_sync
 
-            start_frame = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+            start_frame = resolved_ts.time_to_frame(Fraction(line.start.total_seconds()), TimeType.START)
             start = resolved_ts.frame_to_time(start_frame + offset, TimeType.START, 2, True)
 
             # Converting 0 to an End Type isn't allowed, dirty hack here
             if line.start == line.end:
                 end = start
             else:
-                end_frame = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3)
+                end_frame = resolved_ts.time_to_frame(Fraction(line.end.total_seconds()), TimeType.END)
                 end = resolved_ts.frame_to_time(end_frame + offset, TimeType.END, 2, True)
 
             line.start = timedelta(milliseconds=start * 10)
@@ -750,14 +751,14 @@ class SubFile(BaseSubFile):
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
             for line in lines:
-                start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3) + frames
+                start = resolved_ts.time_to_frame(Fraction(line.start.total_seconds()), TimeType.START) + frames
                 if start < 0:
                     if delete_before_zero:
                         continue
                     start = 0
 
                 start = timedelta(milliseconds=resolved_ts.frame_to_time(start, TimeType.START, 2, True) * 10)
-                end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3) + frames
+                end = resolved_ts.time_to_frame(Fraction(line.end.total_seconds()), TimeType.END) + frames
                 if end < 0:
                     continue
                 end = timedelta(milliseconds=resolved_ts.frame_to_time(end, TimeType.END, 2, True) * 10)
