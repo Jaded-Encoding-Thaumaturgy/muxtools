@@ -22,6 +22,7 @@ __all__: list[str] = [
     "resolve_timesource_and_scale",
     "TimeType",
     "ABCTimestamps",
+    "RoundingMethod",
 ]
 
 
@@ -38,6 +39,18 @@ def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
 
 
 def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = None, caller: Any | None = None) -> VideoMeta:
+    """
+    Parse timestamps from an existing video file using ffprobe.\n
+    They're saved as a custom meta file in the current workdir and named based on the input.
+
+    Also automatically reused (with a debug log) if already exists.
+
+    :param video_file:      Input video. Path or String.
+    :param out_file:        Output file. If None given, the above behavior applies.
+    :param caller:          Caller used for the logging
+
+    :return:                Videometa object
+    """
     video_file = ensure_path_exists(video_file, get_timemeta_from_video)
     if not out_file:
         out_file = get_workdir() / f"{video_file.stem}_meta.json"
@@ -65,6 +78,25 @@ def resolve_timesource_and_scale(
     fetch_from_setup: bool = False,
     caller: Any | None = None,
 ) -> ABCTimestamps:
+    """
+    Instantiates a timestamps class from various inputs.
+
+    :param timesource:          The source of timestamps/timecodes.\n
+                                For actual timestamps, this can be a timestamps (v2/v4) file, a video file or a list of integers.\n
+                                For FPS based timestamps, this can be a Fraction object, a float or even a string representing a fraction.\n
+                                Like `'24000/1001'`. (`None` will also fallback to this and print a warning)
+
+    :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                While you can pass an int, the needed type is always a Fraction and will be converted via `Fraction(your_int)`.\n
+                                If `None` falls back to a generic Matroska timescale.
+
+    :param rounding_method:     The rounding method used to round/floor the PTS (Presentation Time Stamp).
+    :param allow_warn:          Allow this function to print warnings. If you know what you're doing feel free to disable this for your own use.
+    :param fetch_from_setup:    Whether or not this function should fallback to the sub defaults from the current Setup.
+    :param caller:              Caller used for the logging
+
+    :return:                    Instantiated timestamps object from the videotimestamps library
+    """
     if fetch_from_setup:
         if timesource is None and (setup_timesource := get_setup_attr("sub_timesource", None)) is not None:
             if not isinstance(setup_timesource, TimeSourceT):
