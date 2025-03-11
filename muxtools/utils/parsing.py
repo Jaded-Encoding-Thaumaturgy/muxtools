@@ -7,14 +7,14 @@ from fractions import Fraction
 from typing import Any
 from pyparsebluray import mpls
 from video_timestamps import TimeType
-from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame
+
+from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame, TimeScale
 from .files import ensure_path_exists
 from .log import error, warn, debug, info
 from .download import get_executable
 from .convert import (
     timedelta_from_formatted,
-    ms_to_frame,
-    frame_to_ms,
+    resolve_timesource_and_scale,
     mpls_timestamp_to_timedelta,
     format_timedelta,
 )
@@ -164,6 +164,7 @@ def parse_chapters_bdmv(
     :return:            List of parsed chapters
     """
     src = ensure_path_exists(src, parse_chapters_bdmv)
+
     stream_dir = src.parent
     if stream_dir.name.lower() != "stream":
         print("Your source file is not in a default bdmv structure!\nWill skip chapters.")
@@ -213,14 +214,18 @@ def parse_chapters_bdmv(
                         warn("Couldn't parse fps from playlist! Will take fps from source clip.", parse_chapters_bdmv)
                         fps = clip_fps
 
+                    resolved_ts = resolve_timesource_and_scale(fps, TimeScale.M2TS, allow_warn=False, caller=parse_chapters_bdmv)
+
                     for i, lmark in enumerate(linked_marks, start=1):
                         time = mpls_timestamp_to_timedelta(lmark.mark_timestamp - offset)
-                        if clip_frames > 0 and time > timedelta(milliseconds=frame_to_ms(clip_frames - 50, TimeType.EXACT, fps, False)):
+                        time_cutoff = resolved_ts.frame_to_time(clip_frames - 50, TimeType.EXACT, 3, False)
+                        if clip_frames > 0 and time > timedelta(milliseconds=time_cutoff):
                             continue
                         chapters.append((time, f"Chapter {i:02.0f}"))
                     if chapters and _print:
                         for time, name in chapters:
-                            print(f"{name}: {format_timedelta(time)} | {ms_to_frame(int(time.total_seconds() * 1000), TimeType.EXACT, fps)}")
+                            frame = resolved_ts.time_to_frame(Fraction(time.total_seconds()), TimeType.EXACT)
+                            print(f"{name}: {format_timedelta(time)} | {frame}")
 
         if chapters:
             break
