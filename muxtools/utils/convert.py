@@ -120,69 +120,6 @@ def resolve_timesource_and_scale(
     raise crit("Invalid timesource passed!", caller)
 
 
-def ms_to_frame(
-    ms: int,
-    time_type: TimeType,
-    time_scale: Fraction,
-    fps: Fraction | PathLike = Fraction(24000, 1001),
-    rounding_method: RoundingMethod = RoundingMethod.ROUND,
-) -> int:
-    """
-    Converts a timedelta to a frame number.
-
-    :param ms:                  The time in millisecond.
-    :param time_type:           The time type.
-    :param time_scale:          The time scale.
-    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v2, v4) file.
-    :param rounding_method:     If you want to be compatible with mkv, use RoundingMethod.ROUND else RoundingMethod.FLOOR.
-                                For more information, see the documentation of [timestamps](https://github.com/moi15moi/VideoTimestamps/blob/578373a5b83402d849d0e83518da7549edf8e03d/video_timestamps/abc_timestamps.py#L13-L26)
-    :return:                    The resulting frame number.
-    """
-
-    if isinstance(fps, Fraction):
-        timestamps = FPSTimestamps(rounding_method, time_scale, fps)
-    else:
-        timestamps_file = ensure_path_exists(fps, ms_to_frame)
-        timestamps = TextFileTimestamps(timestamps_file, time_scale, rounding_method)
-
-    frame = timestamps.time_to_frame(ms, time_type, 3)
-
-    return frame
-
-
-def frame_to_ms(
-    f: int,
-    time_type: TimeType,
-    time_scale: Fraction,
-    fps: Fraction | PathLike = Fraction(24000, 1001),
-    rounding: bool = True,
-    rounding_method: RoundingMethod = RoundingMethod.ROUND,
-) -> int:
-    """
-    Converts a frame number to a timedelta.
-    Mostly used in the conversion for manually defined chapters.
-
-    :param f:                   The frame number.
-    :param time_type:           The time type.
-    :param time_scale:          The time scale.
-    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v2, v4) file.
-    :param rounding:            Round compensated value to centi seconds if True.
-    :param rounding_method:     If you want to be compatible with mkv, use RoundingMethod.ROUND else RoundingMethod.FLOOR.
-                                For more information, see the documentation of [timestamps](https://github.com/moi15moi/VideoTimestamps/blob/578373a5b83402d849d0e83518da7549edf8e03d/video_timestamps/abc_timestamps.py#L13-L26)
-    :return:                    The resulting time in milliseconds or centiseconds.
-    """
-    if isinstance(fps, Fraction):
-        timestamps = FPSTimestamps(rounding_method, time_scale, fps)
-    else:
-        timestamps_file = ensure_path_exists(fps, frame_to_ms)
-        timestamps = TextFileTimestamps(timestamps_file, time_scale, rounding_method)
-
-    if rounding:
-        return timestamps.frame_to_time(f, time_type, 2)
-    else:
-        return timestamps.frame_to_time(f, time_type, 3)
-
-
 def format_timedelta(time: timedelta, precision: int = 3) -> str:
     """
     Formats a timedelta to hh:mm:ss.s[*precision] and pads with 0 if there aren't more numbers to work with.
