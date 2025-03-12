@@ -358,7 +358,9 @@ class SubFile(BaseSubFile):
 
         This does not currently exactly reproduce the aegisub behaviour but it should have the same effect.
 
-        :param fps:             The fps fraction used for conversions. Also accepts a timecode (v2, v4) file.
+        :param timesource:      The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:       Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                For details check the docstring on the type.
         :param allowed_styles:  A list of style names this will run on. Will run on every line if None.
         """
         resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
@@ -398,7 +400,9 @@ class SubFile(BaseSubFile):
         :param sync:            Can be None to not adjust timing at all, an int for a frame number or a string for a syncpoint name.
         :param sync2:           The syncpoint you want to use for the second file.
                                 This is needed if you specified a frame for sync and still want to use a specific syncpoint.
-        :param fps:             The fps used for time calculations. Also accepts a timecode (v2, v4) file.
+        :param timesource:      The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:       Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                For details check the docstring on the type.
         :param use_actor_field: Checks the actor field instead of effect for the names if True.
         :param no_error:        Don't error and warn instead if syncpoint not found.
         :param sort_lines:      Sort the lines by the starting timestamp.
@@ -741,7 +745,9 @@ class SubFile(BaseSubFile):
         Shifts all lines by any frame number.
 
         :param frames:              Number of frames to shift by
-        :param fps:                 FPS needed for the timing calculations. Also accepts a timecode (v2, v4) file.
+        :param timesource:          The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                    For details check the docstring on the type.
         :param delete_before_zero:  Delete lines that would be before 0 after shifting.
         """
         resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
@@ -804,7 +810,9 @@ class SubFile(BaseSubFile):
         :param file:            Input srt file
         :param an8_all_caps:    Automatically an8 every full caps line with over 7 characters because they're usually signs.
         :param style_all_caps:  Also set the style of these lines to "Sign" wether it exists or not.
-        :param fps:             FPS needed for the time conversion. Also accepts a timecode (v2, v4) file.
+        :param timesource:      The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:       Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                For details check the docstring on the type.
         :param encoding:        Encoding used to read the file. Defaults to UTF8.
         """
         caller = "SubFile.from_srt"

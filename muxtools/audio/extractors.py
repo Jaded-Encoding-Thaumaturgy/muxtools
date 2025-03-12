@@ -171,9 +171,11 @@ class FFMpeg(HasExtractor, HasTrimmer):
         If you're working with lossless files it is strongly recommended to use SoX instead.
 
         :param trim:                Can be a single trim or a sequence of trims.
-        :param trim_use_ms:         Will use milliseconds instead of frame numbers
         :param preserve_delay:      Will preserve existing container delay
-
+        :param trim_use_ms:         Will use milliseconds instead of frame numbers
+        :param timesource:          The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                    For details check the docstring on the type.
         :param num_frames:          Total number of frames used for calculations
         :param output:              Custom output. Can be a dir or a file.
                                     Do not specify an extension unless you know what you're doing.
@@ -370,7 +372,9 @@ class Sox(Trimmer):
     :param trim:                List of Trims or a single Trim, which is a Tuple of two frame numbers or milliseconds
     :param preserve_delay:      Keeps existing container delay if True
     :param trim_use_ms:         Will use milliseconds instead of frame numbers
-    :param fps:                 The fps fraction used for the calculations. Also accepts a timecode (v2, v4) file.
+    :param timesource:          The source of timestamps/timecodes. For details check the docstring on the type.
+    :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                For details check the docstring on the type.
     :param num_frames:          Total number of frames used for calculations
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.

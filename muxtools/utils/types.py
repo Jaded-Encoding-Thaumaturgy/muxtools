@@ -55,13 +55,31 @@ class VideoMeta:
 
 
 class TimeScale(IntEnum):
+    """Convenience enum for some common timescales."""
+
     MKV = 1000
+    """Typical matroska timescale"""
     MATROSKA = MKV
+    """Alias for MKV"""
     M2TS = 90000
+    """Typical m2ts timescale"""
 
 
 TimeSourceT = Union[PathLike, Fraction, float, list, VideoMeta, ABCTimestamps, None]
+"""
+The source of timestamps/timecodes.\n
+For actual timestamps, this can be a timestamps (v2/v4) file, a video file or a list of integers.\n
+For FPS based timestamps, this can be a Fraction object, a float or even a string representing a fraction.\n
+Like `'24000/1001'`.\n
+`None` will usually fallback to 24000/1001 but exact behavior might differ based on the target function.
+"""
+
 TimeScaleT = Union[TimeScale, Fraction, int, None]
+"""
+Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+While you can pass an int, the needed type is always a Fraction and will be converted via `Fraction(your_int)`.\n
+`None` will usually fallback to a generic mkv timescale but exact behavior might differ based on the target function.
+"""
 
 
 @dataclass
