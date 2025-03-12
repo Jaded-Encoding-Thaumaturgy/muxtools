@@ -71,6 +71,7 @@ The source of timestamps/timecodes.\n
 For actual timestamps, this can be a timestamps (v2/v4) file, a video file or a list of integers.\n
 For FPS based timestamps, this can be a Fraction object, a float or even a string representing a fraction.\n
 Like `'24000/1001'`.\n
+Can also be an already instantiated Timestamps class from the videotimestamps library.\n
 `None` will usually fallback to 24000/1001 but exact behavior might differ based on the target function.
 """
 
