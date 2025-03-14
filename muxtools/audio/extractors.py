@@ -275,8 +275,10 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     if lossy:
                         nArgs[2:1] = splitcommand(self._targs(tr))
                         if first:
-                            cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
-                            debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
+                            if tr[0]:
+                                ms = tr[0] if self.trim_use_ms else self.resolved_ts.frame_to_time(tr[0], TimeType.EXACT, 3)
+                                cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
+                                debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
                             first = False
                     else:
                         nArgs.extend(splitcommand(self._targs(tr)))
