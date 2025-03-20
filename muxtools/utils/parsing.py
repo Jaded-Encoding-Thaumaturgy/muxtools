@@ -214,7 +214,7 @@ def parse_chapters_bdmv(
                         warn("Couldn't parse fps from playlist! Will take fps from source clip.", parse_chapters_bdmv)
                         fps = clip_fps
 
-                    resolved_ts = resolve_timesource_and_scale(fps, TimeScale.M2TS, allow_warn=False, caller=parse_chapters_bdmv)
+                    resolved_ts = resolve_timesource_and_scale(fps, TimeScale.MKV, allow_warn=False, caller=parse_chapters_bdmv)
 
                     for i, lmark in enumerate(linked_marks, start=1):
                         time = mpls_timestamp_to_timedelta(lmark.mark_timestamp - offset)

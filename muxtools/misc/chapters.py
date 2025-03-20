@@ -62,7 +62,7 @@ class Chapters:
         for ch in self.chapters:
             if isinstance(ch[0], int):
                 current = list(ch)
-                ms = self.timestamps.frame_to_time(current[0], TimeType.EXACT, 3)
+                ms = self.timestamps.frame_to_time(current[0], TimeType.START, 3)
                 current[0] = timedelta(milliseconds=ms)
                 chapters.append(tuple(current))
             else:
@@ -76,16 +76,16 @@ class Chapters:
         if trim_start > 0:
             chapters: list[Chapter] = []
             for chapter in self.chapters:
-                if self.timestamps.time_to_frame(Fraction(chapter[0].total_seconds()), TimeType.START) == 0:
+                if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) == 0:
                     chapters.append(chapter)
                     continue
-                if self.timestamps.time_to_frame(Fraction(chapter[0].total_seconds()), TimeType.START) - trim_start < 0:
+                if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) - trim_start < 0:
                     continue
                 current = list(chapter)
-                trim_start_ms = self.timestamps.frame_to_time(trim_start, TimeType.EXACT, 3)
+                trim_start_ms = self.timestamps.frame_to_time(trim_start, TimeType.START, 3)
                 current[0] = current[0] - timedelta(milliseconds=trim_start_ms)
                 if num_frames:
-                    last_frame_ms = self.timestamps.frame_to_time(num_frames - 1, TimeType.EXACT, 3)
+                    last_frame_ms = self.timestamps.frame_to_time(num_frames - 1, TimeType.START, 3)
                     if current[0] > timedelta(milliseconds=last_frame_ms):
                         continue
                 chapters.append(tuple(current))
@@ -95,7 +95,7 @@ class Chapters:
             if trim_end > 0:
                 chapters: list[Chapter] = []
                 for chapter in self.chapters:
-                    if self.timestamps.time_to_frame(Fraction(chapter[0].total_seconds()), TimeType.START) < trim_end:
+                    if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) < trim_end:
                         chapters.append(chapter)
                 self.chapters = chapters
 
@@ -136,7 +136,7 @@ class Chapters:
         for ch in chapters:
             if isinstance(ch[0], int):
                 current = list(ch)
-                ms = self.timestamps.frame_to_time(current[0], TimeType.EXACT, 3)
+                ms = self.timestamps.frame_to_time(current[0], TimeType.START, 3)
                 current[0] = timedelta(milliseconds=ms)
                 converted.append(tuple(current))
             else:
@@ -155,9 +155,9 @@ class Chapters:
         :param shift_amount:    Frames to shift by
         """
         ch = list(self.chapters[chapter])
-        ch_frame = self.timestamps.time_to_frame(Fraction(ch[0].total_seconds()), TimeType.START) + shift_amount
+        ch_frame = self.timestamps.time_to_frame(int(ch[0].total_seconds() * 1000), TimeType.START, 3) + shift_amount
         if ch_frame > 0:
-            ms = self.timestamps.frame_to_time(ch_frame, TimeType.EXACT, 3)
+            ms = self.timestamps.frame_to_time(ch_frame, TimeType.START, 3)
             ch[0] = timedelta(milliseconds=ms)
         else:
             ch[0] = timedelta(seconds=0)
@@ -178,7 +178,7 @@ class Chapters:
         """
         info("Chapters:")
         for time, name in self.chapters:
-            frame = self.timestamps.time_to_frame(Fraction(time.total_seconds()), TimeType.START)
+            frame = self.timestamps.time_to_frame(int(time.total_seconds() * 1000), TimeType.START, 3)
             print(f"{name}: {format_timedelta(time)} | {frame}")
         print("", end="\n")
         return self
