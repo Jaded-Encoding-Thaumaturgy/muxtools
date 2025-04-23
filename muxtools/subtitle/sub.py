@@ -763,7 +763,7 @@ class SubFile(BaseSubFile):
 
                 start = timedelta(milliseconds=resolved_ts.frame_to_time(start, TimeType.START, 2, True) * 10)
 
-                if Fraction(line.end.total_seconds()) <= resolved_ts.first_timestamps:
+                if int(line.end.total_seconds() * 1000) <= resolved_ts.first_timestamps:
                     end = 0 + frames
                 else:
                     end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3) + frames
