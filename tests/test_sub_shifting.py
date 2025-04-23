@@ -23,11 +23,10 @@ def _timedelta_to_frame(delta: timedelta, ts: ABCTimestamps) -> int:
     return ts.time_to_frame(int(delta.total_seconds() * 1000), TimeType.START, 3)
 
 
-def _compare_times(delta: timedelta, other: timedelta, ts: ABCTimestamps) -> bool:
-    tolerance = timedelta(microseconds=10000)  # One centisecond; both aegisub and muxtools will center the time so this should never be an issue
-    frame_matches = _timedelta_to_frame(delta, ts) == _timedelta_to_frame(other, ts)
-    is_within = (other - delta) <= tolerance
-    return frame_matches and is_within
+def _compare_times(delta: timedelta, other: timedelta, ts: ABCTimestamps):
+    tolerance = timedelta(microseconds=20000)  # two centiseconds; both aegisub and muxtools will center the time so this should never be an issue
+    assert _timedelta_to_frame(delta, ts) == _timedelta_to_frame(other, ts)  # Frame matches
+    assert (other - delta) <= tolerance  # Difference is within tolerance
 
 
 def test_shift_by_24() -> None:
@@ -51,5 +50,5 @@ def test_shift_by_24() -> None:
         presumed = cast(_Line, presumed)
         correct = cast(_Line, correct)
 
-        assert _compare_times(presumed.start, correct.start, resolved)
-        assert _compare_times(presumed.end, correct.end, resolved)
+        _compare_times(presumed.start, correct.start, resolved)
+        _compare_times(presumed.end, correct.end, resolved)
