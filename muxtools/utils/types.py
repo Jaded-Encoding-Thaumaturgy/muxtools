@@ -7,7 +7,7 @@ from datetime import timedelta
 from dataclasses import dataclass, asdict
 from video_timestamps import ABCTimestamps
 
-from ..utils.dataclass import FractionEncoder
+from ..utils.dataclass import FractionEncoder, fraction_hook
 
 __all__ = [
     "PathLike",
@@ -52,6 +52,12 @@ class VideoMeta:
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), cls=FractionEncoder, indent=4)
+
+    @staticmethod
+    def from_json(file: PathLike) -> "VideoMeta":
+        with open(file, "r", encoding="utf-8") as f:
+            meta_json = json.loads(f.read(), object_hook=fraction_hook)
+            return VideoMeta(**meta_json)
 
 
 class TimeScale(IntEnum):
