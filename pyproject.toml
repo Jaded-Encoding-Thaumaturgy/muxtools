@@ -32,11 +32,11 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 readme = "README.md"
-license = { text = "MPL 2.0" }
+license = "MPL-2.0"
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.urls]
 "Source Code" = "https://github.com/Vodes/muxtools"
