@@ -1,7 +1,8 @@
-from muxtools import SubFile, VideoMeta, Setup, get_workdir, ensure_path
+from muxtools import SubFile, VideoMeta, Setup, get_workdir, ensure_path, resolve_timesource_and_scale, ABCTimestamps, TimeType
 from muxtools.subtitle.basesub import _Line
 from typing import cast
 from shutil import rmtree
+from datetime import timedelta
 from time import sleep
 import pytest
 
@@ -18,6 +19,17 @@ def setup_and_remove():
     rmtree(get_workdir())
 
 
+def _timedelta_to_frame(delta: timedelta, ts: ABCTimestamps) -> int:
+    return ts.time_to_frame(int(delta.total_seconds() * 1000), TimeType.START, 3)
+
+
+def _compare_times(delta: timedelta, other: timedelta, ts: ABCTimestamps) -> bool:
+    tolerance = timedelta(microseconds=10000)  # One centisecond; both aegisub and muxtools will center the time so this should never be an issue
+    frame_matches = _timedelta_to_frame(delta, ts) == _timedelta_to_frame(other, ts)
+    is_within = (other - delta) <= tolerance
+    return frame_matches and is_within
+
+
 def test_shift_by_24() -> None:
     """
     Simple test for shifting subs by 24 frames.
@@ -25,10 +37,11 @@ def test_shift_by_24() -> None:
     The "output" file to compare with was created by opening the "input" file in aegisub
     with the same video that was used to generate the json VideoMeta.
     """
-    ts = VideoMeta.from_json(test_dir / "test-data" / "input" / "vigilantes_s01e01.json")
+    meta = VideoMeta.from_json(test_dir / "test-data" / "input" / "vigilantes_s01e01.json")
+    resolved = resolve_timesource_and_scale(meta)
 
     sub = SubFile(test_dir / "test-data" / "input" / "vigilantes_s01e01_en.ass")
-    sub.shift(24, ts)
+    sub.shift(24, resolved)
     sub_doc = sub._read_doc()
 
     sub_correct = SubFile(test_dir / "test-data" / "output" / "vigilantes_s01e01_en_shifted.ass")
@@ -38,5 +51,5 @@ def test_shift_by_24() -> None:
         presumed = cast(_Line, presumed)
         correct = cast(_Line, correct)
 
-        assert presumed.start == correct.start
-        assert presumed.end == correct.end
+        assert _compare_times(presumed.start, correct.start, resolved)
+        assert _compare_times(presumed.end, correct.end, resolved)
