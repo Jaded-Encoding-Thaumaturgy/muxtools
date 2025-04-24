@@ -19,14 +19,21 @@ def setup_and_remove():
     rmtree(get_workdir())
 
 
-def _timedelta_to_frame(delta: timedelta, ts: ABCTimestamps) -> int:
-    return ts.time_to_frame(int(delta.total_seconds() * 1000), TimeType.START, 3)
+def _timedelta_to_frame(delta: timedelta, ts: ABCTimestamps, type: TimeType) -> int:
+    return ts.time_to_frame(int(delta.total_seconds() * 1000), type, 3)
 
 
-def _compare_times(delta: timedelta, other: timedelta, ts: ABCTimestamps):
-    tolerance = timedelta(microseconds=20000)  # two centiseconds; both aegisub and muxtools will center the time so this should never be an issue
-    assert _timedelta_to_frame(delta, ts) == _timedelta_to_frame(other, ts)  # Frame matches
-    assert (other - delta) <= tolerance  # Difference is within tolerance
+def _line_yap(line: _Line | None) -> str:
+    if not line:
+        return ""
+    print(s := f"Line failed: {line.text} | {line.start} -> {line.end}")
+    return s
+
+
+def _compare_times(delta: timedelta, other: timedelta, ts: ABCTimestamps, type: TimeType, line: _Line | None = None):
+    tolerance = timedelta(microseconds=10000)  # One centisecond; both aegisub and muxtools will center the time so this should never be an issue
+    assert _timedelta_to_frame(delta, ts, type) == _timedelta_to_frame(other, ts, type), _line_yap(line)  # Frame matches
+    assert (other - delta) <= tolerance, _line_yap(line)  # Difference is within tolerance
 
 
 def test_shift_by_24() -> None:
@@ -50,5 +57,5 @@ def test_shift_by_24() -> None:
         presumed = cast(_Line, presumed)
         correct = cast(_Line, correct)
 
-        _compare_times(presumed.start, correct.start, resolved)
-        _compare_times(presumed.end, correct.end, resolved)
+        _compare_times(presumed.start, correct.start, resolved, TimeType.START)
+        _compare_times(presumed.end, correct.end, resolved, TimeType.END)
