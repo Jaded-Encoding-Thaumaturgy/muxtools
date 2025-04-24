@@ -1,4 +1,4 @@
-from muxtools import SubFile, VideoMeta, Setup, get_workdir, ensure_path, resolve_timesource_and_scale, ABCTimestamps, TimeType
+from muxtools import SubFile, VideoMeta, Setup, get_workdir, resolve_timesource_and_scale, TimeType, ShiftMode
 from muxtools.subtitle.basesub import _Line
 from muxtools.subtitle.sub import LINES
 from typing import cast
@@ -26,7 +26,7 @@ def _sort_lines_by_start(lines: LINES) -> LINES:
 
 def _remove_folds_and_empty_lines(lines: LINES) -> LINES:
     """
-    Something something
+    Something something "subkt actually handles the ASS lines "properly" in that an initial `{=X=YY=NNN}` style block is read as containing extradata IDs and excluded from line.text"
     """
     new_lines = []
     for line in lines:
@@ -46,8 +46,8 @@ def test_full_merge():
     sub = SubFile(atri_dir / "ATRI 03 - Dialogue.ass").merge(atri_dir / "ATRI 03 - TS (Nyarthur).ass").merge(atri_dir / "warning.ass")
 
     # Merge songs
-    sub.merge(atri_dir / "ATRI - NCOP1.ass", "opsync", "sync", resolved)
-    sub.merge(atri_dir / "ATRI - NCED1.ass", "edsync", "sync", resolved)
+    sub.merge(atri_dir / "ATRI - NCOP1.ass", "opsync", "sync", resolved, shift_mode=ShiftMode.TIME)
+    sub.merge(atri_dir / "ATRI - NCED1.ass", "edsync", "sync", resolved, shift_mode=ShiftMode.TIME)
 
     sub.autoswapper().clean_comments().clean_garbage().clean_extradata()
     sub.manipulate_lines(_sort_lines_by_start)
@@ -59,14 +59,11 @@ def test_full_merge():
     sub_correct.manipulate_lines(_sort_lines_by_start)
     sub_correct_doc = sub_correct._read_doc()
 
-    # sub_correct.copy()
-    # sleep(10)
-
     assert len(sub_doc.events) == len(sub_correct_doc.events)
 
     for presumed, correct in zip(sub_doc.events, sub_correct_doc.events):
         presumed = cast(_Line, presumed)
         correct = cast(_Line, correct)
 
-        _compare_times(presumed.start, correct.start, resolved)
-        _compare_times(presumed.end, correct.end, resolved)
+        _compare_times(presumed.start, correct.start, resolved, TimeType.START, presumed)
+        _compare_times(presumed.end, correct.end, resolved, TimeType.END, correct)
