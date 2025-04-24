@@ -22,7 +22,7 @@ from ..utils.convert import resolve_timesource_and_scale
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
 from ..muxing.muxfiles import MuxingFile
-from .basesub import BaseSubFile, _Line, ASSHeader
+from .basesub import BaseSubFile, _Line, ASSHeader, ShiftMode
 
 __all__ = ["FontFile", "SubFile", "DEFAULT_DIALOGUE_STYLES"]
 
@@ -392,6 +392,7 @@ class SubFile(BaseSubFile):
         use_actor_field: bool = False,
         no_error: bool = False,
         sort_lines: bool = False,
+        shift_mode: ShiftMode = ShiftMode.FRAME,
     ) -> SubFileSelf:
         """
         Merge another subtitle file with syncing if needed.
@@ -407,8 +408,9 @@ class SubFile(BaseSubFile):
         :param no_error:        Don't error and warn instead if syncpoint not found.
         :param sort_lines:      Sort the lines by the starting timestamp.
                                 This was done by default before but may cause issues with subtitles relying on implicit layering.
+        :param shift_mode:      Choose what to shift by. Defaults to shifting by frames.
         """
-        if sync is not None or sync2 is not None:
+        if sync is not None or sync2 is not None and shift_mode == ShiftMode.FRAME:
             resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
         file = ensure_path_exists(file, self)
@@ -427,7 +429,10 @@ class SubFile(BaseSubFile):
             if target is None and isinstance(sync, str):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
-                    target = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                    if shift_mode == ShiftMode.FRAME:
+                        target = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                    else:
+                        target = line.start
 
         if target is None and isinstance(sync, str):
             msg = f"Syncpoint '{sync}' was not found."
@@ -436,27 +441,33 @@ class SubFile(BaseSubFile):
                 return self
             raise error(msg, self)
 
+        mergedoc.events = cast(list[_Line], mergedoc.events)
+
         # Find second syncpoint if any
-        second_sync: int | None = None
+        second_sync: int | timedelta | None = None
         for line in mergedoc.events:
-            line = cast(_Line, line)
             if not isinstance(sync, str) and not sync2:
                 break
             else:
                 sync2 = sync2 or sync
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
-                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                if shift_mode == ShiftMode.FRAME:
+                    second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                else:
+                    second_sync = line.start
                 mergedoc.events.remove(line)
                 break
 
         sorted_lines = sorted(mergedoc.events, key=lambda event: event.start)
-        sorted_lines = cast(list[_Line], sorted_lines)
 
         # Assume the first line to be the second syncpoint if none was found
         if second_sync is None and target is not None:
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
-                second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                if shift_mode == ShiftMode.FRAME:
+                    second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                else:
+                    second_sync = line.start
                 break
 
         # Merge lines from file
@@ -466,20 +477,16 @@ class SubFile(BaseSubFile):
                 tomerge.append(line)
                 continue
 
-            # Apply frame offset
-            offset = (target or -1) - second_sync
-
-            start_frame = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
-            start = resolved_ts.frame_to_time(start_frame + offset, TimeType.START, 2, True)
-
-            if Fraction(line.end.total_seconds()) <= resolved_ts.first_timestamps:
-                end = start
+            if shift_mode == ShiftMode.FRAME:
+                assert isinstance(target, int)
+                assert isinstance(second_sync, int)
+                offset = target - second_sync
+                line = self._shift_line_by_frames(line, offset, resolved_ts)
             else:
-                end_frame = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3)
-                end = resolved_ts.frame_to_time(end_frame + offset, TimeType.END, 2, True)
-
-            line.start = timedelta(milliseconds=start * 10)
-            line.end = timedelta(milliseconds=end * 10)
+                assert isinstance(target, timedelta)
+                assert isinstance(second_sync, timedelta)
+                offset = target - second_sync
+                line = self._shift_line_by_time(line, offset)
 
             tomerge.append(line)
 
