@@ -19,7 +19,7 @@ class ShiftMode(Enum):
     FRAME = "frame"
     """Shift lines by converting everything (including the offset) to a frame."""
     TIME = "time"
-    """Shift lines directly by using the offset as a timedelta."""
+    """Shift lines directly by using the offset as a timedelta.\nYou have to use this if you want to match subKT."""
 
 
 class _Line:
