@@ -117,6 +117,17 @@ class Setup:
         timesource: Path | GlobSearch | str | float | list[int],
         timescale: TimeScale | int | None = None,
     ) -> SetupSelf:
+        """
+        Set a default timesource and timescale for conversions in subtitle functions.
+
+        The source selection for this is a bit more limited than the explicit params in the respective functions due to certain types being hard to store in the environment.
+
+        :param timesource:          The source of timestamps/timecodes.\n
+                                    This can be a video file, a timestamps txt file, actual timestamps as integers,
+                                    a muxtools VideoMeta json file or FPS as a fraction string or float.
+        :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                    For details check the docstring on the type.
+        """
         if isinstance(timesource, GlobSearch):
             timesource = timesource.paths[0]
 
