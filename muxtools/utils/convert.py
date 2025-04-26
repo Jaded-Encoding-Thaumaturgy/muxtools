@@ -1,5 +1,4 @@
 import os
-import json
 from typing import Any
 from math import trunc
 from pathlib import Path
@@ -10,7 +9,6 @@ from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, 
 
 from ..utils.types import PathLike, TimeScale, VideoMeta, TimeSourceT, TimeScaleT
 from ..utils.log import info, warn, crit, debug, error
-from ..utils.dataclass import fraction_hook
 from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video_file
 from ..utils.env import get_setup_attr
 
