@@ -63,10 +63,8 @@ def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = No
         with open(out_file, "w", encoding="utf-8") as f:
             f.write(meta.to_json())
     else:
-        with open(out_file, "r", encoding="utf-8") as f:
-            meta_json = json.loads(f.read(), object_hook=fraction_hook)
-            meta = VideoMeta(**meta_json)
-            debug(f"Reusing existing timestamps for '{video_file.name}'", caller)
+        meta = VideoMeta.from_json(out_file)
+        debug(f"Reusing existing timestamps for '{video_file.name}'", caller)
     return meta
 
 
@@ -82,7 +80,7 @@ def resolve_timesource_and_scale(
     Instantiates a timestamps class from various inputs.
 
     :param timesource:          The source of timestamps/timecodes.\n
-                                For actual timestamps, this can be a timestamps (v2/v4) file, a video file or a list of integers.\n
+                                For actual timestamps, this can be a timestamps (v2/v4) file, a muxtools VideoMeta json file, a video file or a list of integers.\n
                                 For FPS based timestamps, this can be a Fraction object, a float or even a string representing a fraction.\n
                                 Like `'24000/1001'`. (`None` will also fallback to this and print a warning)
 
@@ -137,8 +135,11 @@ def resolve_timesource_and_scale(
                 meta = get_timemeta_from_video(timesource, caller=caller)
                 return VideoTimestamps(meta.pts, meta.timescale, fps=meta.fps, rounding_method=rounding_method)
             else:
-                timescale = check_timescale(timescale)
-                return TextFileTimestamps(timesource, timescale, rounding_method=rounding_method)
+                try:
+                    return VideoMeta.from_json(timesource)
+                except:
+                    timescale = check_timescale(timescale)
+                    return TextFileTimestamps(timesource, timescale, rounding_method=rounding_method)
 
     elif isinstance(timesource, list) and isinstance(timesource[0], int):
         timescale = check_timescale(timescale)
