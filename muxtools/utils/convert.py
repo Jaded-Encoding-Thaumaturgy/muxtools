@@ -13,7 +13,6 @@ from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video
 from ..utils.env import get_setup_attr
 
 __all__: list[str] = [
-    "mpls_timestamp_to_timedelta",
     "format_timedelta",
     "timedelta_from_formatted",
     "get_timemeta_from_video",
@@ -22,18 +21,6 @@ __all__: list[str] = [
     "ABCTimestamps",
     "RoundingMethod",
 ]
-
-
-def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
-    """
-    Converts a mpls timestamp (from BDMV Playlist files) to a timedelta.
-
-    :param timestamp:       The mpls timestamp
-
-    :return:                The resulting timedelta
-    """
-    seconds = Decimal(timestamp) / Decimal(45000)
-    return timedelta(seconds=float(seconds))
 
 
 def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = None, caller: Any | None = None) -> VideoMeta:
