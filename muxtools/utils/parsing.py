@@ -227,7 +227,7 @@ def parse_chapters_bdmv(
                         chapters.append((time, f"Chapter {i:02.0f}"))
                     if chapters and _print:
                         for time, name in chapters:
-                            frame = mkv_ts.time_to_frame(Fraction(time.total_seconds()), TimeType.EXACT)
+                            frame = mkv_ts.time_to_frame(int(time.total_seconds() * 1000), TimeType.EXACT, 3)
                             print(f"{name}: {format_timedelta(time)} | {frame}")
 
         if chapters:
