@@ -397,7 +397,7 @@ class Sox(Trimmer):
         if self.trim_use_ms:
             return abs(val) / 1000
         else:
-            return self.resolved_ts.frame_to_time(abs(val), TimeType.EXACT, 3) / 1000
+            return self.resolved_ts.frame_to_time(abs(val), TimeType.EXACT).__float__()
 
     def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
         import sox
