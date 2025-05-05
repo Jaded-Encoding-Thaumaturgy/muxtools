@@ -65,7 +65,7 @@ def resolve_timesource_and_scale(
     Instantiates a timestamps class from various inputs.
 
     :param timesource:          The source of timestamps/timecodes.\n
-                                For actual timestamps, this can be a timestamps (v2/v4) file, a muxtools VideoMeta json file, a video file or a list of integers.\n
+                                For actual timestamps, this can be a timestamps (v1/v2/v4) file, a muxtools VideoMeta json file, a video file or a list of integers.\n
                                 For FPS based timestamps, this can be a Fraction object, a float or even a string representing a fraction.\n
                                 Like `'24000/1001'`. (`None` will also fallback to this and print a warning)
 
