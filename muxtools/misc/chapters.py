@@ -4,18 +4,19 @@ from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
 from typing import TypeVar
+from video_timestamps import TimeType, ABCTimestamps
 import os
 import re
 
 from ..subtitle.sub import SubFile
-from ..utils.log import error, info, warn
+from ..utils.log import error, info, warn, debug
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
-from ..utils.types import Chapter, PathLike
+from ..utils.types import Chapter, PathLike, TimeSourceT, TimeScaleT, TimeScale
 from ..utils.parsing import parse_ogm, parse_xml
 from ..utils.files import clean_temp_files, ensure_path_exists, ensure_path
-from ..utils.env import get_temp_workdir, get_workdir, run_commandline
-from ..utils.convert import format_timedelta, frame_to_timedelta, timedelta_to_frame
+from ..utils.env import get_temp_workdir, get_workdir, run_commandline, get_setup_attr
+from ..utils.convert import format_timedelta, resolve_timesource_and_scale
 
 __all__ = ["Chapters"]
 
@@ -23,18 +24,25 @@ __all__ = ["Chapters"]
 class Chapters:
     chapters: list[Chapter]
     fps: Fraction | PathLike
+    timestamps: ABCTimestamps
 
     def __init__(
-        self, chapter_source: PathLike | GlobSearch | Chapter | list[Chapter], fps: Fraction | PathLike = Fraction(24000, 1001), _print: bool = True
+        self,
+        chapter_source: PathLike | GlobSearch | Chapter | list[Chapter],
+        timesource: TimeSourceT = Fraction(24000, 1001),
+        timescale: TimeScaleT = TimeScale.MKV,
+        _print: bool = True,
     ) -> None:
         """
         Convenience class for chapters
 
         :param chapter_source:      Input either txt with ogm chapters, xml or (a list of) self defined chapters.
-        :param fps:                 Needed for timestamp convertion. Assumes 24000/1001 by default. Also accepts a timecode (v2) file.
+        :param timesource:          The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                    For details check the docstring on the type.
         :param _print:              Prints chapters after parsing and after trimming.
         """
-        self.fps = fps
+        self.timestamps = resolve_timesource_and_scale(timesource, timescale, caller=self)
         if isinstance(chapter_source, tuple):
             self.chapters = [chapter_source]
         elif isinstance(chapter_source, list):
@@ -54,7 +62,8 @@ class Chapters:
         for ch in self.chapters:
             if isinstance(ch[0], int):
                 current = list(ch)
-                current[0] = frame_to_timedelta(current[0], self.fps)
+                ms = self.timestamps.frame_to_time(current[0], TimeType.START, 3)
+                current[0] = timedelta(milliseconds=ms)
                 chapters.append(tuple(current))
             else:
                 chapters.append(ch)
@@ -67,15 +76,17 @@ class Chapters:
         if trim_start > 0:
             chapters: list[Chapter] = []
             for chapter in self.chapters:
-                if timedelta_to_frame(chapter[0]) == 0:
+                if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) == 0:
                     chapters.append(chapter)
                     continue
-                if timedelta_to_frame(chapter[0]) - trim_start < 0:
+                if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) - trim_start < 0:
                     continue
                 current = list(chapter)
-                current[0] = current[0] - frame_to_timedelta(trim_start, self.fps)
+                trim_start_ms = self.timestamps.frame_to_time(trim_start, TimeType.START, 3)
+                current[0] = current[0] - timedelta(milliseconds=trim_start_ms)
                 if num_frames:
-                    if current[0] > frame_to_timedelta(num_frames - 1, self.fps):
+                    last_frame_ms = self.timestamps.frame_to_time(num_frames - 1, TimeType.START, 3)
+                    if current[0] > timedelta(milliseconds=last_frame_ms):
                         continue
                 chapters.append(tuple(current))
 
@@ -84,7 +95,7 @@ class Chapters:
             if trim_end > 0:
                 chapters: list[Chapter] = []
                 for chapter in self.chapters:
-                    if timedelta_to_frame(chapter[0], self.fps) < trim_end:
+                    if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) < trim_end:
                         chapters.append(chapter)
                 self.chapters = chapters
 
@@ -125,7 +136,8 @@ class Chapters:
         for ch in chapters:
             if isinstance(ch[0], int):
                 current = list(ch)
-                current[0] = frame_to_timedelta(current[0], self.fps)
+                ms = self.timestamps.frame_to_time(current[0], TimeType.START, 3)
+                current[0] = timedelta(milliseconds=ms)
                 converted.append(tuple(current))
             else:
                 converted.append(ch)
@@ -143,14 +155,10 @@ class Chapters:
         :param shift_amount:    Frames to shift by
         """
         ch = list(self.chapters[chapter])
-        shift_delta = frame_to_timedelta(abs(shift_amount), self.fps)
-        if shift_amount < 0:
-            shifted_frame = ch[0] - shift_delta
-        else:
-            shifted_frame = ch[0] + shift_delta
-
-        if shifted_frame.total_seconds() > 0:
-            ch[0] = shifted_frame
+        ch_frame = self.timestamps.time_to_frame(int(ch[0].total_seconds() * 1000), TimeType.START, 3) + shift_amount
+        if ch_frame > 0:
+            ms = self.timestamps.frame_to_time(ch_frame, TimeType.START, 3)
+            ch[0] = timedelta(milliseconds=ms)
         else:
             ch[0] = timedelta(seconds=0)
         self.chapters[chapter] = tuple(ch)
@@ -170,7 +178,8 @@ class Chapters:
         """
         info("Chapters:")
         for time, name in self.chapters:
-            print(f"{name}: {format_timedelta(time)} | {timedelta_to_frame(time, self.fps)}")
+            frame = self.timestamps.time_to_frame(int(time.total_seconds() * 1000), TimeType.START, 3)
+            print(f"{name}: {format_timedelta(time)} | {frame}")
         print("", end="\n")
         return self
 
@@ -199,7 +208,8 @@ class Chapters:
     @staticmethod
     def from_sub(
         file: PathLike | SubFile,
-        fps: Fraction | PathLike = Fraction(24000, 1001),
+        timesource: TimeSourceT = None,
+        timescale: TimeScaleT = None,
         use_actor_field: bool = False,
         markers: str | list[str] = ["chapter", "chptr"],
         _print: bool = True,
@@ -209,7 +219,9 @@ class Chapters:
         Extract chapters from an ass file or a SubFile.
 
         :param file:            Input ass file or SubFile
-        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
+        :param timesource:      The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:       Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                For details check the docstring on the type.
         :param use_actor_field: Uses the actor field instead of the effect field for identification.
         :param markers:         Markers to check for.
         :param _print:          Prints the chapters after parsing
@@ -217,17 +229,19 @@ class Chapters:
         """
         from ass import parse_file, Comment
 
+        caller = "Chapters.from_sub"
+
         if isinstance(markers, str):
             markers = [markers]
 
         if isinstance(file, SubFile):
             doc = file._read_doc()
         else:
-            file = ensure_path_exists(file, "Chapters")
+            file = ensure_path_exists(file, caller)
             with open(file if not file else file, "r", encoding=encoding) as reader:
                 doc = parse_file(reader)
 
-        pattern = re.compile(r"\{([^\\].+?)\}")
+        pattern = re.compile(r"\{([^\\=].+?)\}")
         chapters = list[Chapter]()
         for line in doc.events:
             field_value = str(line.name).lower() if use_actor_field else str(line.effect).lower()
@@ -239,23 +253,38 @@ class Chapters:
                 elif isinstance(line, Comment) and line.text:
                     chapters.append((line.start, str(line.text).strip()))
                 else:
-                    warn(f"Chapter {(len(chapters) + 1):02.0f} does not have a name!", "Chapters")
+                    warn(f"Chapter {(len(chapters) + 1):02.0f} does not have a name!", caller)
                     chapters.append((line.start, ""))
 
         if not chapters:
-            warn("Could not find any chapters in subtitle!", "Chapters")
-        ch = Chapters(chapters, fps)
+            warn("Could not find any chapters in subtitle!", caller)
+
+        if timesource is None and (setup_timesource := get_setup_attr("sub_timesource", None)) is not None:
+            if not isinstance(setup_timesource, TimeSourceT):
+                raise error("Invalid timesource type in Setup!", caller)
+            debug("Using default timesource from setup.", caller)
+            timesource = setup_timesource
+
+        if timescale is None and (setup_timescale := get_setup_attr("sub_timescale", None)) is not None:
+            if not isinstance(setup_timescale, TimeScaleT):
+                raise error("Invalid timescale type in Setup!", caller)
+            debug("Using default timescale from setup.", caller)
+            timescale = setup_timescale
+
+        ch = Chapters(chapters, timesource, timescale)
         if _print and chapters:
             ch.print()
         return ch
 
     @staticmethod
-    def from_mkv(file: PathLike, fps: Fraction | PathLike = Fraction(24000, 1001), _print: bool = True, quiet: bool = True) -> "Chapters":
+    def from_mkv(file: PathLike, timesource: TimeSourceT = None, timescale: TimeScaleT = None, _print: bool = True, quiet: bool = True) -> "Chapters":
         """
         Extract chapters from mkv.
 
         :param file:            Input mkv file
-        :param fps:             FPS passed to the chapter class for further operations. Also accepts a timecode (v2) file.
+        :param timesource:      The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:       Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                For details check the docstring on the type.
         :param _print:          Prints the chapters after parsing
         """
         caller = "Chapters.from_mkv"
@@ -266,7 +295,12 @@ class Chapters:
         args = [mkvextract, str(file), "chapters", "-s", str(out)]
         if run_commandline(args, quiet):
             raise error("Failed to extract chapters!", caller)
-        chapters = Chapters(out, fps, _print)
+
+        if timesource is None:
+            chapters = Chapters(out, file)
+        else:
+            chapters = Chapters(out, timesource, timescale, _print)
+
         clean_temp_files()
         return chapters
 

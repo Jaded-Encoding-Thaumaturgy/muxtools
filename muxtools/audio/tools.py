@@ -15,7 +15,7 @@ class HasTrimmer(ABC):
 
 class Extractor(CLIKwargs):
     _no_print = False
-    
+
     @abstractmethod
     def extract_audio(self, input: PathLike, quiet: bool = True) -> AudioFile:
         pass

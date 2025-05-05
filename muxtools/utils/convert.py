@@ -1,137 +1,141 @@
+import os
+from typing import Any
 from math import trunc
-from decimal import Decimal, ROUND_HALF_DOWN
+from pathlib import Path
 from fractions import Fraction
 from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_DOWN
+from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, VideoTimestamps, ABCTimestamps, TimeType
 
-from ..utils.types import PathLike
-from ..utils.files import ensure_path_exists
-from ..utils.log import error
+from ..utils.types import PathLike, TimeScale, VideoMeta, TimeSourceT, TimeScaleT
+from ..utils.log import info, warn, crit, debug, error
+from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video_file
+from ..utils.env import get_setup_attr
 
 __all__: list[str] = [
-    "mpls_timestamp_to_timedelta",
-    "timedelta_to_frame",
-    "frame_to_timedelta",
     "format_timedelta",
     "timedelta_from_formatted",
-    "frame_to_ms",
+    "get_timemeta_from_video",
+    "resolve_timesource_and_scale",
+    "TimeType",
+    "ABCTimestamps",
+    "RoundingMethod",
 ]
 
 
-def _fraction_to_decimal(f: Fraction) -> Decimal:
-    return Decimal(f.numerator) / Decimal(f.denominator)
-
-
-def mpls_timestamp_to_timedelta(timestamp: int) -> timedelta:
+def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = None, caller: Any | None = None) -> VideoMeta:
     """
-    Converts a mpls timestamp (from BDMV Playlist files) to a timedelta.
+    Parse timestamps from an existing video file using ffprobe.\n
+    They're saved as a custom meta file in the current workdir and named based on the input.
 
-    :param timestamp:       The mpls timestamp
+    Also automatically reused (with a debug log) if already exists.
 
-    :return:                The resulting timedelta
+    :param video_file:      Input video. Path or String.
+    :param out_file:        Output file. If None given, the above behavior applies.
+    :param caller:          Caller used for the logging
+
+    :return:                Videometa object
     """
-    seconds = Decimal(timestamp) / Decimal(45000)
-    return timedelta(seconds=float(seconds))
+    video_file = ensure_path_exists(video_file, get_timemeta_from_video)
+    if not out_file:
+        out_file = get_workdir() / f"{video_file.stem}_meta.json"
 
-
-def _timedelta_from_timecodes(timecodes: PathLike, frame: int) -> timedelta:
-    timecode_file = ensure_path_exists(timecodes, _timedelta_from_timecodes)
-    parsed = [float(x) / 1000 for x in open(timecode_file, "r").read().splitlines()[1:]]
-    if len(parsed) <= frame:
-        raise error(f"Frame {frame} is out of range for the given timecode file!", _timedelta_from_timecodes)
-
-    target = timedelta(seconds=parsed[frame])
-    return target
-
-
-def _frame_from_timecodes(timecodes: PathLike, time: timedelta) -> int:
-    timecode_file = ensure_path_exists(timecodes, _frame_from_timecodes)
-    # Subtract 0.5 from timecodes to ensure correct behavior even with small rounding errors
-    # (A timedelta of 42ms should belong to frame [42, 83) with a timecode list [0, 42, 83, ...])
-    parsed = [(float(x) - 0.5) / 1000 for x in open(timecode_file, "r").read().splitlines()[1:]]
-
-    return len([t for t in parsed if t < time.total_seconds()]) - 1
-
-
-def timedelta_to_frame(
-    time: timedelta, fps: Fraction | PathLike = Fraction(24000, 1001), exclude_boundary: bool = False, allow_rounding: bool = True
-) -> int:
-    """
-    Converts a timedelta to a frame number.
-
-    :param time:                The timedelta
-    :param fps:                 A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
-
-    :param exclude_boundary:    Associate frame boundaries with the previous frame rather than the current one.
-                                Use this option when dealing with subtitle start/end times.
-
-    :param allow_rounding:      Use the next int if the difference to the next frame is smaller than 0.01.
-                                This should *probably* not be used for subtitles. We are not sure.
-
-    :return:                    The resulting frame number
-    """
-    if exclude_boundary:
-        return timedelta_to_frame(time - timedelta(milliseconds=1), fps, allow_rounding=False)
-
-    if not isinstance(fps, Fraction):
-        return _frame_from_timecodes(fps, time)
-
-    ms = int(Decimal(time.total_seconds()).__round__(3) * 1000)
-    frame = ms * fps / 1000
-    frame_dec = Decimal(frame.numerator) / Decimal(frame.denominator)
-
-    # Return next int if difference is less than 0.03
-    if allow_rounding and abs(frame_dec.__round__(3) - frame_dec.__ceil__()) < 0.03:
-        return frame_dec.__ceil__()
-
-    return int(frame)
-
-
-def frame_to_timedelta(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False, rounding: bool = True) -> timedelta:
-    """
-    Converts a frame number to a timedelta.
-    Mostly used in the conversion for manually defined chapters.
-
-    :param f:           The frame number
-    :param fps:         A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
-    :param compensate:  Whether to place the timestamp in the middle of said frame
-                        Useful for subtitles, not so much for audio where you'd want to be accurate
-    :param rounding:    Round compensated value to centi seconds if True
-    :return:            The resulting timedelta
-    """
-    result = None
-
-    if compensate:
-        result = (frame_to_timedelta(f, fps, rounding=False) + frame_to_timedelta(f + 1, fps, rounding=False)) / 2
+    out_file = ensure_path(out_file, get_timemeta_from_video)
+    if not out_file.exists() or out_file.stat().st_size < 1:
+        info(f"Generating timestamps for '{video_file.name}'...", caller)
+        timestamps = VideoTimestamps.from_video_file(video_file)
+        meta = VideoMeta(timestamps.pts_list, timestamps.fps, timestamps.time_scale, str(video_file.resolve()))
+        with open(out_file, "w", encoding="utf-8") as f:
+            f.write(meta.to_json())
     else:
-        if not f or f < 0:
-            return timedelta(seconds=0)
-
-        if isinstance(fps, Fraction):
-            fps_dec = _fraction_to_decimal(fps)
-            seconds = Decimal(f) / fps_dec
-            result = timedelta(seconds=float(seconds))
-        else:
-            result = _timedelta_from_timecodes(fps, f)
-
-    if not rounding:
-        return result
-    rounded = round(result.total_seconds(), 2)
-    return timedelta(seconds=rounded)
+        meta = VideoMeta.from_json(out_file)
+        debug(f"Reusing existing timestamps for '{video_file.name}'", caller)
+    return meta
 
 
-def frame_to_ms(f: int, fps: Fraction | PathLike = Fraction(24000, 1001), compensate: bool = False) -> float:
+def resolve_timesource_and_scale(
+    timesource: PathLike | Fraction | float | list[int] | VideoMeta | ABCTimestamps | None = None,
+    timescale: TimeScale | Fraction | int | None = None,
+    rounding_method: RoundingMethod = RoundingMethod.ROUND,
+    allow_warn: bool = True,
+    fetch_from_setup: bool = False,
+    caller: Any | None = None,
+) -> ABCTimestamps:
     """
-    Converts a frame number to it's ms value.
+    Instantiates a timestamps class from various inputs.
 
-    :param f:           The frame number
-    :param fps:         A Fraction containing fps_num and fps_den. Also accepts a timecode (v2) file.
-    :param compensate:  Whether to place the timestamp in the middle of said frame
-                        Useful for subtitles, not so much for audio where you'd want to be accurate
+    :param timesource:          The source of timestamps/timecodes.\n
+                                For actual timestamps, this can be a timestamps (v1/v2/v4) file, a muxtools VideoMeta json file, a video file or a list of integers.\n
+                                For FPS based timestamps, this can be a Fraction object, a float or even a string representing a fraction.\n
+                                Like `'24000/1001'`. (`None` will also fallback to this and print a warning)
 
-    :return:            The resulting ms
+    :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                While you can pass an int, the needed type is always a Fraction and will be converted via `Fraction(your_int)`.\n
+                                If `None` falls back to a generic Matroska timescale.
+
+    :param rounding_method:     The rounding method used to round/floor the PTS (Presentation Time Stamp).
+    :param allow_warn:          Allow this function to print warnings. If you know what you're doing feel free to disable this for your own use.
+    :param fetch_from_setup:    Whether or not this function should fallback to the sub defaults from the current Setup.
+    :param caller:              Caller used for the logging
+
+    :return:                    Instantiated timestamps object from the videotimestamps library
     """
-    td = frame_to_timedelta(f, fps, compensate)
-    return td.total_seconds() * 1000
+    if fetch_from_setup:
+        if timesource is None and (setup_timesource := get_setup_attr("sub_timesource", None)) is not None:
+            if not isinstance(setup_timesource, TimeSourceT):
+                raise error("Invalid timesource type in Setup!", caller)
+            debug("Using default timesource from setup.", caller)
+            timesource = setup_timesource
+        if timescale is None and (setup_timescale := get_setup_attr("sub_timescale", None)) is not None:
+            if not isinstance(setup_timescale, TimeScaleT):
+                raise error("Invalid timescale type in Setup!", caller)
+            debug("Using default timescale from setup.", caller)
+            timescale = setup_timescale
+
+    def check_timescale(timescale) -> Fraction:
+        if not timescale:
+            if allow_warn:
+                warn("No timescale was given, defaulting to Matroska scaling.", caller)
+            timescale = Fraction(1000)
+        return Fraction(timescale)
+
+    if timesource is None:
+        if allow_warn:
+            warn("No timesource was given, generating timestamps for FPS (24000/1001).", caller)
+        timescale = check_timescale(timescale)
+        return FPSTimestamps(rounding_method, timescale, Fraction(24000, 1001))
+
+    if isinstance(timesource, VideoMeta):
+        return VideoTimestamps(timesource.pts, timesource.timescale, fps=timesource.fps, rounding_method=rounding_method)
+
+    if isinstance(timesource, ABCTimestamps):
+        return timesource
+
+    if isinstance(timesource, PathLike):
+        if isinstance(timesource, Path) or os.path.isfile(timesource):
+            timesource = ensure_path(timesource, caller)
+            is_video = is_video_file(timesource)
+
+            if is_video:
+                meta = get_timemeta_from_video(timesource, caller=caller)
+                return VideoTimestamps(meta.pts, meta.timescale, fps=meta.fps, rounding_method=rounding_method)
+            else:
+                try:
+                    return VideoMeta.from_json(timesource)
+                except:
+                    timescale = check_timescale(timescale)
+                    return TextFileTimestamps(timesource, timescale, rounding_method=rounding_method)
+
+    elif isinstance(timesource, list) and isinstance(timesource[0], int):
+        timescale = check_timescale(timescale)
+        return VideoTimestamps(timesource, timescale, rounding_method=rounding_method)
+
+    if isinstance(timesource, float) or isinstance(timesource, str) or isinstance(timesource, Fraction):
+        fps = Fraction(timesource)
+        timescale = check_timescale(timescale)
+        return FPSTimestamps(rounding_method, timescale, fps)
+
+    raise crit("Invalid timesource passed!", caller)
 
 
 def format_timedelta(time: timedelta, precision: int = 3) -> str:
@@ -152,7 +156,7 @@ def format_timedelta(time: timedelta, precision: int = 3) -> str:
     s %= 60
     h = m // 60
     m %= 60
-    return f'{h:02d}:{m:02d}:{s:02d}.{str(rounded).split(".")[1].ljust(precision, "0")}'
+    return f"{h:02d}:{m:02d}:{s:02d}.{str(rounded).split('.')[1].ljust(precision, '0')}"
 
 
 def timedelta_from_formatted(formatted: str) -> timedelta:

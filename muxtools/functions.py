@@ -1,8 +1,8 @@
 from fractions import Fraction
 from datetime import timedelta
-from collections.abc import Sequence
 
 from .utils.log import warn, error, info, danger
+from .utils.types import TimeScaleT, TimeScale, TimeSourceT
 from .muxing.muxfiles import AudioFile
 from .audio.audioutils import is_fancy_codec
 from .audio.encoders import Opus, qAAC, FDK_AAC
@@ -20,7 +20,8 @@ def do_audio(
     fileIn: PathLike | list[PathLike],
     track: int = 0,
     trims: Trim | list[Trim] | None = None,
-    fps: Fraction | PathLike | Sequence[int] = Fraction(24000, 1001),
+    timesource: TimeSourceT = Fraction(24000, 1001),
+    timescale: TimeScaleT = TimeScale.MKV,
     num_frames: int = 0,
     extractor: Extractor | None = FFMpeg.Extractor(),
     trimmer: Trimmer | None = AutoTrimmer(),
@@ -34,7 +35,9 @@ def do_audio(
     :param fileIn:          Input file
     :param track:           Audio track number
     :param trims:           Frame ranges to trim and/or combine, e.g. (24, -24) or [(24, 500), (700, 900)]
-    :param fps:             FPS Fraction used for the conversion to time. Also accepts a timecode (v2) file.
+    :param timesource:      The source of timestamps/timecodes. For details check the docstring on the type.
+    :param timescale:       Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                            For details check the docstring on the type.
     :param num_frames:      Total number of frames, used for negative numbers in trims
     :param extractor:       Tool used to extract the audio
     :param trimmer:         Tool used to trim the audio
@@ -113,10 +116,9 @@ def do_audio(
                     encoder = FDK_AAC()
 
     if trimmer and trims:
-        if not isinstance(fps, str) and isinstance(fps, Sequence):
-            fps = Fraction(*fps)
         setattr(trimmer, "trim", trims)
-        setattr(trimmer, "fps", fps)
+        setattr(trimmer, "timesource", timesource)
+        setattr(trimmer, "timescale", timescale)
         setattr(trimmer, "num_frames", num_frames)
         if not encoder:
             setattr(trimmer, "output", output)

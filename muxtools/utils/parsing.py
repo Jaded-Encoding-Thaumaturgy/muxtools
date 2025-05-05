@@ -1,19 +1,20 @@
 import re
 import os
 import subprocess
+from datetime import timedelta
 from pathlib import Path
 from fractions import Fraction
 from typing import Any
 from pyparsebluray import mpls
-from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame
+from video_timestamps import TimeType, RoundingMethod
+
+from .types import Chapter, PathLike, AudioInfo, AudioStats, AudioFrame, TimeScale
 from .files import ensure_path_exists
 from .log import error, warn, debug, info
 from .download import get_executable
 from .convert import (
     timedelta_from_formatted,
-    timedelta_to_frame,
-    frame_to_timedelta,
-    mpls_timestamp_to_timedelta,
+    resolve_timesource_and_scale,
     format_timedelta,
 )
 
@@ -155,13 +156,14 @@ def parse_chapters_bdmv(
     Attempts to parse chapters from the bluray metadata
 
     :param src:         The m2ts file you're currently using
-    :param clip_fps:    The fps of the clip. Also accepts a timecode (v2) file.
+    :param clip_fps:    The fps of the clip. Also accepts a timestamps (v1/v2/v4) file.
     :param clip_frames: Total frames of the clip
     :param _print:      Prints the chapters after parsing if true
 
     :return:            List of parsed chapters
     """
     src = ensure_path_exists(src, parse_chapters_bdmv)
+
     stream_dir = src.parent
     if stream_dir.name.lower() != "stream":
         print("Your source file is not in a default bdmv structure!\nWill skip chapters.")
@@ -211,14 +213,22 @@ def parse_chapters_bdmv(
                         warn("Couldn't parse fps from playlist! Will take fps from source clip.", parse_chapters_bdmv)
                         fps = clip_fps
 
+                    m2ts_ts = resolve_timesource_and_scale(fps, TimeScale.M2TS, RoundingMethod.FLOOR, allow_warn=False, caller=parse_chapters_bdmv)
+                    mkv_ts = resolve_timesource_and_scale(fps, TimeScale.MKV, allow_warn=False, caller=parse_chapters_bdmv)
+
                     for i, lmark in enumerate(linked_marks, start=1):
-                        time = mpls_timestamp_to_timedelta(lmark.mark_timestamp - offset)
-                        if clip_frames > 0 and time > frame_to_timedelta(clip_frames - 50, fps):
+                        parsed_frame = m2ts_ts.pts_to_frame(lmark.mark_timestamp - offset, TimeType.START, Fraction(45000))
+                        time_ms = mkv_ts.frame_to_time(parsed_frame, TimeType.START, 3)
+
+                        time = timedelta(milliseconds=time_ms)
+                        time_cutoff = mkv_ts.frame_to_time(clip_frames - 50, TimeType.EXACT, 3, False)
+                        if clip_frames > 0 and time > timedelta(milliseconds=time_cutoff):
                             continue
                         chapters.append((time, f"Chapter {i:02.0f}"))
                     if chapters and _print:
                         for time, name in chapters:
-                            print(f"{name}: {format_timedelta(time)} | {timedelta_to_frame(time, fps)}")
+                            frame = mkv_ts.time_to_frame(int(time.total_seconds() * 1000), TimeType.EXACT, 3)
+                            print(f"{name}: {format_timedelta(time)} | {frame}")
 
         if chapters:
             break

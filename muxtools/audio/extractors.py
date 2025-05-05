@@ -14,10 +14,10 @@ from ..utils.log import error, warn, debug, info
 from ..utils.download import get_executable
 from ..utils.parsing import parse_audioinfo
 from ..utils.files import get_absolute_track
-from ..utils.types import Trim, PathLike, TrackType
+from ..utils.types import Trim, PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScale
 from ..utils.env import get_temp_workdir, run_commandline, communicate_stdout
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
-from ..utils.convert import frame_to_timedelta, format_timedelta, frame_to_ms
+from ..utils.convert import format_timedelta, resolve_timesource_and_scale, TimeType
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
 
@@ -63,7 +63,7 @@ class Eac3to(Extractor):
         info(f"Extracting audio track {self.track} from '{input.stem}'...", self)
 
         out = make_output(input, extension, f"extracted_{self.track}", self.output)
-        code, stdout = communicate_stdout(f'"{eac3to}" "{input}" {track.track_id+1}: "{out}" {self.append}')
+        code, stdout = communicate_stdout(f'"{eac3to}" "{input}" {track.track_id + 1}: "{out}" {self.append}')
         if code == 0:
             if not out.exists():
                 pattern_str = rf"{re.escape(out.stem)} DELAY.*\.{extension}"
@@ -171,9 +171,11 @@ class FFMpeg(HasExtractor, HasTrimmer):
         If you're working with lossless files it is strongly recommended to use SoX instead.
 
         :param trim:                Can be a single trim or a sequence of trims.
-        :param trim_use_ms:         Will use milliseconds instead of frame numbers
-        :param fps:                 Fps fraction that will be used for the conversion. Also accepts a timecode (v2) file.
         :param preserve_delay:      Will preserve existing container delay
+        :param trim_use_ms:         Will use milliseconds instead of frame numbers
+        :param timesource:          The source of timestamps/timecodes. For details check the docstring on the type.
+        :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                    For details check the docstring on the type.
         :param num_frames:          Total number of frames used for calculations
         :param output:              Custom output. Can be a dir or a file.
                                     Do not specify an extension unless you know what you're doing.
@@ -182,7 +184,8 @@ class FFMpeg(HasExtractor, HasTrimmer):
         trim: Trim | list[Trim] | None = None
         preserve_delay: bool = False
         trim_use_ms: bool = False
-        fps: Fraction | PathLike = Fraction(24000, 1001)
+        timesource: TimeSourceT = Fraction(24000, 1001)
+        timescale: TimeScaleT = TimeScale.MKV
         num_frames: int = 0
         output: PathLike | None = None
 
@@ -208,18 +211,21 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 if self.trim_use_ms:
                     arg += f" -ss {format_timedelta(timedelta(milliseconds=trim[0]))}"
                 else:
-                    arg += f" -ss {format_timedelta(frame_to_timedelta(trim[0], self.fps))}"
+                    millis = self.resolved_ts.frame_to_time(trim[0], TimeType.EXACT, 3)
+                    arg += f" -ss {format_timedelta(timedelta(milliseconds=millis))}"
             if trim[1] is not None and trim[1] != 0:
                 end_frame = self.num_frames + trim[1] if trim[1] < 0 else trim[1]
                 if self.trim_use_ms:
                     arg += f" -to {format_timedelta(timedelta(milliseconds=trim[1]))}"
                 else:
-                    arg += f" -to {format_timedelta(frame_to_timedelta(end_frame, self.fps))}"
+                    millis = self.resolved_ts.frame_to_time(end_frame, TimeType.EXACT, 3)
+                    arg += f" -to {format_timedelta(timedelta(milliseconds=millis))}"
             return arg
 
         def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
             if not isinstance(input, AudioFile):
                 input = AudioFile.from_file(input, self)
+            self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
             self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, caller=self)
             minfo = input.get_mediainfo()
             form = format_from_track(minfo)
@@ -248,7 +254,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 args.append(str(out.resolve()))
                 if not run_commandline(args, quiet):
                     if tr[0] and lossy:
-                        ms = tr[0] if self.trim_use_ms else frame_to_ms(tr[0], self.fps)
+                        ms = tr[0] if self.trim_use_ms else self.resolved_ts.frame_to_time(tr[0], TimeType.EXACT, 3)
                         cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
                         debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
                         if self.preserve_delay:
@@ -269,8 +275,10 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     if lossy:
                         nArgs[2:1] = splitcommand(self._targs(tr))
                         if first:
-                            cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
-                            debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
+                            if tr[0]:
+                                ms = tr[0] if self.trim_use_ms else self.resolved_ts.frame_to_time(tr[0], TimeType.EXACT, 3)
+                                cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
+                                debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
                             first = False
                     else:
                         nArgs.extend(splitcommand(self._targs(tr)))
@@ -366,7 +374,9 @@ class Sox(Trimmer):
     :param trim:                List of Trims or a single Trim, which is a Tuple of two frame numbers or milliseconds
     :param preserve_delay:      Keeps existing container delay if True
     :param trim_use_ms:         Will use milliseconds instead of frame numbers
-    :param fps:                 The fps fraction used for the calculations. Also accepts a timecode (v2) file.
+    :param timesource:          The source of timestamps/timecodes. For details check the docstring on the type.
+    :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+                                For details check the docstring on the type.
     :param num_frames:          Total number of frames used for calculations
     :param output:              Custom output. Can be a dir or a file.
                                 Do not specify an extension unless you know what you're doing.
@@ -375,7 +385,8 @@ class Sox(Trimmer):
     trim: Trim | list[Trim] | None = None
     preserve_delay: bool = False
     trim_use_ms: bool = False
-    fps: Fraction | PathLike = Fraction(24000, 1001)
+    timesource: TimeSourceT = Fraction(24000, 1001)
+    timescale: TimeScaleT = TimeScale.MKV
     num_frames: int = 0
     output: PathLike | None = None
 
@@ -386,7 +397,7 @@ class Sox(Trimmer):
         if self.trim_use_ms:
             return abs(val) / 1000
         else:
-            return frame_to_timedelta(abs(val), self.fps).total_seconds()
+            return self.resolved_ts.frame_to_time(abs(val), TimeType.EXACT).__float__()
 
     def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
         import sox
@@ -394,6 +405,7 @@ class Sox(Trimmer):
         if not isinstance(input, AudioFile):
             input = AudioFile.from_file(input, self)
         out = make_output(input.file, "flac", "trimmed", self.output)
+        self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
         self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
         source = ensure_valid_in(input, caller=self, supports_pipe=False)
 

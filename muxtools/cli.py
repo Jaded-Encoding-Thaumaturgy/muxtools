@@ -1,15 +1,17 @@
 import os
 import re
+import sys
 import wget
 import shlex
 import shutil
 import subprocess
 from pathlib import Path
 
-from .utils.log import info, warn
+from .utils.log import info, warn, error
 from .utils.download import unpack_all
 from .utils.env import get_temp_workdir
-from .utils.files import clean_temp_files
+from .utils.files import clean_temp_files, ensure_path_exists, ensure_path, is_video_file
+from .utils.convert import get_timemeta_from_video
 
 CONF = "([green bold]Y[/] | [red]n[/])"
 
@@ -212,3 +214,22 @@ def _run_powershell(args: str | list[str], quiet: bool = False) -> int:
     p.communicate()
     print("")
     return p.returncode
+
+
+def generate_videometa(file: str | None = None, output: str | None = None):
+    if not file:
+        error("You have to pass an input video file!", None)
+        sys.exit(1)
+
+    in_path = ensure_path_exists(file, None)
+    if not is_video_file(in_path):
+        error(f'"{in_path.name}" is not a video file!', None)
+        sys.exit(1)
+
+    if not output:
+        info("Generating VideoMeta file in your current work directory.", None)
+        output = ensure_path(os.getcwd(), None) / f"{in_path.stem}_meta.json"
+    else:
+        output = ensure_path(output, None)
+
+    get_timemeta_from_video(in_path, output, None)

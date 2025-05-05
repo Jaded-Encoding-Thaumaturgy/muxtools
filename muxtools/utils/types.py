@@ -1,8 +1,13 @@
+import json
 from enum import IntEnum
 from pathlib import Path
+from fractions import Fraction
 from typing import Union, Optional
 from datetime import timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from video_timestamps import ABCTimestamps
+
+from ..utils.dataclass import FractionEncoder, fraction_hook
 
 __all__ = [
     "PathLike",
@@ -16,6 +21,8 @@ __all__ = [
     "Chapter",
     "DitherType",
     "LossyWavQuality",
+    "VideoMeta",
+    "TimeScale",
 ]
 
 PathLike = Union[Path, str, None]
@@ -34,6 +41,52 @@ class TrackType(IntEnum):
     ATTACHMENT = 4
     CHAPTERS = 5
     MKV = 6
+
+
+@dataclass
+class VideoMeta:
+    pts: list[int]
+    fps: Fraction
+    timescale: Fraction
+    source: str
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), cls=FractionEncoder, indent=4)
+
+    @staticmethod
+    def from_json(file: PathLike) -> "VideoMeta":
+        with open(file, "r", encoding="utf-8") as f:
+            meta_json = json.loads(f.read(), object_hook=fraction_hook)
+            return VideoMeta(**meta_json)
+
+
+class TimeScale(IntEnum):
+    """Convenience enum for some common timescales."""
+
+    MKV = 1000
+    """Typical matroska timescale"""
+    MATROSKA = MKV
+    """Alias for MKV"""
+    M2TS = 90000
+    """Typical m2ts timescale"""
+
+
+TimeSourceT = Union[PathLike, Fraction, float, list, VideoMeta, ABCTimestamps, None]
+"""
+The source of timestamps/timecodes.\n
+For actual timestamps, this can be a timestamps (v1/v2/v4) file, a video file or a list of integers.\n
+For FPS based timestamps, this can be a Fraction object, a float or even a string representing a fraction.\n
+Like `'24000/1001'`.\n
+Can also be an already instantiated Timestamps class from the videotimestamps library.\n
+`None` will usually fallback to 24000/1001 but exact behavior might differ based on the target function.
+"""
+
+TimeScaleT = Union[TimeScale, Fraction, int, None]
+"""
+Unit of time (in seconds) in terms of which frame timestamps are represented.\n
+While you can pass an int, the needed type is always a Fraction and will be converted via `Fraction(your_int)`.\n
+`None` will usually fallback to a generic mkv timescale but exact behavior might differ based on the target function.
+"""
 
 
 @dataclass

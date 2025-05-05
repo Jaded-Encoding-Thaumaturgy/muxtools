@@ -3,13 +3,23 @@ from ass import Document, parse as parseDoc
 from datetime import timedelta
 from typing import Any
 from collections.abc import Callable
-from enum import IntEnum
+from enum import IntEnum, Enum
+from copy import deepcopy
+
+from video_timestamps import ABCTimestamps, TimeType
 
 from ..utils.log import error, warn
 from ..utils.types import PathLike
 from ..muxing.muxfiles import MuxingFile
 
-__all__ = ["_Line", "ASSHeader"]
+__all__ = ["_Line", "ASSHeader", "ShiftMode"]
+
+
+class ShiftMode(Enum):
+    FRAME = "frame"
+    """Shift lines by converting everything (including the offset) to a frame."""
+    TIME = "time"
+    """Shift lines directly by using the offset as a timedelta.\nYou have to use this if you want to match subKT."""
 
 
 class _Line:
@@ -150,6 +160,28 @@ class BaseSubFile(ABC, MuxingFile):
         if returned:
             doc.events = returned
         self._update_doc(doc)
+
+    def _shift_line_by_time(self, line: _Line, offset: timedelta) -> _Line:
+        new_line = deepcopy(line)
+        new_line.start = new_line.start + offset
+        new_line.end = new_line.end + offset
+        return new_line
+
+    def _shift_line_by_frames(self, line: _Line, offset: int, timestamps: ABCTimestamps) -> _Line:
+        start_frame = timestamps.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+        start = timestamps.frame_to_time(start_frame + offset, TimeType.START, 2, True)
+
+        end_ms = int(line.end.total_seconds() * 1000)
+        if end_ms <= timestamps.first_timestamps:
+            end = start
+        else:
+            end_frame = timestamps.time_to_frame(end_ms, TimeType.END, 3)
+            end = timestamps.frame_to_time(end_frame + offset, TimeType.END, 2, True)
+
+        new_line = deepcopy(line)
+        new_line.start = timedelta(milliseconds=start * 10)
+        new_line.end = timedelta(milliseconds=end * 10)
+        return new_line
 
     def set_header(self, header: str | ASSHeader, value: str | int | bool | None, opened_doc: None | Document = None) -> None:
         doc = opened_doc or self._read_doc()

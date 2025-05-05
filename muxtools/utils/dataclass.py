@@ -1,9 +1,11 @@
 import os
+import json
 from abc import ABC
 from math import ceil
 from typing import Any
 from pathlib import Path
 from psutil import Process
+from fractions import Fraction
 from shlex import split, join
 from multiprocessing import cpu_count
 from pydantic.dataclasses import ConfigDict, dataclass  # noqa: F401
@@ -15,6 +17,20 @@ __all__ = ["CLIKwargs", "allow_extra", "dataclass"]
 allow_extra = ConfigDict(extra="allow", str_strip_whitespace=True, allow_inf_nan=False, arbitrary_types_allowed=True)
 
 attribute_blacklist = ["executable", "resumable", "x265", "was_file", "affinity", "_no_print"]
+
+
+class FractionEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Fraction):
+            return {"numerator": obj.numerator, "denominator": obj.denominator}
+        return super().default(obj)
+
+
+def fraction_hook(dct: dict[str, Any]) -> dict[str, Any]:
+    for key, value in dct.items():
+        if isinstance(value, dict) and "numerator" in value and "denominator" in value:
+            dct[key] = Fraction(value["numerator"], value["denominator"])
+    return dct
 
 
 class CLIKwargs(ABC):
