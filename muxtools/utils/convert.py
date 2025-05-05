@@ -11,6 +11,7 @@ from ..utils.types import PathLike, TimeScale, VideoMeta, TimeSourceT, TimeScale
 from ..utils.log import info, warn, crit, debug, error
 from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video_file
 from ..utils.env import get_setup_attr
+from ..utils.download import get_executable
 
 __all__: list[str] = [
     "format_timedelta",
@@ -37,6 +38,7 @@ def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = No
     :return:                Videometa object
     """
     video_file = ensure_path_exists(video_file, get_timemeta_from_video)
+    assert get_executable("ffprobe")
     if not out_file:
         out_file = get_workdir() / f"{video_file.stem}_meta.json"
 
