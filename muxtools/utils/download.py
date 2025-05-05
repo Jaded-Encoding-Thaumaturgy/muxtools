@@ -1,6 +1,7 @@
 from .env import download_allowed
 from .types import PathLike
 from .log import crit, error, info
+from .files import ensure_path_exists
 
 import os
 import wget
@@ -82,8 +83,17 @@ def _find_downloaded_binary(type: str) -> Path | None:
 
     for exe in sorted(executables):
         if exe.is_file():
+            _append_exe_to_path(exe)
             return exe.resolve()
     return None
+
+
+def _append_exe_to_path(file: PathLike) -> None:
+    file = ensure_path_exists(file, get_executable, True)
+    if file.is_file():
+        file = file.parent
+    if str(file.resolve()) not in os.environ["PATH"].split(os.pathsep):
+        os.environ["PATH"] = os.pathsep.join([str(file.resolve()), os.environ["PATH"]])
 
 
 def download_binary(type: str) -> str:
