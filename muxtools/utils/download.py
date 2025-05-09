@@ -6,7 +6,6 @@ from .files import ensure_path_exists
 import os
 import wget
 import shutil as sh
-import py7zr as p7z
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -142,6 +141,10 @@ def unpack_all(dir: PathLike):
         os.remove(file)
 
     for file in dir.rglob("*.7z"):
+        try:
+            import py7zr as p7z
+        except:
+            raise error("Please install py7zr if you want to unpack 7z files.", get_executable)
         out = Path(os.path.join(file.resolve(True).parent, file.stem))
         out.mkdir(exist_ok=True)
         p7z.unpack_7zarchive(file, out)
