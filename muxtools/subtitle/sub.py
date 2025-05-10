@@ -22,7 +22,7 @@ from ..utils.convert import resolve_timesource_and_scale
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
 from ..muxing.muxfiles import MuxingFile
-from .basesub import BaseSubFile, _Line, ASSHeader, ShiftMode
+from .basesub import BaseSubFile, _Line, ASSHeader, ShiftMode, OutOfBoundsMode
 
 __all__ = ["FontFile", "SubFile", "DEFAULT_DIALOGUE_STYLES"]
 
@@ -393,6 +393,7 @@ class SubFile(BaseSubFile):
         no_error: bool = False,
         sort_lines: bool = False,
         shift_mode: ShiftMode = ShiftMode.FRAME,
+        oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR,
     ) -> SubFileSelf:
         """
         Merge another subtitle file with syncing if needed.
@@ -481,14 +482,19 @@ class SubFile(BaseSubFile):
                 assert isinstance(target, int)
                 assert isinstance(second_sync, int)
                 offset = target - second_sync
-                line = self._shift_line_by_frames(line, offset, resolved_ts)
+                line_result = self._shift_line_by_frames(line, offset, resolved_ts, oob_mode)
             else:
                 assert isinstance(target, timedelta)
                 assert isinstance(second_sync, timedelta)
                 offset = target - second_sync
-                line = self._shift_line_by_time(line, offset)
+                line_result = self._shift_line_by_time(line, offset, oob_mode)
 
-            tomerge.append(line)
+            if line_result.was_out_of_bounds:
+                warn(f"Line is out of bounds: {line.start} - {line.end}:\n\t{line.text}", self)
+                if oob_mode == OutOfBoundsMode.DROP_LINE:
+                    continue
+
+            tomerge.append(line_result.line)
 
         if tomerge:
             events.extend(tomerge)
@@ -746,7 +752,7 @@ class SubFile(BaseSubFile):
         frames: int,
         timesource: TimeSourceT = None,
         timescale: TimeScaleT = None,
-        delete_before_zero: bool = False,
+        oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR,
     ) -> SubFileSelf:
         """
         Shifts all lines by any frame number.
@@ -762,25 +768,14 @@ class SubFile(BaseSubFile):
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
             for line in lines:
-                start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3) + frames
-                if start < 0:
-                    if delete_before_zero:
+                line_result = self._shift_line_by_frames(line, frames, resolved_ts, oob_mode)
+
+                if line_result.was_out_of_bounds:
+                    warn(f"Line is out of bounds: {line.start} - {line.end}:\n\t{line.text}", self)
+                    if oob_mode == OutOfBoundsMode.DROP_LINE:
                         continue
-                    start = 0
 
-                start = timedelta(milliseconds=resolved_ts.frame_to_time(start, TimeType.START, 2, True) * 10)
-
-                if int(line.end.total_seconds() * 1000) <= resolved_ts.first_timestamps:
-                    end = 0 + frames
-                else:
-                    end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3) + frames
-
-                if end < 0:
-                    continue
-                end = timedelta(milliseconds=resolved_ts.frame_to_time(end, TimeType.END, 2, True) * 10)
-                line.start = start
-                line.end = end
-                new_list.append(line)
+                new_list.append(line_result.line)
             return new_list
 
         return self.manipulate_lines(shift_lines)

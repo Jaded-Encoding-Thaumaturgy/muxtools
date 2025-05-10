@@ -1,7 +1,7 @@
 from abc import ABC
 from ass import Document, parse as parseDoc
 from datetime import timedelta
-from typing import Any
+from typing import Any, NamedTuple
 from collections.abc import Callable
 from enum import IntEnum, Enum
 from copy import deepcopy
@@ -12,7 +12,7 @@ from ..utils.log import error, warn
 from ..utils.types import PathLike
 from ..muxing.muxfiles import MuxingFile
 
-__all__ = ["_Line", "ASSHeader", "ShiftMode"]
+__all__ = ["_Line", "ASSHeader", "ShiftMode", "OutOfBoundsMode"]
 
 
 class ShiftMode(Enum):
@@ -20,6 +20,19 @@ class ShiftMode(Enum):
     """Shift lines by converting everything (including the offset) to a frame."""
     TIME = "time"
     """Shift lines directly by using the offset as a timedelta.\nYou have to use this if you want to match subKT."""
+
+
+class OutOfBoundsMode(IntEnum):
+    """How lines that are below 0 after shifting/merging should be handled"""
+
+    ERROR = 0
+    """Raise an error"""
+    SET_TO_ZERO = 1
+    """Set both start and end to 0. Essentially disabling the line."""
+    MAX_TO_ZERO = 2
+    """Set the start to 0 and the end to what it would be after shifting or also 0 if also below 0."""
+    DROP_LINE = 3
+    """Don't include the line in the output at all."""
 
 
 class _Line:
@@ -45,6 +58,13 @@ class _Line:
     """A legacy effect to be applied to the event. Can usually also be used as another freeform field."""
     text: str
     """The text displayed (or not, if this is a Comment)"""
+
+
+class ShiftResult(NamedTuple):
+    line: _Line
+    """The line that was shifted."""
+    was_out_of_bounds: bool
+    """Whether the line was out of bounds after shifting."""
 
 
 class ASSHeader(IntEnum):
@@ -161,27 +181,64 @@ class BaseSubFile(ABC, MuxingFile):
             doc.events = returned
         self._update_doc(doc)
 
-    def _shift_line_by_time(self, line: _Line, offset: timedelta) -> _Line:
+    def _shift_line_by_time(self, line: _Line, offset: timedelta, oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR) -> ShiftResult:
         new_line = deepcopy(line)
+        outofbounds = False
         new_line.start = new_line.start + offset
         new_line.end = new_line.end + offset
-        return new_line
+        if new_line.start < timedelta(0) or new_line.end < timedelta(0):
+            outofbounds = True
+            match oob_mode:
+                case OutOfBoundsMode.ERROR:
+                    raise error(f"Line is out of bounds: {line.start} - {line.end}\n{line.text}")
+                case OutOfBoundsMode.MAX_TO_ZERO:
+                    new_line.start = timedelta(0)
+                    if new_line.end < timedelta(0):
+                        new_line.end = timedelta(0)
+                case _:
+                    new_line.start = timedelta(0)
+                    new_line.end = timedelta(0)
+        return ShiftResult(new_line, outofbounds)
 
-    def _shift_line_by_frames(self, line: _Line, offset: int, timestamps: ABCTimestamps) -> _Line:
+    def _shift_line_by_frames(
+        self, line: _Line, offset: int, timestamps: ABCTimestamps, oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR
+    ) -> ShiftResult:
+        outofbounds = False
         start_frame = timestamps.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
-        start = timestamps.frame_to_time(start_frame + offset, TimeType.START, 2, True)
+        new_start_frame = start_frame + offset
 
         end_ms = int(line.end.total_seconds() * 1000)
         if end_ms <= timestamps.first_timestamps:
-            end = start
+            end_frame = new_start_frame
         else:
             end_frame = timestamps.time_to_frame(end_ms, TimeType.END, 3)
-            end = timestamps.frame_to_time(end_frame + offset, TimeType.END, 2, True)
+
+        new_end_frame = end_frame + offset
+
+        if new_start_frame < 0 or new_end_frame < 0:
+            outofbounds = True
+            match oob_mode:
+                case OutOfBoundsMode.ERROR:
+                    raise error(f"Line is out of bounds: {line.start} - {line.end}:\n\t{line.text}")
+                case OutOfBoundsMode.MAX_TO_ZERO:
+                    new_start_frame = 0
+                    if new_end_frame < 0:
+                        new_end_frame = 0
+                case _:
+                    new_start_frame = 0
+                    new_end_frame = 0
+
+        start = timestamps.frame_to_time(new_start_frame, TimeType.START, 2, True)
+
+        if new_end_frame > 0:
+            end = timestamps.frame_to_time(new_end_frame, TimeType.END, 2, True)
+        else:
+            end = timestamps.frame_to_time(new_end_frame, TimeType.START, 2, True)
 
         new_line = deepcopy(line)
         new_line.start = timedelta(milliseconds=start * 10)
         new_line.end = timedelta(milliseconds=end * 10)
-        return new_line
+        return ShiftResult(new_line, outofbounds)
 
     def set_header(self, header: str | ASSHeader, value: str | int | bool | None, opened_doc: None | Document = None) -> None:
         doc = opened_doc or self._read_doc()
