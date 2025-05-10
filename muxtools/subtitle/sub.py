@@ -401,6 +401,7 @@ class SubFile(BaseSubFile):
         :param sort_lines:      Sort the lines by the starting timestamp.
                                 This was done by default before but may cause issues with subtitles relying on implicit layering.
         :param shift_mode:      Choose what to shift by. Defaults to shifting by frames.
+        :param oob_mode:        What to do with lines that are out of bounds after shifting.
         """
         if sync is not None or sync2 is not None and shift_mode == ShiftMode.FRAME:
             resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
@@ -752,7 +753,7 @@ class SubFile(BaseSubFile):
         :param timesource:          The source of timestamps/timecodes. For details check the docstring on the type.
         :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
                                     For details check the docstring on the type.
-        :param delete_before_zero:  Delete lines that would be before 0 after shifting.
+        :param oob_mode:            What to do with lines that are out of bounds after shifting.
         """
         resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
