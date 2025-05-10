@@ -368,17 +368,8 @@ class SubFile(BaseSubFile):
         def _func(lines: LINES):
             for line in lines:
                 if not allowed_styles or line.style.lower() in allowed_styles:
-                    start = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
-                    start = resolved_ts.frame_to_time(start, TimeType.START, 2, True)
-
-                    if Fraction(line.end.total_seconds()) <= resolved_ts.first_timestamps:
-                        end = start
-                    else:
-                        end = resolved_ts.time_to_frame(int(line.end.total_seconds() * 1000), TimeType.END, 3)
-                        end = resolved_ts.frame_to_time(end, TimeType.END, 2, True)
-
-                    line.start = timedelta(milliseconds=start * 10)
-                    line.end = timedelta(milliseconds=end * 10)
+                    result = self._shift_line_by_frames(line, 0, resolved_ts, OutOfBoundsMode.ERROR)
+                    line = result.line
 
         return self.manipulate_lines(_func)
 
