@@ -43,7 +43,7 @@ def do_audio(
                             AutoTrimmer means it will choose ffmpeg for lossy and Sox for lossless
 
     :param encoder:         Tool used to encode the audio
-                            AutoEncoder means it won't reencode lossy and choose opus (for 2.0) or qAAC/FDKAAC (for >2.0) otherwise
+                            AutoEncoder means it won't reencode lossy and choose opus otherwise.
 
     :param quiet:           Whether the tool output should be visible
     :param output:          Custom output file or directory, extensions will be automatically added
