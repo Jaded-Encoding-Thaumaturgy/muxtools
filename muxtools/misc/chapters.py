@@ -183,11 +183,12 @@ class Chapters:
         print("", end="\n")
         return self
 
-    def to_file(self: ChaptersSelf, out: PathLike | None = None) -> str:
+    def to_file(self: ChaptersSelf, out: PathLike | None = None, minus_one_ms_hack: bool = True) -> str:
         """
         Outputs the chapters to an OGM file
 
-        :param out:     Can be either a directory or a full file path
+        :param out:                 Can be either a directory or a full file path
+        :param minus_one_ms_hack:   If True, every chapter will be shifted by -1ms to avoid issues with some players
         """
         if not out:
             out = get_workdir()
@@ -197,12 +198,13 @@ class Chapters:
         else:
             out_file = out
         with open(out_file, "w", encoding="UTF-8") as f:
-            f.writelines(
-                [
-                    f"CHAPTER{i:02d}={format_timedelta(chapter[0])}\nCHAPTER{i:02d}NAME={chapter[1] if chapter[1] else ''}\n"
-                    for i, chapter in enumerate(self.chapters)
-                ]
-            )
+            chapters = [
+                "CHAPTER{num:02d}={time}\nCHAPTER{num:02d}NAME={name}\n".format(
+                    num=i + 1, time=format_timedelta((chapter[0] - timedelta(milliseconds=1)) if minus_one_ms_hack else chapter[0]), name=chapter[1]
+                )
+                for i, chapter in enumerate(sorted(self.chapters, key=lambda x: x[0]))
+            ]
+            f.writelines(chapters)
         return out_file
 
     @staticmethod
