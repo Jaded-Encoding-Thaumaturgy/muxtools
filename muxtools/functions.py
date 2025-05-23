@@ -5,13 +5,12 @@ from .utils.log import warn, error, info, danger
 from .utils.types import TimeScaleT, TimeScale, TimeSourceT
 from .muxing.muxfiles import AudioFile
 from .audio.audioutils import is_fancy_codec
-from .audio.encoders import Opus, qAAC, FDK_AAC
+from .audio.encoders import Opus
 from .utils.types import PathLike, Trim
 from .audio.extractors import FFMpeg, Sox
 from .utils.files import ensure_path, ensure_path_exists
 from .audio.tools import AutoEncoder, AutoTrimmer, Encoder, Trimmer, Extractor
 from .utils.convert import format_timedelta
-from .utils.download import get_executable
 
 __all__ = ["do_audio"]
 
@@ -104,16 +103,7 @@ def do_audio(
             encoder = None
             warn("Audio will not be reencoded due to having Atmos or special DTS features.", do_audio, 2)
         else:
-            channels = getattr(mediainfo, "channel_s", None) or 2
-            if channels <= 2:
-                encoder = Opus()
-            else:
-                has_qaac = bool(get_executable("qaac", False, False))
-                if has_qaac:
-                    encoder = qAAC(100, lowpass=20000)
-                else:
-                    warn("Attempting to fall back to FDK_AAC because of a lack of qAAC in current PATH.", do_audio, 1)
-                    encoder = FDK_AAC()
+            encoder = Opus()
 
     if trimmer and trims:
         setattr(trimmer, "trim", trims)
