@@ -185,6 +185,8 @@ def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: l
 
             filename = re.sub(re.escape(R"$title$"), epmeta.title, filename)
             title = re.sub(re.escape(R"$title$"), epmeta.title, title)
+            filename = re.sub(re.escape(R"$title_sanitized$"), epmeta.title_sanitized, filename)
+            title = re.sub(re.escape(R"$title_sanitized$"), epmeta.title_sanitized, title)
 
     for attribute in get_setup_dir():
         attr = get_setup_attr(attribute, None)

@@ -1,5 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum
+from typing import cast
 import requests
 import logging
 
@@ -62,6 +63,7 @@ class EpisodeMetadata:
     release_date: str
     synopsis: str
     thumb_url: str
+    title_sanitized: str
 
 
 @dataclass
@@ -69,23 +71,24 @@ class TmdbConfig:
     """
     A simple configuration class for TMDB Usage in muxing.
 
-    :param id:              TMDB Media ID. The numerical part in URLs like https://www.themoviedb.org/tv/82684/...
-    :param season:          The number of the season. If given an order this will be the Nth subgroup in that order.
-    :param movie:           Is this a movie?
-    :param order:           Episode group/order enum or a string for an exact ID. Obviously not applicable to a movie.
-    :param language:        The metadata language. Defaults to english.
-                            This requires ISO 639-1 codes. See https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
-                            Be aware that some metadata might just not exist in your requested language. Check beforehand.
+    :param id:                  TMDB Media ID. The numerical part in URLs like https://www.themoviedb.org/tv/82684/...
+    :param season:              The number of the season. If given an order this will be the Nth subgroup in that order.
+    :param movie:               Is this a movie?
+    :param order:               Episode group/order enum or a string for an exact ID. Obviously not applicable to a movie.
+    :param language:            The metadata language. Defaults to english.
+                                This requires ISO 639-1 codes. See https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+                                Be aware that some metadata might just not exist in your requested language. Check beforehand.
 
-    :param offset:          Offset to apply to the current number used in the setup that will be matched to the TMDB number.
+    :param offset:              Offset to apply to the current number used in the setup that will be matched to the TMDB number.
 
-    :param write_title:     Writes the episode title to the `DESCRIPTION` mkv tag if True
-    :param write_ids:       Writes the IDs (IMDB, TVDB, TMDB) to their respective mkv tags if True
-    :param write_date:      Writes the episode release date to the `DATE_RELEASED` mkv tag if True
-    :param write_cover:     Download episode thumbnail from TMDB to use as cover art attachment for the MKV.
-    :param write_summary:   Writes the series summary/synopsis to the `SUMMARY` mkv tag if True
-    :param write_synopsis:  Writes the individual episode synopsis to the `SYNOPSIS` mkv tag if True
-    :param replace_spaces:  Replaces spaces in titles with dots if True and with whatever string you passed if a string.
+    :param write_title:         Writes the episode title to the `DESCRIPTION` mkv tag if True
+    :param write_ids:           Writes the IDs (IMDB, TVDB, TMDB) to their respective mkv tags if True
+    :param write_date:          Writes the episode release date to the `DATE_RELEASED` mkv tag if True
+    :param write_cover:         Download episode thumbnail from TMDB to use as cover art attachment for the MKV.
+    :param write_summary:       Writes the series summary/synopsis to the `SUMMARY` mkv tag if True
+    :param write_synopsis:      Writes the individual episode synopsis to the `SYNOPSIS` mkv tag if True
+    :param replace_spaces:      Replaces spaces in titles with dots if True and with whatever string you passed if a string.
+    :param title_sanitization:  A dictionary of characters to replace in titles. Defaults to removing `<>:"/\|?*` characters.
     """
 
     id: int
@@ -102,6 +105,7 @@ class TmdbConfig:
     write_summary: bool = False
     write_synopsis: bool = False
     replace_spaces: str | bool = False
+    title_sanitization: dict[str, str] = field(default_factory=lambda: {'<>:"/\\|?*': ""})
 
     def needs_xml(self) -> bool:
         return self.write_ids or self.write_date or self.write_title or self.write_summary or self.write_synopsis
@@ -178,17 +182,24 @@ class TmdbConfig:
         except:
             raise error(f"Failed to find or parse episode {num:02}!", self)
 
-        title: str = episode.get("name", "")
+        title = cast(str, episode.get("name", ""))
         if self.replace_spaces is True:
             title = title.replace(" ", ".")
         elif isinstance(self.replace_spaces, str):
             title = title.replace(" ", self.replace_spaces)
+
+        sanitized_title = title
+        for key, value in self.title_sanitization.items():
+            for char in sanitized_title:
+                if char in key:
+                    sanitized_title = sanitized_title.replace(char, value)
 
         return EpisodeMetadata(
             title,
             episode.get("air_date", ""),
             episode.get("overview", ""),
             f"https://image.tmdb.org/t/p/w780{episode.get('still_path')}" if self.write_cover else "",
+            sanitized_title,
         )
 
     def make_xml(self, media: MediaMetadata, episode: EpisodeMetadata | None = None) -> PathLike:
