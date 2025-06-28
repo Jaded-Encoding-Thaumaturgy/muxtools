@@ -52,7 +52,7 @@ def info(msg: str, caller: Any = None):
 
 def warn(msg: str, caller: Any = None, sleep: int = 0):
     message = _format_msg(msg, caller)
-    logger.warn(message)
+    logger.warning(message)
     if sleep:
         time.sleep(sleep)
 
