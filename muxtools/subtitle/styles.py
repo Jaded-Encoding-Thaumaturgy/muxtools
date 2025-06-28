@@ -91,6 +91,7 @@ cabinf_default = edit_style(cabin_default, "Default", fontname="Cabin F", fontsi
 CABINF_PRESET = [cabinf_default, *get_complimenting_styles(cabinf_default)]
 """
 A custom Cabin variant with adjusted font size and margins and an em dash closer to Gandhi Sans.\n
+Made by RaptoR.\n
 From what I know there's no "official" page for this. You can download it [here](https://pomf2.lain.la/f/tgmlxa5k.7z).
 """
 
