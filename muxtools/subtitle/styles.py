@@ -7,8 +7,10 @@ from typing import Any
 __all__ = [
     "gandhi_default", "GJM_GANDHI_PRESET",
     "cabin_default", "CABIN_PRESET",
+    "cabinf_default", "CABINF_PRESET",
     "lato_default", "LATO_PRESET",
     "merriweather_default", "MERRIWEATHER_PRESET",
+    "amazon_ember_default", "AMAZON_EMBER_PRESET",
     "edit_style", "resize_preset", "default_style_args", "get_complimenting_styles"
 ]
 # fmt: on
@@ -67,6 +69,7 @@ gandhi_default = Style(
 )
 
 GJM_GANDHI_PRESET = [gandhi_default, *get_complimenting_styles(gandhi_default)]
+"""[https://www.fontsquirrel.com/fonts/gandhi-sans](https://www.fontsquirrel.com/fonts/gandhi-sans)"""
 
 cabin_default = Style(
     name="Default",
@@ -81,6 +84,15 @@ cabin_default = Style(
 )
 
 CABIN_PRESET = [cabin_default, *get_complimenting_styles(cabin_default)]
+"""[https://fonts.google.com/specimen/Cabin](https://fonts.google.com/specimen/Cabin)"""
+
+cabinf_default = edit_style(cabin_default, "Default", fontname="Cabin F", fontsize=75.0, margin_v=55)
+
+CABINF_PRESET = [cabinf_default, *get_complimenting_styles(cabinf_default)]
+"""
+A custom Cabin variant with adjusted font size and margins and an em dash closer to Gandhi Sans.\n
+From what I know there's no "official" page for this. You can download it [here](https://pomf2.lain.la/f/tgmlxa5k.7z).
+"""
 
 lato_default = Style(
     name="Default",
@@ -95,6 +107,7 @@ lato_default = Style(
 )
 
 LATO_PRESET = [lato_default, *get_complimenting_styles(lato_default)]
+"""[https://fonts.google.com/specimen/Lato](https://fonts.google.com/specimen/Lato)"""
 
 merriweather_default = Style(
     name="Default",
@@ -109,6 +122,22 @@ merriweather_default = Style(
 )
 
 MERRIWEATHER_PRESET = [merriweather_default, *get_complimenting_styles(merriweather_default)]
+"""[https://fonts.google.com/specimen/Merriweather](https://fonts.google.com/specimen/Merriweather)"""
+
+amazon_ember_default = Style(
+    name="Default",
+    fontname="Amazon Ember",
+    fontsize=78.0,
+    outline=3.5,
+    shadow=1.3,
+    margin_l=180,
+    margin_r=180,
+    margin_v=55,
+    **default_style_args,
+)
+
+AMAZON_EMBER_PRESET = [amazon_ember_default, *get_complimenting_styles(amazon_ember_default)]
+"""[https://developer.amazon.com/en-US/alexa/branding/echo-guidelines/identity-guidelines/typography](https://developer.amazon.com/en-US/alexa/branding/echo-guidelines/identity-guidelines/typography)"""
 
 
 def resize_preset(preset: list[Style], target_height: int | Document = 360) -> list[Style]:
