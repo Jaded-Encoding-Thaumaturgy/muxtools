@@ -20,7 +20,7 @@ from ..utils.types import PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScal
 from ..utils.log import debug, error, info, warn, log_escape
 from ..utils.convert import resolve_timesource_and_scale
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
-from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path
+from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path, ensure_path
 from ..muxing.muxfiles import MuxingFile
 from .basesub import BaseSubFile, _Line, ASSHeader, ShiftMode, OutOfBoundsMode
 
@@ -776,13 +776,22 @@ class SubFile(BaseSubFile):
 
         return self.manipulate_lines(shift_lines)
 
-    def copy(self: SubFileSelf) -> SubFileSelf:
+    def copy(self: SubFileSelf, filename: PathLike = None) -> SubFileSelf:
         """
         Creates a new copy of the current SubFile object, including its file.
         So you can run anything on the new one without impacting the other one.
+
+        :param filename:    Use a specific filename for this copy. Don't include an extension.
+                            If this is a dir it will have the same name and be placed in the dir.
+
+        :return:            A new SubFile instance
         """
         doc = self._read_doc()
-        new_path = uniquify_path(self.file)
+
+        new_path = ensure_path(uniquify_path(self.file), self)
+        if filename:
+            new_path = make_output(self.file, "ass", user_passed=filename)
+
         with open(new_path, "w", encoding=self.encoding) as writer:
             doc.dump_file(writer)
 
