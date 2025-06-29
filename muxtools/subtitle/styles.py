@@ -11,6 +11,8 @@ __all__ = [
     "lato_default", "LATO_PRESET",
     "merriweather_default", "MERRIWEATHER_PRESET",
     "amazon_ember_default", "AMAZON_EMBER_PRESET",
+    "ltf_default", "LTF_PRESET",
+    "fira_default", "FIRA_PRESET",
     "edit_style", "resize_preset", "default_style_args", "get_complimenting_styles"
 ]
 # fmt: on
@@ -69,7 +71,10 @@ gandhi_default = Style(
 )
 
 GJM_GANDHI_PRESET = [gandhi_default, *get_complimenting_styles(gandhi_default)]
-"""[https://www.fontsquirrel.com/fonts/gandhi-sans](https://www.fontsquirrel.com/fonts/gandhi-sans)"""
+"""
+A GandhiSans-Bold preset. The font is commonly used by GJM and MTBB and a few other groups.
+[https://www.fontsquirrel.com/fonts/gandhi-sans](https://www.fontsquirrel.com/fonts/gandhi-sans)
+"""
 
 cabin_default = Style(
     name="Default",
@@ -139,6 +144,43 @@ amazon_ember_default = Style(
 
 AMAZON_EMBER_PRESET = [amazon_ember_default, *get_complimenting_styles(amazon_ember_default)]
 """[https://developer.amazon.com/en-US/alexa/branding/echo-guidelines/identity-guidelines/typography](https://developer.amazon.com/en-US/alexa/branding/echo-guidelines/identity-guidelines/typography)"""
+
+ltf_default = Style(
+    name="Default",
+    fontname="LTFinnegan Medium",
+    fontsize=72.0,
+    outline=3.6,
+    shadow=1.5,
+    margin_l=185,
+    margin_r=185,
+    margin_v=60,
+    **(default_style_args | dict(bold=False)),
+)
+
+LTF_PRESET = [ltf_default, *get_complimenting_styles(ltf_default)]
+"""
+LinotypeFinnegan Medium preset. The font is commonly used by Commie and Kaleido.\n
+It's, apparently, technically a [paid font](https://www.myfonts.com/de/collections/finnegan-font-linotype), 
+but you can probably find it in a bunch of github repos or in the attachments of plenty of releases.
+"""
+
+fira_default = Style(
+    name="Default",
+    fontname="Fira Sans Medium",
+    fontsize=70.0,
+    outline=3.6,
+    shadow=2.5,
+    margin_l=185,
+    margin_r=185,
+    margin_v=56,
+    **(default_style_args | dict(bold=False, scale_x=103.0)),
+)
+
+FIRA_PRESET = [fira_default, *get_complimenting_styles(fira_default)]
+"""
+Fira Sans Medium preset.
+[https://fonts.google.com/specimen/Fira+Sans](https://fonts.google.com/specimen/Fira+Sans)
+"""
 
 
 def resize_preset(preset: list[Style], target_height: int | Document = 360) -> list[Style]:
