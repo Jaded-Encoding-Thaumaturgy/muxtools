@@ -44,3 +44,21 @@ def test_mismatching_res_init_merge(caplog) -> None:
     sub = SubFile([initial.file, other.file])
     assert sub.file
     assert len([record for record in caplog.get_records("call") if record.levelname == "DANGER"]) == 2
+
+
+def test_error_on_danger() -> None:
+    """
+    Test to check if merging with a resulting "danger" log actually throws an error when enabling the setting in the Setup.
+    """
+    Setup("Test", None, error_on_danger=True)
+
+    sub = SubFile(test_dir / "test-data" / "input" / "vigilantes_s01e01_en.ass")
+    other = sub.copy(get_workdir() / "vigilantes_s01e01_en_mismatched_playres").set_headers((ASSHeader.PlayResX, 1280), (ASSHeader.PlayResY, 720))
+    failed = False
+    try:
+        sub.merge(other)
+        failed = False
+    except:
+        failed = True
+
+    assert failed

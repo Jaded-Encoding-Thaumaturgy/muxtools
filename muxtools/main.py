@@ -39,6 +39,7 @@ class Setup:
     :param mkv_title_naming:        The naming template applied to the mkv title.
     :param work_dir:                In case you want to set a custom work directory for all the temp files.
     :param debug:                   Enable or Disable various, possibly interesting, debug output of all functions in this package.
+    :param error_on_danger:         Raise an error when normally a "danger" log would be printed.
     """
 
     episode: str = "01"
@@ -53,6 +54,7 @@ class Setup:
     mkv_title_naming: str = r"$show$ - $ep$"
     work_dir: str | None = None
     debug: bool = True
+    error_on_danger: bool = False
 
     def __post_init__(self):
         if self.config_file:
@@ -69,6 +71,7 @@ class Setup:
                     "out_name": self.out_name,
                     "mkv_title_naming": self.mkv_title_naming,
                     "debug": self.debug,
+                    "error_on_danger": self.error_on_danger,
                 }
 
                 with open(config_name, "w", encoding="utf-8") as config_file:

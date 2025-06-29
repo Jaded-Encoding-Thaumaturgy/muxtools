@@ -60,6 +60,12 @@ def warn(msg: str, caller: Any = None, sleep: int = 0):
 def danger(msg: str, caller: Any = None, sleep: int = 0):
     message = _format_msg(msg, caller)
     logger.log(35, message)
+
+    from .env import get_setup_attr
+
+    if get_setup_attr("error_on_danger", False):
+        raise LoggingException(message)
+
     if sleep:
         time.sleep(sleep)
 
