@@ -21,15 +21,15 @@ def test_mismatching_res_merge(caplog) -> None:
     Test to check if merging subtitles with different resolution headers logs a warning.
     """
     sub = SubFile(test_dir / "test-data" / "input" / "vigilantes_s01e01_en.ass")
-    other = sub.copy().set_headers((ASSHeader.PlayResX, 1280), (ASSHeader.PlayResY, 720))
+    other = sub.copy(get_workdir() / "vigilantes_s01e01_en_mismatched_playres").set_headers((ASSHeader.PlayResX, 1280), (ASSHeader.PlayResY, 720))
     sub.merge(other)
     assert len([record for record in caplog.get_records("call") if record.levelname == "DANGER"]) == 2
 
-    other2 = sub.copy().set_headers((ASSHeader.LayoutResX, None), (ASSHeader.LayoutResY, None))
+    other2 = sub.copy(get_workdir() / "vigilantes_s01e01_en_no_layoutres").set_headers((ASSHeader.LayoutResX, None), (ASSHeader.LayoutResY, None))
     sub.merge(other2)
     assert len([record for record in caplog.get_records("call") if record.levelname == "WARN"]) == 2
 
-    other3 = sub.copy().set_headers((ASSHeader.YCbCr_Matrix, "TV.601"))
+    other3 = sub.copy(get_workdir() / "vigilantes_s01e01_en_bt601").set_headers((ASSHeader.YCbCr_Matrix, "TV.601"))
     sub.merge(other3)
     assert len([record for record in caplog.get_records("call") if record.levelname == "DANGER"]) == 3
 

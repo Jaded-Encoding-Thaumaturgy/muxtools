@@ -64,7 +64,7 @@ class SubFile(BaseSubFile):
                     doc = parseDoc(read)
                     docs.append(doc)
                     if i != 0:
-                        self._warn_mismatched_properties(docs[0], doc, self.file[0].name, f.name)
+                        self._warn_mismatched_properties(docs[0], doc, ensure_path(self.file[0], self).name, f.name)
 
             main = docs[0]
             existing_styles = [style.name for style in (main.styles)]
@@ -412,7 +412,8 @@ class SubFile(BaseSubFile):
         file = ensure_path_exists(file, self)
         mergedoc = self._read_doc(file)
         doc = self._read_doc()
-        self._warn_mismatched_properties(doc, mergedoc, ensure_path_exists(self.file, self).name, file.name)
+        doc_name = ensure_path_exists(self.file, self).name if str(self.source).lower().endswith(".mkv") else ensure_path(self.source, self).name
+        self._warn_mismatched_properties(doc, mergedoc, doc_name, file.name)
 
         events = []
         tomerge = []
