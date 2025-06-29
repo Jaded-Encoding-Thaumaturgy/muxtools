@@ -522,7 +522,9 @@ class SubFile(BaseSubFile):
         :param additional_fonts:            Can be a directory or a path to a file directly (or a list of either)
         :param collect_draw_fonts:          Whether or not to include fonts used for drawing (usually Arial)
                                             See https://github.com/libass/libass/issues/617 for details.
-        :param error_missing:               Raise an error instead of just warnings when a font is missing.
+        :param error_missing:               Raise an error instead of just warnings when a font is missing.\n
+                                            This is **deprecated** and will be removed at some point in the future.
+                                            Please use `error_on_danger` in the Setup.
         :param use_ntfs_compliant_names:    Ensure that filenames will work on a NTFS (Windows) filesystem.
                                             The `None` default means it'll use them but only if you're running the script on windows.
 
@@ -551,6 +553,9 @@ class SubFile(BaseSubFile):
         from .font import collect_fonts as collect
 
         info(f"Collecting fonts for '{self.file.stem}'...", self)
+
+        if error_missing:
+            warn("The 'error_missing' parameter is deprecated.\nPlease use the 'error_on_danger' variable on the Setup.", self, 1)
 
         if use_ntfs_compliant_names is None:
             use_ntfs_compliant_names = os.name == "nt"
