@@ -8,7 +8,7 @@ from copy import deepcopy
 
 from video_timestamps import ABCTimestamps, TimeType
 
-from ..utils.log import error, warn
+from ..utils.log import error, warn, danger
 from ..utils.types import PathLike
 from ..muxing.muxfiles import MuxingFile
 
@@ -180,6 +180,20 @@ class BaseSubFile(ABC, MuxingFile):
         if returned:
             doc.events = returned
         self._update_doc(doc)
+
+    def _warn_mismatched_properties(self, doc: Document, other: Document, doc_name: str, other_name: str) -> None:
+        keys_to_check = ["PlayResX", "PlayResY", "YCbCr Matrix", "LayoutResX", "LayoutResY"]
+        for key in keys_to_check:
+            doc_value = doc.info.get(key, None)
+            other_value = other.info.get(key, None)
+            if doc_value != other_value:
+                if not doc_value or not other_value:
+                    if not doc_value:
+                        warn(f"The {key} header is not set in '{doc_name}'.", self)
+                    else:
+                        warn(f"The {key} header is not set in '{other_name}'.", self)
+                else:
+                    danger(f"The {key} header is set to {doc_value} in '{doc_name}' and {other_value} in '{other_name}'!", self)
 
     def _shift_line_by_time(self, line: _Line, offset: timedelta, oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR) -> ShiftResult:
         new_line = deepcopy(line)

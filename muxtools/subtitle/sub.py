@@ -58,10 +58,13 @@ class SubFile(BaseSubFile):
         if isinstance(self.file, list) and len(self.file) > 1:
             debug("Merging sub files...", self)
             docs: list[Document] = []
-            for f in self.file:
+            for i, f in enumerate(self.file):
                 f = ensure_path_exists(f, self)
                 with open(f, "r", encoding=self.encoding) as read:
-                    docs.append(parseDoc(read))
+                    doc = parseDoc(read)
+                    docs.append(doc)
+                    if i != 0:
+                        self._warn_mismatched_properties(docs[0], doc, self.file[0].name, f.name)
 
             main = docs[0]
             existing_styles = [style.name for style in (main.styles)]
@@ -409,6 +412,7 @@ class SubFile(BaseSubFile):
         file = ensure_path_exists(file, self)
         mergedoc = self._read_doc(file)
         doc = self._read_doc()
+        self._warn_mismatched_properties(doc, mergedoc, ensure_path_exists(self.file, self).name, file.name)
 
         events = []
         tomerge = []
