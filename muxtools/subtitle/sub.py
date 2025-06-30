@@ -847,10 +847,10 @@ class SubFile(BaseSubFile):
             if an8_all_caps and text.upper() == text and len(text) > 7:
                 text = R"{\an8}" + text
                 is_sign = True
-            text = re.sub(r"[\<|{]i[\>|}]", "{\\\i1}", text)
-            text = re.sub(r"[\<|{]\/i[\>|}]", "{\\\i}", text)
-            text = re.sub(r"[\<|{]b[\>|}]", "{\\b1}", text)
-            text = re.sub(r"[\<|{]\/b[\>|}]", "{\\b}", text)
+            text = re.sub(r"[\<|{]i[\>|}]", R"{\\i1}", text)
+            text = re.sub(r"[\<|{]\/i[\>|}]", R"{\\i}", text)
+            text = re.sub(r"[\<|{]b[\>|}]", R"{\\b1}", text)
+            text = re.sub(r"[\<|{]\/b[\>|}]", R"{\\b}", text)
             text = re.sub(r"[\<|{]u[\>|}]", R"{\\u1}", text)
             text = re.sub(r"[\<|{]\/u[\>|}]", R"{\\u}", text)
             return text, is_sign
