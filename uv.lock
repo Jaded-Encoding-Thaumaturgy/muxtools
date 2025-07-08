@@ -527,7 +527,7 @@ wheels = [
 
 [[package]]
 name = "muxtools"
-version = "0.2.3"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "ass" },
@@ -538,6 +538,7 @@ dependencies = [
     { name = "pyparsebluray" },
     { name = "requests" },
     { name = "rich" },
+    { name = "typed-ffmpeg-compatible" },
     { name = "videotimestamps" },
     { name = "wget" },
 ]
@@ -561,6 +562,7 @@ requires-dist = [
     { name = "pyparsebluray", specifier = ">=0.1.4" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.1.0" },
+    { name = "typed-ffmpeg-compatible", specifier = ">=3.6.0" },
     { name = "videotimestamps", specifier = ">=0.2.0" },
     { name = "wget", specifier = ">=3.2" },
 ]
@@ -1103,6 +1105,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/b9/1ed31d167be802da0fc95020d04cd27b7d7065cc6fbefdd2f9186f60d7bd/tomli-2.2.1-cp313-cp313-win32.whl", hash = "sha256:d3f5614314d758649ab2ab3a62d4f2004c825922f9e370b29416484086b264ec", size = 98724, upload-time = "2024-11-27T22:38:32.837Z" },
     { url = "https://files.pythonhosted.org/packages/c7/32/b0963458706accd9afcfeb867c0f9175a741bf7b19cd424230714d722198/tomli-2.2.1-cp313-cp313-win_amd64.whl", hash = "sha256:a38aa0308e754b0e3c67e344754dff64999ff9b513e691d0e786265c93583c69", size = 109383, upload-time = "2024-11-27T22:38:34.455Z" },
     { url = "https://files.pythonhosted.org/packages/6e/c2/61d3e0f47e2b74ef40a68b9e6ad5984f6241a942f7cd3bbfbdbd03861ea9/tomli-2.2.1-py3-none-any.whl", hash = "sha256:cb55c73c5f4408779d0cf3eef9f762b9c9f147a77de7b258bef0a5628adc85cc", size = 14257, upload-time = "2024-11-27T22:38:35.385Z" },
+]
+
+[[package]]
+name = "typed-ffmpeg-compatible"
+version = "3.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/0c/0377e1c6fa0cbbf8ed9f5c47db964e75831d2c42eb0c66c52f967c86e7b3/typed_ffmpeg_compatible-3.6.tar.gz", hash = "sha256:d2f4607b4614c905c901aef8b6e82ad474d3bc089cc622f085c0a49ec6dac8ee", size = 272787, upload-time = "2025-07-01T06:58:12.895Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/23/001681daf4b555f786f6a21a5ccf3db8f08f627be62bd80f33ce53aa66dd/typed_ffmpeg_compatible-3.6-py3-none-any.whl", hash = "sha256:8d7fdcb3277067b2230a6a26627c09121ad4e4318643575916a04aa4f1685f2e", size = 291226, upload-time = "2025-07-01T06:58:11.297Z" },
 ]
 
 [[package]]
