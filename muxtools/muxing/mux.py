@@ -72,7 +72,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
             # Failsave for if someone passes Chapters().to_file() or a txt/xml file
             track = ensure_path_exists(track, "Mux")
             if track.suffix.lower() in [".txt", ".xml"]:
-                args.extend(["--chapters", track.resolve()])
+                args.extend(["--chapters", str(track.resolve())])
                 continue
         elif track is None:
             continue
