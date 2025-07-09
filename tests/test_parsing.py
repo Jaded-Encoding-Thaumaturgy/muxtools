@@ -44,6 +44,7 @@ def test_h264_dts_hra():
     assert parsed.tracks[0].codec_name == "h264"
     assert parsed.tracks[1].get_audio_format() == AudioFormat.AC3
     assert parsed.tracks[2].get_audio_format() == AudioFormat.DTS_HRA
+    assert parsed.tracks[2].get_audio_format().is_lossy
 
 
 def test_h264_dts_hd():
@@ -54,6 +55,28 @@ def test_h264_dts_hd():
     assert parsed.tracks[0].codec_name == "h264"
     assert parsed.tracks[1].get_audio_format() == AudioFormat.DTS_HD
     assert parsed.tracks[2].get_audio_format() == AudioFormat.DTS_HD
+    assert not parsed.tracks[2].get_audio_format().is_lossy
+
+    sample_file = test_dir / "test-data" / "sample-files" / "H264-DTS-HD-sample.mkv"
+    parsed = ParsedFile.from_file(sample_file)
+
+    assert parsed.container_info.format_name == "matroska,webm"
+    assert parsed.tracks[0].codec_name == "h264"
+    assert parsed.tracks[1].get_audio_format() == AudioFormat.DTS_HD
+    assert parsed.tracks[2].get_audio_format() == AudioFormat.DTS_HD
+    assert not parsed.tracks[2].get_audio_format().is_lossy
+
+
+def test_h264_dts():
+    sample_file = test_dir / "test-data" / "sample-files" / "H264-DTS-sample.mkv"
+    parsed = ParsedFile.from_file(sample_file)
+
+    assert parsed.container_info.format_name == "matroska,webm"
+    assert parsed.tracks[0].codec_name == "h264"
+    assert parsed.tracks[0].raw_ffprobe.bits_per_raw_sample == 10
+    assert parsed.tracks[1].get_audio_format() == AudioFormat.DTS
+    assert parsed.tracks[1].get_audio_format().is_lossy
+    assert parsed.tracks[2].get_audio_format() == AudioFormat.DTS
 
     sample_file = test_dir / "test-data" / "sample-files" / "H264-DTS-HD-sample.mkv"
     parsed = ParsedFile.from_file(sample_file)
@@ -73,6 +96,8 @@ def test_h264_dts_x():
     assert parsed.tracks[0].codec_name == "h264"
     assert parsed.tracks[1].get_audio_format() == AudioFormat.DTS_HD_X
     assert parsed.tracks[2].get_audio_format() == AudioFormat.AC3
+    assert not parsed.tracks[1].get_audio_format().is_lossy
+    assert parsed.tracks[2].get_audio_format().is_lossy
 
 
 def test_h264_mp3_vorbis():
