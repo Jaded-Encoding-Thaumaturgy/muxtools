@@ -75,6 +75,17 @@ def test_h264_dts_x():
     assert parsed.tracks[2].get_audio_format() == AudioFormat.AC3
 
 
+def test_h264_mp3_vorbis():
+    sample_file = test_dir / "test-data" / "sample-files" / "H264-MP3-Vorbis-sample.mkv"
+
+    parsed = ParsedFile.from_file(sample_file)
+
+    assert parsed.container_info.format_name == "matroska,webm"
+    assert parsed.tracks[0].codec_name == "h264"
+    assert parsed.tracks[1].get_audio_format() == AudioFormat.MP3
+    assert parsed.tracks[2].get_audio_format() == AudioFormat.VORBIS
+
+
 def test_h264_pcm():
     sample_file = test_dir / "test-data" / "sample-files" / "H264-PCM-sample.m2ts"
 
