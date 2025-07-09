@@ -1,0 +1,28 @@
+name: Run tests
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+      - name: Setup ffmpeg
+        uses: AnimMouse/setup-ffmpeg@v1
+        with:
+          version: 6.1
+      - name: Setup mkvtoolnix & mediainfo
+        run: |
+          wget -O /usr/share/keyrings/gpg-pub-moritzbunkus.gpg https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg
+          echo "deb [signed-by=/usr/share/keyrings/gpg-pub-moritzbunkus.gpg] https://mkvtoolnix.download/ubuntu/ noble main\ndeb-src [signed-by=/usr/share/keyrings/gpg-pub-moritzbunkus.gpg] https://mkvtoolnix.download/ubuntu/ noble main" > /etc/apt/sources.list.d/mkvtoolnix.download.list
+
+          wget https://mediaarea.net/repo/deb/repo-mediaarea_1.0-25_all.deb && dpkg -i repo-mediaarea_1.0-25_all.deb && apt-get update
+          apt-get -y install mediainfo mkvtoolnix
+      - name: Run tests
+        run: uv run pytest tests
+      
