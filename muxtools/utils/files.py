@@ -1,6 +1,5 @@
 import os
 import re
-import json
 from typing import Any
 from pathlib import Path
 from shutil import rmtree
@@ -8,11 +7,12 @@ from copy import deepcopy
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from pymediainfo import Track, MediaInfo
+from typed_ffmpeg import probe_obj
 
 from .log import crit, error, LoggingException
 from .glob import GlobSearch
 from .types import PathLike, TrackType
-from .env import get_temp_workdir, get_workdir, communicate_stdout
+from .env import get_temp_workdir, get_workdir
 
 __all__ = [
     "ensure_path",
@@ -89,25 +89,20 @@ def is_video_file(file: Path) -> bool:
     from .download import get_executable
 
     ffprobe = get_executable("ffprobe")
-    command = [ffprobe, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-i", str(file.resolve())]
-    res, out = communicate_stdout(command)
-    if res != 0:
+    try:
+        out = probe_obj(file.resolve(), cmd=ffprobe)
+        assert out
+    except:
         return False
 
-    out_json: dict = json.loads(out)
-    streams: list[dict[str, Any]] = out_json.get("streams", None)
-    if not streams:
+    if not out.streams or not out.streams.stream or not out.format:
         return False
 
-    format: dict[str, Any] = out_json.get("format", None)
-    if not format:
+    if "tty" in out.format.format_name:
         return False
 
-    if "tty" in format["format_name"]:
-        return False
-
-    for stream in streams:
-        type: str = stream["codec_type"]
+    for stream in out.streams.stream:
+        type: str = stream.codec_type or ""
         if type.lower() == "video":
             return True
 
