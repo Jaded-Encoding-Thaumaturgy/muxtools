@@ -1,34 +1,51 @@
 name: Run tests
 on:
   push:
-    branches:
-      - kill-mediainfo-v2
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.13']
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Fetch actions context
+        uses: qoomon/actions--context@e25d529a56d21d2c5ce53b09f20173b454c76cf2 # v4.0.3
+        id: context
+      - name: Determine branch name
+        id: branch-names
+        run: echo "current_branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
       - name: Setup ffmpeg
-        uses: AnimMouse/setup-ffmpeg@v1
+        uses: AnimMouse/setup-ffmpeg@27e66fd2fe1d643b73a7c5cb105f3b4116bfb8db # v1.2.1
         with:
-          version: 6.1
+          version: 7.1
       - name: Setup mkvtoolnix
         run: |
-            wget https://mkvtoolnix.download/appimage/MKVToolNix_GUI-93.0-x86_64.AppImage
-            mkdir ~/bin
-            sudo ln -s MKVToolNix_GUI-93.0-x86_64.AppImage ~/bin/mkvpropedit
-            sudo ln -s MKVToolNix_GUI-93.0-x86_64.AppImage ~/bin/mkvmerge
-            sudo ln -s MKVToolNix_GUI-93.0-x86_64.AppImage ~/bin/mkvinfo
-            echo "~/bin" >> $GITHUB_PATH
+          sudo wget -O /usr/share/keyrings/gpg-pub-moritzbunkus.gpg https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg
+          echo "deb [signed-by=/usr/share/keyrings/gpg-pub-moritzbunkus.gpg] https://mkvtoolnix.download/ubuntu/ noble main\ndeb-src [signed-by=/usr/share/keyrings/gpg-pub-moritzbunkus.gpg] https://mkvtoolnix.download/ubuntu/ noble main" | sudo tee --append /etc/apt/sources.list.d/mkvtoolnix.download.list
+          sudo apt-get update
+          sudo apt-get -y install mkvtoolnix
       - name: Check mkvmerge
         run: mkvmerge --version
-      - name: Run tests
-        run: uv run pytest tests
+      - name: Run tests (Python ${{ matrix.python-version }})
+        run: uv run --python ${{ matrix.python-version }} pytest tests
+
+      - name: Post webhook for failure
+        if: failure()
+        uses: tsickert/discord-webhook@b217a69502f52803de774ded2b1ab7c282e99645 # v7.0.0
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          embed-url: ${{ steps.context.outputs.job_log_url }}
+          embed-title: "[${{ github.event.repository.name }}] ${{ steps.context.outputs.job }} failed on ${{ steps.branch-names.outputs.current_branch }}"
+          username: "GitHub - ${{ github.repository }}"
+          avatar-url: https://github.githubassets.com/favicons/favicon.png
       
