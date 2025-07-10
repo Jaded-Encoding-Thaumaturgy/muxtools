@@ -1,7 +1,8 @@
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Callable
 from typed_ffmpeg import probe_obj
 from typed_ffmpeg.ffprobe.schema import streamType, ffprobeType, tagsType, formatType
 from mkvinfo import MKVInfo, Track as MkvInfoTrack, Container as MkvInfoContainer
@@ -83,12 +84,21 @@ class ParsedFile:
     container_info: ContainerInfo
     tracks: list[TrackInfo]
     is_video_file: bool
+    source: Path
 
     raw_ffprobe: ffprobeType
     raw_mkvmerge: MKVInfo | None
 
     @staticmethod
     def from_file(path: PathLike, caller: Any | None = None, allow_mkvmerge_warning: bool = True) -> Optional["ParsedFile"]:
+        """
+        Parses a file with ffprobe and, if given and a video track is found, mkvmerge.
+
+        :param path:                    Any file.
+        :param caller:                  Caller used for logging. Mostly intended for internal use.
+        :param allow_mkvmerge_warning:  If the warning for a missing mkvmerge install should actually be printed.\n
+                                        Again, for internal use.
+        """
         path = ensure_path_exists(path, caller)
         ffprobe_exe = get_executable("ffprobe")
         try:
@@ -167,10 +177,90 @@ class ParsedFile:
                 )
                 tracks.append(trackinfo)
 
-        return ParsedFile(container_info, tracks, is_video_file, out, mkvmerge_out)
+        return ParsedFile(container_info, tracks, is_video_file, path, out, mkvmerge_out)
+
+    def find_tracks(
+        self,
+        name: str | None = None,
+        lang: str | None = None,
+        type: TrackType | None = None,
+        relative_id: int | list[int] | None = None,
+        use_regex: bool = True,
+        reverse_lang: bool = False,
+        custom_condition: Callable[[TrackInfo], bool] | None = None,
+        error_if_empty: bool = False,
+        caller: Any | None = None,
+    ) -> list[TrackInfo]:
+        """
+        Convenience function to find tracks with some conditions.
+
+        :param name:                Name to match, case insensitively and preceeding/leading whitespace removed.
+        :param lang:                Language to match. This can be any of the possible formats like English/eng/en and is case insensitive.
+        :param type:                Track Type to search for.
+        :param relative_id:         What relative (to the type) indices the tracks should have.
+        :param use_regex:           Use regex for the name search instead of checking for equality.
+        :param reverse_lang:        If you want the `lang` param to actually exclude that language.
+        :param custom_condition:    Here you can pass any function to create your own conditions. (They have to return a bool)\n
+                                    For example: `custom_condition=lambda track: track.codec_name == "eac3"`
+        :param error_if_empty:      Throw an error instead of returning an empty list if nothing was found for the given conditions.
+        :param caller:              Caller to use for logging. Mostly intended for internal use.
+        """
+
+        if not name and not lang and not type and relative_id is None and custom_condition is None:
+            return []
+        if relative_id is not None and type is None:
+            raise error("You can only search for a relative id with a specific track type!", caller or self.find_tracks)
+
+        tracks = self.tracks
+
+        def name_matches(title: str) -> bool:
+            if title.casefold().strip() == name.casefold().strip():
+                return True
+            if use_regex:
+                return re.match(name, title, re.I)
+            return False
+
+        def get_languages(track: TrackInfo) -> list[str]:
+            languages = list[str | None]()
+            languages.append(track.language)
+            if track.raw_mkvmerge:
+                languages.append(track.raw_mkvmerge.properties.language)
+                languages.append(track.raw_mkvmerge.properties.language_ietf)
+            return [lang.casefold() for lang in languages if lang]
+
+        if name:
+            tracks = [track for track in tracks if name_matches(track.title or "")]
+
+        if lang:
+            if reverse_lang:
+                tracks = [track for track in tracks if lang.casefold() not in get_languages(track)]
+            else:
+                tracks = [track for track in tracks if lang.casefold() in get_languages(track)]
+
+        if type:
+            if type not in (TrackType.VIDEO, TrackType.AUDIO, TrackType.SUB):
+                raise error("You can only search for video, audio and subtitle tracks!", caller or self.find_tracks)
+            tracks = [track for track in tracks if track.type == type]
+
+        if relative_id is not None:
+            if not isinstance(relative_id, list):
+                relative_id = [relative_id]
+            tracks = [track for track in tracks if track.relative_index in relative_id]
+
+        if custom_condition:
+            tracks = [track for track in tracks if custom_condition(track)]
+
+        if not tracks and error_if_empty:
+            raise error(f"Could not find requested track in '{self.source.name}'!", caller or self.find_tracks)
+
+        return tracks
 
 
 class AudioFormat(Enum):
+    """
+    A collection of somewhat common known audio formats.
+    """
+
     display_name: str
     codec_name: str
     codec_long_name: str
@@ -232,23 +322,46 @@ class AudioFormat(Enum):
 
     # Common lossy codecs
     AC3 = "AC-3", "ac3", "ATSC A/52A (AC-3)", True
+    """[Dolby Digital](https://en.wikipedia.org/wiki/Dolby_Digital)"""
     EAC3 = "EAC-3", "eac3", "ATSC A/52B (AC-3, E-AC-3)", True
+    """[Dolby Digital Plus](https://en.wikipedia.org/wiki/Dolby_Digital_Plus)"""
     EAC3_ATMOS = "EAC-3 Atmos", "eac3", "ATSC A/52B (AC-3, E-AC-3)", True, None, "Dolby Digital Plus + Dolby Atmos"
+    """[Dolby Digital Plus](https://en.wikipedia.org/wiki/Dolby_Digital_Plus) with [Atmos](https://en.wikipedia.org/wiki/Dolby_Atmos) metadata."""
     AAC = "AAC", "aac", "AAC (Advanced Audio Coding)", True
+    """[Advanced Audio Coding](https://en.wikipedia.org/wiki/Advanced_Audio_Coding)"""
     AAC_XHE = "xHE-AAC", "aac", "AAC (Advanced Audio Coding)", True, None, "xHE-AAC"
+    """
+    A profile of AAC also sometimes known as [USAC](https://en.wikipedia.org/wiki/Unified_Speech_and_Audio_Coding).\n
+    Compat for this is still not a given outside of mobile devices so transcoding may be recommended.
+    """
     OPUS = "Opus", "opus", "Opus (Opus Interactive Audio Codec)", True
+    """[Opus](https://en.wikipedia.org/wiki/Opus_(audio_format))"""
     VORBIS = "Vorbis", "vorbis", "Vorbis", True, "ogg"
+    """[Vorbis](https://en.wikipedia.org/wiki/Vorbis)"""
     MP3 = "MP3", "mp3", "MP3 (MPEG audio layer 3)", True
+    """[MPEG-1 Audio Layer III](https://en.wikipedia.org/wiki/MP3)"""
 
     # Common lossless codecs
     FLAC = "FLAC", "flac", "FLAC (Free Lossless Audio Codec)", False
+    """[Free Lossless Audio Codec](https://en.wikipedia.org/wiki/FLAC)"""
     TRUEHD = "TrueHD", "truehd", "TrueHD", False, "thd"
+    """[TrueHD](https://en.wikipedia.org/wiki/Dolby_TrueHD)"""
     TRUEHD_ATMOS = "TrueHD Atmos", "truehd", "TrueHD", False, None, "Dolby TrueHD + Dolby Atmos"
+    """[TrueHD](https://en.wikipedia.org/wiki/Dolby_TrueHD) with [Atmos](https://en.wikipedia.org/wiki/Dolby_Atmos) metadata."""
     PCM = "PCM", "pcm_*", "PCM *", False, "wav"
+    """[Pulse-code modulation](https://en.wikipedia.org/wiki/Pulse-code_modulation)"""
 
     # DTS Codecs
     DTS = "DTS", "dts", "DCA (DTS Coherent Acoustics)", True
+    """[DTS](https://en.wikipedia.org/wiki/DTS,_Inc.#DTS_Digital_Surround)"""
     DTS_HD = "DTS-HD MA", "dts", "DCA (DTS Coherent Acoustics)", False, None, "DTS-HD MA"
+    """
+    [DTS-HD Master Audio](https://en.wikipedia.org/wiki/DTS-HD_Master_Audio)\n
+    is the lossless extension for DTS.
+    """
     DTS_HD_X = "DTS-X", "dts", "DCA (DTS Coherent Acoustics)", False, None, "DTS-HD MA + DTS:X"
+    """[DTS-HD MA](https://en.wikipedia.org/wiki/DTS-HD_Master_Audio) with metadata for object-based surround sound similar to Atmos."""
     DTS_HRA = "DTS-HR", "dts", "DCA (DTS Coherent Acoustics)", True, None, "DTS-HD HRA"
+    """Another lossy DTS variant with the supposed purpose of being higher bitrate and quality than DTS but still being substantially lower in size than lossless MA."""
     DTS_ES = "DTS-ES", "dts", "DCA (DTS Coherent Acoustics)", True, None, "DTS-ES"
+    """Another lossy DTS variant that I honestly have no idea about in terms of what it's supposed to be used for."""
