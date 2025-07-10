@@ -19,13 +19,16 @@ jobs:
         uses: AnimMouse/setup-ffmpeg@v1
         with:
           version: 6.1
-      - name: Setup mkvtoolnix & mediainfo
+      - name: Setup mkvtoolnix
         run: |
-          wget -O /usr/share/keyrings/gpg-pub-moritzbunkus.gpg https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg
-          echo "deb [signed-by=/usr/share/keyrings/gpg-pub-moritzbunkus.gpg] https://mkvtoolnix.download/ubuntu/ noble main\ndeb-src [signed-by=/usr/share/keyrings/gpg-pub-moritzbunkus.gpg] https://mkvtoolnix.download/ubuntu/ noble main" > /etc/apt/sources.list.d/mkvtoolnix.download.list
-
-          wget https://mediaarea.net/repo/deb/repo-mediaarea_1.0-25_all.deb && dpkg -i repo-mediaarea_1.0-25_all.deb && apt-get update
-          apt-get -y install mediainfo mkvtoolnix
+            wget https://mkvtoolnix.download/appimage/MKVToolNix_GUI-93.0-x86_64.AppImage
+            mkdir ~/bin
+            sudo ln -s MKVToolNix_GUI-93.0-x86_64.AppImage ~/bin/mkvpropedit
+            sudo ln -s MKVToolNix_GUI-93.0-x86_64.AppImage ~/bin/mkvmerge
+            sudo ln -s MKVToolNix_GUI-93.0-x86_64.AppImage ~/bin/mkvinfo
+            echo "~/bin" >> $GITHUB_PATH
+      - name: Check mkvmerge
+        run: mkvmerge --version
       - name: Run tests
         run: uv run pytest tests
       
