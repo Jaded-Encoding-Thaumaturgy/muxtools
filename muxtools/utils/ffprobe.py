@@ -8,7 +8,7 @@ from mkvinfo import MKVInfo, Track as MkvInfoTrack, Container as MkvInfoContaine
 from itertools import groupby
 
 from .log import error, warn
-from .types import PathLike
+from .types import PathLike, TrackType
 from .files import ensure_path_exists
 from .download import get_executable
 
@@ -30,9 +30,9 @@ class ContainerInfo:
 class TrackInfo:
     index: int
     relative_index: int
+    type: TrackType
     codec_name: str
     codec_long_name: str | None
-    codec_type: str
     profile: str | None
 
     language: str | None
@@ -46,9 +46,25 @@ class TrackInfo:
     raw_mkvmerge: MkvInfoTrack | None
 
     def get_audio_format(self) -> Optional["AudioFormat"]:
-        if not self.codec_type.lower() == "audio":
+        if not self.type == TrackType.AUDIO:
             return None
         return AudioFormat.from_track(self.raw_ffprobe)
+
+    @property
+    def bit_depth(self) -> int | None:
+        raw_bits = self.raw_ffprobe.bits_per_raw_sample
+        if self.type == TrackType.AUDIO:
+            sample_fmt = self.raw_ffprobe.sample_fmt
+            if raw_bits:
+                return raw_bits
+            elif sample_fmt and sample_fmt.lower() in ["s32", "s32p"]:
+                return 24
+            elif sample_fmt and sample_fmt.lower() in ["s16", "s16p"]:
+                return 16
+            else:
+                return None
+        else:
+            return raw_bits if raw_bits else self.raw_ffprobe.bits_per_sample
 
 
 def tags_to_dict(tags: tagsType | None) -> dict[str, str]:
@@ -129,12 +145,16 @@ class ParsedFile:
                 language = tags.pop("language", None)
                 title = tags.pop("title", None)
 
+                track_type = [ttype for ttype in TrackType if ttype.name.lower() in type.lower()]
+                if not track_type:
+                    raise error(f"Unknown track type for '{type}' in '{path.stem}'!", caller)
+
                 trackinfo = TrackInfo(
                     index=track.index,
                     relative_index=i,
                     codec_name=track.codec_name,
                     codec_long_name=track.codec_long_name,
-                    codec_type=type,
+                    type=track_type[0],
                     profile=track.profile,
                     language=language,
                     title=title,
