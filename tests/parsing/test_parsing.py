@@ -1,6 +1,7 @@
+from muxtools import ensure_path
 from muxtools.utils.ffprobe import AudioFormat, ParsedFile
 
-from test_sub_shifting import test_dir
+test_dir = ensure_path(__file__, None).parent.parent
 
 
 def test_h262_dts_es():
