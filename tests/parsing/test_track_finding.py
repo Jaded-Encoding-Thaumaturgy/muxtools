@@ -1,5 +1,5 @@
 from muxtools import ensure_path, TrackType
-from muxtools.utils.ffprobe import AudioFormat, ParsedFile
+from muxtools.utils import AudioFormat, ParsedFile
 import pytest
 
 
@@ -46,3 +46,21 @@ def test_find_by_language(parsed_file):
     assert found[0].type == TrackType.VIDEO
     assert found[1].type == TrackType.AUDIO
     assert found[1].get_audio_format() == AudioFormat.OPUS
+
+
+def test_find_custom_condition(parsed_file):
+    found = parsed_file.find_tracks(custom_condition=lambda track: track.get_audio_format() == AudioFormat.OPUS)
+
+    assert len(found) == 1
+    assert found[0].type == TrackType.AUDIO
+
+
+def test_error_on_empty(parsed_file):
+    failed = False
+
+    try:
+        parsed_file.find_tracks(custom_condition=lambda track: track.get_audio_format() == AudioFormat.FLAC, error_if_empty=True)
+    except:
+        failed = True
+
+    assert failed
