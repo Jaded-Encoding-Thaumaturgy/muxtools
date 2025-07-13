@@ -5,18 +5,18 @@ from datetime import timedelta
 from typing import Any
 from collections.abc import Sequence
 
-from pymediainfo import Track, MediaInfo
-
 from .preprocess import Preprocessor, Resample
 from ..utils.files import make_output, ensure_path_exists
 from ..muxing.muxfiles import AudioFile
 from ..utils.log import debug, warn, error, danger
 from ..utils.download import get_executable
 from ..utils.env import get_temp_workdir, communicate_stdout
-from ..utils.types import Trim, AudioFormat, ValidInputType, PathLike
+from ..utils.types import Trim, ValidInputType, PathLike
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
+from ..utils.probe import TrackInfo
+from ..utils.formats import AudioFormat
 
-__all__ = ["ensure_valid_in", "sanitize_trims", "format_from_track", "is_fancy_codec", "qaac_compatcheck", "has_libFDK"]
+__all__ = ["ensure_valid_in", "sanitize_trims", "qaac_compatcheck", "has_libFDK"]
 
 
 def sanitize_pre(preprocess: Preprocessor | Sequence[Preprocessor] | None = None) -> list[Preprocessor]:
@@ -40,25 +40,26 @@ def ensure_valid_in(
         msg = f"'{fileIn.file.name}' is a container with multiple tracks.\n"
         msg += f"The first audio track will be {'piped' if supports_pipe else 'extracted'} using default ffmpeg."
         warn(msg, caller, 5)
-    minfo = MediaInfo.parse(fileIn.file)
-    trackinfo = fileIn.get_mediainfo(minfo)
-    container = fileIn.get_containerinfo(minfo)
-    has_containerfmt = container is not None and hasattr(container, "format") and container.format is not None
+    trackinfo = fileIn.get_trackinfo()
+    container = fileIn.get_containerinfo()
+    # TODO: Adjust for ffprobe outputs, dunno how just yet
+    has_containerfmt = container is not None and hasattr(container, "format") and container.format_name is not None
     preprocess = sanitize_pre(preprocess)
 
-    if is_fancy_codec(trackinfo):
-        warn("Encoding tracks with special DTS Features or Atmos is very much discouraged.", caller, 10)
-    form = trackinfo.format.lower()
-    if fileIn.is_lossy():
-        danger(f"It's strongly recommended to not reencode lossy audio! ({trackinfo.format})", caller, 5)
+    form = trackinfo.get_audio_format()
+    if form:
+        if form.is_lossy:
+            danger(f"It's strongly recommended to not reencode lossy audio! ({trackinfo.codec_name})", caller, 5)
+        elif form.should_not_transcode():
+            warn("Encoding tracks with special DTS Features or Atmos is very much discouraged.", caller, 5)
 
     wont_process = not any([p.can_run(trackinfo, preprocess) for p in preprocess])
 
-    if (form == "wave" or (has_containerfmt and container.format.lower() == "wave")) and wont_process:
+    if (form == AudioFormat.PCM or (has_containerfmt and container.format_name.lower() == "wave")) and wont_process:
         return fileIn
     if valid_type.allows_flac():
         valid_type = valid_type.remove_flac()
-        if (form == "flac" or (has_containerfmt and container.format.lower() == "flac")) and wont_process:
+        if (form == AudioFormat.FLAC or (has_containerfmt and container.format_name.lower() == "flac")) and wont_process:
             return fileIn
 
     if valid_type == ValidInputType.FLAC:
@@ -75,13 +76,13 @@ def ensure_valid_in(
 
 
 def get_preprocess_args(
-    fileIn: AudioFile, preprocessors: Preprocessor | Sequence[Preprocessor] | None, mediainfo: Track, caller: Any = None
+    fileIn: AudioFile, preprocessors: Preprocessor | Sequence[Preprocessor] | None, track_info: TrackInfo, caller: Any = None
 ) -> list[str]:
     preprocessors = sanitize_pre(preprocessors)
     args = list[str]()
-    if any([p.can_run(mediainfo, preprocessors) for p in preprocessors]):
+    if any([p.can_run(track_info, preprocessors) for p in preprocessors]):
         filters = list[str]()
-        for pre in [p for p in preprocessors if p.can_run(mediainfo, preprocessors)]:
+        for pre in [p for p in preprocessors if p.can_run(track_info, preprocessors)]:
             pre.analyze(fileIn)
             args.extend(pre.get_args(caller=caller))
             filt = pre.get_filter(caller=caller)
@@ -94,7 +95,7 @@ def get_preprocess_args(
 
 def get_pcm(
     fileIn: AudioFile,
-    minfo: Track,
+    track_info: TrackInfo,
     supports_pipe: bool = True,
     preprocess: Sequence[Preprocessor] | None = None,
     valid_type: ValidInputType = ValidInputType.RF64,
@@ -102,11 +103,11 @@ def get_pcm(
 ) -> AudioFile | subprocess.Popen:
     ffmpeg = get_executable("ffmpeg")
     args = [ffmpeg, "-i", str(fileIn.file), "-map", "0:a:0"]
-    codec = "pcm_s16le" if getattr(minfo, "bit_depth", 16) == 16 else "pcm_s24le"
+    codec = "pcm_s16le" if (track_info.bit_depth or 16) == 16 else "pcm_s24le"
     filters = list[str]()
     preprocess = sanitize_pre(preprocess)
     for pre in preprocess:
-        can_run = pre.can_run(minfo, preprocess)
+        can_run = pre.can_run(track_info, preprocess)
         if can_run:
             pre.analyze(fileIn)
             args.extend(pre.get_args(caller=caller))
@@ -114,7 +115,7 @@ def get_pcm(
             if filt:
                 filters.append(filt)
         if isinstance(pre, Resample):
-            codec = "pcm_s16le" if can_run and (pre.depth or getattr(minfo, "bit_depth", 16)) == 16 else "pcm_s24le"
+            codec = "pcm_s16le" if can_run and (pre.depth or (track_info.bit_depth or 16)) == 16 else "pcm_s24le"
     if filters:
         args.extend(["-filter:a", ",".join(filters)])
     args.extend(["-c:a", codec])
@@ -179,57 +180,6 @@ def sanitize_trims(
     return trims
 
 
-# Of course these are not all of the formats possible but those are the most common from what I know.
-# fmt: off
-formats = [
-    # Lossy
-    AudioFormat("AC-3",         "ac3",      "A_AC3"),
-    AudioFormat("E-AC-3",       "eac3",     "A_EAC3"),
-    AudioFormat("AAC*",         "m4a",      "A_AAC*"), # Lots of different AAC formats idk what they mean, don't care either
-    AudioFormat("Opus",         "opus",     "A_OPUS"),
-    AudioFormat("Vorbis",       "ogg",      "A_VORBIS"),
-    AudioFormat("/",            "mp3",      "mp4a-6B"), # MP3 has the format name split up into 3 variables so we're gonna ignore this
-
-    # Lossless
-    AudioFormat("FLAC",         "flac",     "A_FLAC", False),
-    AudioFormat("MLP FBA*",     "thd",      "A_TRUEHD", False), # Atmos stuff has some more shit in the format name
-    AudioFormat("PCM*",         "wav",      "A_PCM*", False),
-
-    # Disgusting DTS Stuff
-    AudioFormat("DTS XLL*",     "dtshd",    "A_DTS", False), # Can be HD-MA or Headphone X or X, who the fuck knows
-    AudioFormat("DTS",          "dts",      "A_DTS"), # Can be lossy
-]
-# fmt: on
-
-
-def format_from_track(track: Track) -> AudioFormat | None:
-    comm_name = getattr(track, "commercial_name", None)
-    compression_mode = str(getattr(track, "compression_mode", ""))
-    if comm_name and str(comm_name).lower() == "dts" and compression_mode.lower() == "lossy":
-        return formats[-1]
-
-    for format in formats:
-        f = str(track.format)
-        if hasattr(track, "format_additionalfeatures") and track.format_additionalfeatures:
-            f = f"{f} {track.format_additionalfeatures}"
-        if "*" in format.format:
-            # matches = filter([f.lower()], format.format.lower())
-            if re.match(format.format.replace("*", ".*"), f, re.IGNORECASE):
-                return format
-        else:
-            if format.format.casefold() == f.casefold():
-                return format
-
-        if "*" in format.codecid:
-            # matches = filter([str(track.codec_id).lower()], format.codecid)
-            if re.match(format.codecid.replace("*", ".*"), str(track.codec_id), re.IGNORECASE):
-                return format
-        else:
-            if format.codecid.casefold() == str(track.codec_id).casefold():
-                return format
-    return None
-
-
 def duration_from_file(fileIn: PathLike | AudioFile, track: int = 0, caller: Any = None) -> timedelta:
     from ..utils.parsing import timedelta_from_formatted
 
@@ -261,30 +211,6 @@ def duration_from_file(fileIn: PathLike | AudioFile, track: int = 0, caller: Any
     except:
         warn("Could not parse duration from track. Will assume 24 minutes.", caller)
         return timedelta(minutes=24)
-
-
-def is_fancy_codec(track: Track) -> bool:
-    """
-    Tries to check if a track is some fancy DTS (X, Headphone X) or TrueHD with Atmos
-
-    :param track:   Input track to check
-    """
-    codec_id = str(track.codec_id).casefold()
-    if codec_id == "A_TRUEHD".casefold() or "truehd" in track.commercial_name.lower():
-        if "atmos" in track.commercial_name.lower():
-            return True
-        if not hasattr(track, "format_additionalfeatures") or not track.format_additionalfeatures:
-            return False
-        # If it contains something other than the fallback AC-3 track it's probably atmos
-        return "ch" in track.format_additionalfeatures
-    elif codec_id == "A_DTS".casefold() or "dts" in track.format.lower():
-        # Not even lossless if this doesn't exist
-        if not hasattr(track, "format_additionalfeatures") or not track.format_additionalfeatures:
-            return False
-        # If those additional features contain something after removing "XLL" its some fancy stuff
-        return bool(re.sub("XLL", "", str(track.format_additionalfeatures).strip(), re.IGNORECASE))
-
-    return False
 
 
 def has_libFDK() -> bool:

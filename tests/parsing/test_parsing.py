@@ -1,5 +1,5 @@
 from muxtools import ensure_path
-from muxtools.utils import ParsedFile, AudioFormat
+from muxtools import ParsedFile, AudioFormat
 
 test_dir = ensure_path(__file__, None).parent.parent
 

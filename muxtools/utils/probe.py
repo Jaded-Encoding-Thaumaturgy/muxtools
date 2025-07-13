@@ -90,7 +90,7 @@ class ParsedFile:
     raw_mkvmerge: MKVInfo | None
 
     @staticmethod
-    def from_file(path: PathLike, caller: Any | None = None, allow_mkvmerge_warning: bool = True) -> Optional["ParsedFile"]:
+    def from_file(path: PathLike, caller: Any | None = None, allow_mkvmerge_warning: bool = True) -> "ParsedFile":
         """
         Parses a file with ffprobe and, if given and a video track is found, mkvmerge.
 
@@ -103,12 +103,12 @@ class ParsedFile:
         ffprobe_exe = get_executable("ffprobe")
         try:
             out = probe_obj(path, cmd=ffprobe_exe)
-            assert out
+            assert out and out.format
         except:
             raise error(f"Failed to parse file '{path.stem}' with ffprobe!", caller)
 
-        if not out.streams or not out.streams.stream or not out.format or "tty" in out.format.format_name:
-            return None
+        if not out.streams or not out.streams.stream or "tty" in out.format.format_name:
+            return ParsedFile(ContainerInfo(0, "Unknown", None, {}, out.format, None), [], False, path, out)
 
         is_video_file = bool([stream for stream in out.streams.stream if (stream.codec_type or "").lower() == "video"])
         container_info = ContainerInfo(

@@ -4,7 +4,8 @@ from shlex import split as split_args
 from ..utils.files import make_output, create_tags_xml
 from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType
-from ..utils.files import ensure_path_exists, get_absolute_tracknum
+from ..utils.files import ensure_path_exists
+from ..utils.probe import ParsedFile
 
 # fmt: off
 __all__ = [
@@ -217,44 +218,39 @@ class Premux(_track):
                                     If False it will simply get absolute numbers derived from the relative ones.
         """
         args = ""
+        parsed = ParsedFile.from_file(file, self)
         if video is None:
             args += " -D"
         elif video != -1:
-            if isinstance(video, list):
-                lv = []
-                for num in video:
-                    abso = get_absolute_tracknum(file, num, TrackType.VIDEO) if not assume_absolute else num
-                    lv.append(abso)
-                args += f" -d {','.join(str(i) for i in lv)}"
-            else:
-                abso = get_absolute_tracknum(file, video, TrackType.VIDEO) if not assume_absolute else video
-                args += f" -d {abso}"
+            if not isinstance(video, list):
+                video = [video]
+            lv = []
+            for num in video:
+                abso = parsed.find_tracks(relative_id=num, type=TrackType.VIDEO, error_if_empty=True) if not assume_absolute else num
+                lv.append(abso)
+            args += f" -d {','.join(str(i) for i in lv)}"
 
         if audio is None:
             args += " -A"
         elif audio != -1:
-            if isinstance(audio, list):
-                la = []
-                for num in audio:
-                    abso = get_absolute_tracknum(file, num, TrackType.AUDIO) if not assume_absolute else num
-                    la.append(abso)
-                args += f" -a {','.join(str(i) for i in la)}"
-            else:
-                abso = get_absolute_tracknum(file, audio, TrackType.AUDIO) if not assume_absolute else audio
-                args += f" -a {abso}"
+            if not isinstance(audio, list):
+                audio = [audio]
+            la = []
+            for num in audio:
+                abso = parsed.find_tracks(relative_id=num, type=TrackType.AUDIO, error_if_empty=True) if not assume_absolute else num
+                la.append(abso)
+            args += f" -a {','.join(str(i) for i in la)}"
 
         if subtitles is None:
             args += " -S"
         elif subtitles != -1:
-            if isinstance(subtitles, list):
-                ls = []
-                for num in subtitles:
-                    abso = get_absolute_tracknum(file, num, TrackType.SUB) if not assume_absolute else num
-                    ls.append(abso)
-                args += f" -s {','.join(str(i) for i in ls)}"
-            else:
-                abso = get_absolute_tracknum(file, subtitles, TrackType.SUB) if not assume_absolute else subtitles
-                args += f" -s {abso}"
+            if not isinstance(subtitles, list):
+                subtitles = [subtitles]
+            ls = []
+            for num in subtitles:
+                abso = parsed.find_tracks(relative_id=num, type=TrackType.SUB, error_if_empty=True) if not assume_absolute else num
+                ls.append(abso)
+            args += f" -s {','.join(str(i) for i in ls)}"
 
         if not keep_attachments:
             args += " -M"

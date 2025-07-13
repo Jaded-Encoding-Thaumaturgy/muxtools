@@ -14,7 +14,6 @@ __all__ = [
     "Paths",
     "Trim",
     "TrackType",
-    "AudioFormat",
     "AudioFrame",
     "AudioStats",
     "AudioInfo",
@@ -87,14 +86,6 @@ Unit of time (in seconds) in terms of which frame timestamps are represented.\n
 While you can pass an int, the needed type is always a Fraction and will be converted via `Fraction(your_int)`.\n
 `None` will usually fallback to a generic mkv timescale but exact behavior might differ based on the target function.
 """
-
-
-@dataclass
-class AudioFormat:
-    format: str
-    ext: str
-    codecid: str
-    lossy: bool = True
 
 
 class DitherType(IntEnum):

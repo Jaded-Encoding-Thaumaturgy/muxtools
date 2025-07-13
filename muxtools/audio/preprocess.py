@@ -5,13 +5,13 @@ from typing import Any
 from collections.abc import Sequence
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from pymediainfo import Track
 
 from ..utils.log import error, debug
 from ..utils.types import DitherType
 from ..muxing.muxfiles import AudioFile
 from ..utils.download import get_executable
 from ..utils.files import ensure_path_exists
+from ..utils.probe import TrackInfo
 
 __all__ = ["Resample", "Loudnorm", "Downmix", "Pan", "CustomPreprocessor"]
 
@@ -29,7 +29,7 @@ class Preprocessor(ABC):
         return None
 
     @abstractmethod
-    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool: ...
+    def can_run(self, track: TrackInfo, preprocessors: Sequence[Any]) -> bool: ...
 
 
 @dataclass
@@ -50,11 +50,11 @@ class Resample(Preprocessor):
     sample_rate: int = 48000
     refresh_metadata = True
 
-    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool:
+    def can_run(self, track: TrackInfo, preprocessors: Sequence[Any]) -> bool:
         # Run if depth or sample rate differ. Also run if loudnorm is being used.
         return (
-            (self.depth and getattr(track, "bit_depth", 24) != self.depth)
-            or getattr(track, "sampling_rate", 0) != self.sample_rate
+            (self.depth and track.bit_depth != self.depth)
+            or track.raw_ffprobe.sample_rate != self.sample_rate
             or [p for p in preprocessors if isinstance(p, Loudnorm)]
         )
 
@@ -112,8 +112,8 @@ class Downmix(Preprocessor):
     force: bool = False
     refresh_metadata = True
 
-    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool:
-        return getattr(track, "channel_s", 2) > 2 or self.force
+    def can_run(self, track: TrackInfo, preprocessors: Sequence[Any]) -> bool:
+        return (track.raw_ffprobe.channels or 2) > 2 or self.force
 
     def get_filter(self, caller: Any = None) -> str:
         if not self.mixing:
@@ -170,7 +170,7 @@ class Loudnorm(Preprocessor):
         thresh: float
         target_offset: float
 
-    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool:
+    def can_run(self, track: TrackInfo, preprocessors: Sequence[Any]) -> bool:
         return True
 
     def analyze(self, file: AudioFile):
@@ -235,7 +235,7 @@ class CustomPreprocessor(Preprocessor):
     filt: str | None = None
     args: str | Sequence[str] | None = None
 
-    def can_run(self, track: Track, preprocessors: Sequence[Any]) -> bool:
+    def can_run(self, track: TrackInfo, preprocessors: Sequence[Any]) -> bool:
         return True
 
     def get_filter(self, caller: Any = None) -> str | None:

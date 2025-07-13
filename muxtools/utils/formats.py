@@ -50,6 +50,13 @@ class AudioFormat(Enum):
 
         return self.ext
 
+    def should_not_transcode(self) -> bool:
+        if self.is_lossy:
+            return True
+        if self in (AudioFormat.DTS_HD_X, AudioFormat.TRUEHD_ATMOS):
+            return True
+        return False
+
     def __eq__(self, value: Any) -> bool:
         if isinstance(value, streamType):
             profile_matches = value.profile and self.profile and self.profile.casefold() == value.profile.casefold()
