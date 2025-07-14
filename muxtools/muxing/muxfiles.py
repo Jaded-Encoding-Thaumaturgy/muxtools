@@ -1,6 +1,5 @@
 from pathlib import Path
 from dataclasses import dataclass
-from pymediainfo import MediaInfo, Track
 from datetime import timedelta
 from typing import Any
 
@@ -10,7 +9,7 @@ from ..utils.log import error
 from ..utils.glob import GlobSearch
 from ..utils.env import run_commandline
 from ..utils.download import get_executable
-from ..utils.types import AudioInfo, PathLike, TrackType
+from ..utils.types import PathLike, TrackType
 from ..utils.files import ensure_path, ensure_path_exists
 from ..utils.probe import TrackInfo, ContainerInfo, ParsedFile
 

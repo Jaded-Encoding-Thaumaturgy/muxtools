@@ -42,8 +42,6 @@ def ensure_valid_in(
         warn(msg, caller, 5)
     trackinfo = fileIn.get_trackinfo()
     container = fileIn.get_containerinfo()
-    # TODO: Adjust for ffprobe outputs, dunno how just yet
-    has_containerfmt = container is not None and hasattr(container, "format") and container.format_name is not None
     preprocess = sanitize_pre(preprocess)
 
     form = trackinfo.get_audio_format()
@@ -55,11 +53,11 @@ def ensure_valid_in(
 
     wont_process = not any([p.can_run(trackinfo, preprocess) for p in preprocess])
 
-    if (form == AudioFormat.PCM or (has_containerfmt and container.format_name.lower() == "wave")) and wont_process:
+    if (form == AudioFormat.PCM and container.format_name.lower() == "wav") and wont_process:
         return fileIn
     if valid_type.allows_flac():
         valid_type = valid_type.remove_flac()
-        if (form == AudioFormat.FLAC or (has_containerfmt and container.format_name.lower() == "flac")) and wont_process:
+        if (form == AudioFormat.FLAC and container.format_name.lower() == "flac") and wont_process:
             return fileIn
 
     if valid_type == ValidInputType.FLAC:

@@ -138,15 +138,16 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 and form
                 and not form.should_not_transcode()
                 and bool(actual_depth := self._analyse_bitdepth(input, specified_depth, quiet))
+                and specified_depth > actual_depth
             )
 
             if should_truncate:
-                if specified_depth - actual_depth > 2:
+                if specified_depth > actual_depth:
                     debug(f"Detected fake/padded {specified_depth} bit. Actual depth is {actual_depth} bit.", self)
-                if specified_depth - actual_depth > 4:
-                    debug("Track will be outputted as flac and truncated to 16 bit instead.", self)
+                if specified_depth - actual_depth > 3:
+                    debug("Track will be converted to flac and truncated to 16 bit instead.", self)
                     out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
-                    args.extend(["-c:a", "flac", "-sample_fmt", "s16"])
+                    args.extend(["-c:a", "flac", "-sample_fmt", "s16", "-compression_level", "0"])
             else:
                 if force_flac and extension in ["dts", "wav"] and not lossy:
                     out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
