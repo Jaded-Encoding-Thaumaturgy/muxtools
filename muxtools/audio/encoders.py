@@ -338,7 +338,7 @@ class FDK_AAC(Encoder):
                 args.extend(["-vbr", str(self.bitrate_mode)])
             else:
                 args.extend(["-b:a", f"{self.bitrate}k"])
-            args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self) + self.get_custom_args())
+            args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_trackinfo(), self) + self.get_custom_args())
             args.append(str(output))
 
         if self.use_binary:
