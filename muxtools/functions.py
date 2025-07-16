@@ -4,7 +4,6 @@ from datetime import timedelta
 from .utils.log import warn, error, info, danger
 from .utils.types import TimeScaleT, TimeScale, TimeSourceT
 from .muxing.muxfiles import AudioFile
-from .audio.audioutils import is_fancy_codec
 from .audio.encoders import Opus
 from .utils.types import PathLike, Trim
 from .audio.extractors import FFMpeg, Sox
@@ -86,20 +85,20 @@ def do_audio(
     if not isinstance(audio, AudioFile):
         audio = AudioFile.from_file(audio, do_audio)
 
-    lossy = audio.is_lossy()
-
+    trackinfo = audio.get_trackinfo()
+    track_format = trackinfo.get_audio_format()
+    if not track_format:
+        raise error(f"Unknown track format! ({trackinfo.codec_name})", do_audio)
     if isinstance(trimmer, AutoTrimmer) and trims:
-        if lossy:
+        if track_format.should_not_transcode():
             trimmer = FFMpeg.Trimmer()
         else:
             trimmer = Sox()
 
-    mediainfo = audio.get_mediainfo()
-
     if isinstance(encoder, AutoEncoder):
-        if lossy:
+        if track_format.is_lossy:
             encoder = None
-        elif is_fancy_codec(mediainfo):
+        elif track_format.should_not_transcode():
             encoder = None
             warn("Audio will not be reencoded due to having Atmos or special DTS features.", do_audio, 2)
         else:

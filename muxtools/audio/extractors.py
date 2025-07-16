@@ -4,20 +4,22 @@ from datetime import timedelta
 from fractions import Fraction
 from typing import Sequence
 from pathlib import Path
+from itertools import takewhile
+import subprocess
 import os
 import re
 
-from .audioutils import format_from_track, is_fancy_codec, sanitize_trims, ensure_valid_in, duration_from_file
+from .audioutils import sanitize_trims, ensure_valid_in, duration_from_file
 from .tools import Extractor, Trimmer, AudioFile, HasExtractor, HasTrimmer
 from ..utils.files import ensure_path_exists, make_output, clean_temp_files
-from ..utils.log import error, warn, debug, info
+from ..utils.log import error, warn, debug, info, danger
 from ..utils.download import get_executable
 from ..utils.parsing import parse_audioinfo
-from ..utils.files import get_absolute_track
 from ..utils.types import Trim, PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScale
-from ..utils.env import get_temp_workdir, run_commandline, communicate_stdout
+from ..utils.env import get_temp_workdir, run_commandline, communicate_stdout, get_binary_version
 from ..utils.subprogress import run_cmd_pb, ProgressBarConfig
 from ..utils.convert import format_timedelta, resolve_timesource_and_scale, TimeType
+from ..utils.probe import ParsedFile
 
 __all__ = ["Eac3to", "Sox", "FFMpeg", "MkvExtract"]
 
@@ -47,23 +49,19 @@ class Eac3to(Extractor):
 
     def extract_audio(self, input: PathLike, quiet: bool = True) -> AudioFile:
         eac3to = get_executable("eac3to")
-        input = ensure_path_exists(input, self)
-        track = get_absolute_track(input, self.track, TrackType.AUDIO, self)
-        form = format_from_track(track)
+        parsed = ParsedFile.from_file(input, self)
+        track = parsed.find_tracks(relative_id=self.track, type=TrackType.AUDIO, caller=self, error_if_empty=True)[0]
+        form = track.get_audio_format()
         if not form:
-            lossy = getattr(track, "compression_mode", "lossless").lower() == "lossy"
-            if lossy:
-                raise error(f"Unrecognized lossy format: {track.format}", self)
-            else:
-                warn(f"Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
+            danger(f"Unrecognized format: {track.codec_name}\nWill extract as wav instead.", self, 2)
             extension = "wav"
         else:
-            extension = form.ext
+            extension = form.extension
 
         info(f"Extracting audio track {self.track} from '{input.stem}'...", self)
 
         out = make_output(input, extension, f"extracted_{self.track}", self.output)
-        code, stdout = communicate_stdout(f'"{eac3to}" "{input}" {track.track_id + 1}: "{out}" {self.append}')
+        code, stdout = communicate_stdout(f'"{eac3to}" "{input}" {track.index + 1}: "{out}" {self.append}')
         if code == 0:
             if not out.exists():
                 pattern_str = rf"{re.escape(out.stem)} DELAY.*\.{extension}"
@@ -103,47 +101,53 @@ class FFMpeg(HasExtractor, HasTrimmer):
         :param preserve_delay:      Will preserve existing container delay
         :param output:              Custom output. Can be a dir or a file.
                                     Do not specify an extension unless you know what you're doing.
-        :param full_analysis:       Analyze entire track for bitdepth and other statistics.
-                                    This *will* take quite a bit of time.
+        :param skip_analysis:       Skip the audio analysis with FLAC for wasted bits on lossless audio.
         """
 
         track: int = 0
         preserve_delay: bool = True
         output: PathLike | None = None
-        full_analysis: bool = False
+        skip_analysis: bool = False
+
+        def __post_init__(self):
+            self.executable = get_executable("ffmpeg")
 
         def extract_audio(self, input: PathLike, quiet: bool = True, is_temp: bool = False, force_flac: bool = False) -> AudioFile:
-            ffmpeg = get_executable("ffmpeg")
             input = ensure_path_exists(input, self)
-            track = get_absolute_track(input, self.track, TrackType.AUDIO, self, quiet_fail=self._no_print)
-            form = format_from_track(track)
+            parsed = ParsedFile.from_file(input, self)
+            track = parsed.find_tracks(relative_id=self.track, type=TrackType.AUDIO, caller=self, error_if_empty=True)[0]
+            form = track.get_audio_format()
             if not self._no_print:
-                info(f"Extracting audio track {self.track} from '{input.stem}'...", self)
+                info(f"Extracting audio track {self.track} from '{parsed.source.stem}'...", self)
             if not form:
-                ainfo = parse_audioinfo(input, self.track, self, full_analysis=self.full_analysis, quiet=self._no_print)
-                lossy = getattr(track, "compression_mode", "lossless").lower() == "lossy"
-                if lossy:
-                    raise error(f"Unrecognized lossy format found: {track.format}", self)
-                else:
-                    extension = "wav"
-                    warn("Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
-                    out = make_output(input, extension, f"extracted_{self.track}", self.output, temp=is_temp)
-            else:
-                ainfo = parse_audioinfo(input, self.track, self, form.ext == "thd", full_analysis=self.full_analysis, quiet=self._no_print)
-                lossy = form.lossy
-                extension = form.ext
+                lossy = False
+                extension = "wav"
+                danger("Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
                 out = make_output(input, extension, f"extracted_{self.track}", self.output, temp=is_temp)
+            else:
+                lossy = form.is_lossy
+                extension = form.extension
+                out = make_output(input, form.extension, f"extracted_{self.track}", self.output, temp=is_temp)
 
-            args = [ffmpeg, "-hide_banner", "-i", str(input.resolve()), "-map_chapters", "-1", "-map", f"0:a:{self.track}"]
+            args = [self.executable, "-hide_banner", "-i", str(input.resolve()), "-map_chapters", "-1", "-map", f"0:a:{self.track}"]
 
-            specified_depth = getattr(track, "bit_depth", 16)
-            if str(specified_depth) not in ainfo.stats.bit_depth and not lossy and not is_fancy_codec(track) and specified_depth is not None:
-                actual_depth = int(ainfo.stats.bit_depth) if "/" not in ainfo.stats.bit_depth else int(ainfo.stats.bit_depth.split("/")[0])
-                debug(f"Detected fake/padded {specified_depth} bit. Actual depth is {actual_depth} bit.", self)
-                if specified_depth - actual_depth > 4:
-                    debug("Track will be outputted as flac and truncated to 16 bit instead.", self)
+            specified_depth = track.bit_depth or 16
+            should_truncate = (
+                not self.skip_analysis
+                and not lossy
+                and form
+                and not form.should_not_transcode()
+                and bool(actual_depth := self._analyse_bitdepth(input, specified_depth, quiet))
+                and specified_depth > actual_depth
+            )
+
+            if should_truncate:
+                if specified_depth > actual_depth:
+                    debug(f"Detected fake/padded {specified_depth} bit. Actual depth is {actual_depth} bit.", self)
+                if specified_depth - actual_depth > 3:
+                    debug("Track will be converted to flac and truncated to 16 bit instead.", self)
                     out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
-                    args.extend(["-c:a", "flac", "-sample_fmt", "s16"])
+                    args.extend(["-c:a", "flac", "-sample_fmt", "s16", "-compression_level", "0"])
             else:
                 if force_flac and extension in ["dts", "wav"] and not lossy:
                     out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
@@ -160,9 +164,72 @@ class FFMpeg(HasExtractor, HasTrimmer):
             args.append(str(out))
             duration = duration_from_file(input, self.track)
             if not run_cmd_pb(args, quiet, ProgressBarConfig("Extracting...", duration)):
-                return AudioFile(out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, None, ainfo, duration)
+                return AudioFile(out, getattr(track, "delay_relative_to_video", 0) if self.preserve_delay else 0, input, None, duration)
             else:
                 raise error("Failed to extract audio track using ffmpeg", self)
+
+        def _analyse_bitdepth(self, file_in: PathLike, specified_depth: int, quiet: bool) -> int:
+            flac = get_executable("flac", can_error=False)
+            if not flac:
+                warn("No FLAC executable found. Please disable analysis explicitly or make sure you have FLAC in your path.", self)
+                return 0
+            debug("Analysing audio track with libFLAC...", self)
+            version = get_binary_version(flac, r"flac .+? version (\d\.\d+\.\d+)")
+            temp_out = make_output(file_in, "flac", "analysis", temp=True)
+            args_ffmpeg = [
+                self.executable,
+                "-hide_banner",
+                "-i",
+                str(file_in),
+                "-map",
+                f"0:a:{self.track}",
+                "-f",
+                "w64",
+                "-c:a",
+                "pcm_s16le" if specified_depth <= 16 else "pcm_s24le",
+                "-",
+            ]
+            ffmpeg_process = subprocess.Popen(
+                args_ffmpeg, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL if quiet else subprocess.STDOUT, text=False
+            )
+            args_flac = [flac, "-0", "-o", str(temp_out), "-"]
+            if re.search(r"1\.[2|3|4]\.\d+?", version):
+                warn("Using outdated FLAC encoder that does not support threading!", self)
+            else:
+                args_flac.append(f"--threads={min(os.cpu_count(), 8)}")
+
+            flac_returncode = run_commandline(args_flac, quiet, stdin=ffmpeg_process.stdout)
+            if flac_returncode:
+                danger("Failed to encode temp file via flac for analysis!", self)
+                clean_temp_files()
+                return 0
+            returncode, stdout = communicate_stdout([flac, "-sac", str(temp_out)])
+            if returncode:
+                danger("Failed to analyse the temporary flac file!", self)
+                clean_temp_files()
+                return 0
+
+            total = 0
+            n = 0
+            for line in stdout.splitlines():
+                if "wasted_bits" not in line:
+                    continue
+                idx = line.index("wasted_bits") + len("wasted_bits") + 1
+                try:
+                    wasted_bits = int("".join(takewhile(str.isdigit, line[idx : idx + 3])))
+                    total += specified_depth - wasted_bits
+                    n += 1
+                except:
+                    debug(line, self)
+
+            average_bits = 0
+            if n > 0:
+                average_bits = ((total * 10 // n) + 5) // 10
+            else:
+                danger("Audio analysis resulted in no valid bit depth entries!", self)
+
+            clean_temp_files()
+            return average_bits
 
     @dataclass
     class Trimmer(Trimmer):
@@ -227,14 +294,16 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 input = AudioFile.from_file(input, self)
             self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
             self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, caller=self)
-            minfo = input.get_mediainfo()
-            form = format_from_track(minfo)
-            lossy = input.is_lossy()
-            if not form and lossy:
-                raise error(f"Unrecognized lossy format: {minfo.format}", self)
 
+            parsed = ParsedFile.from_file(input.file, self)
+            track = parsed.find_tracks(relative_id=0, type=TrackType.AUDIO, caller=self, error_if_empty=True)[0]
+            form = track.get_audio_format()
+            if not form:
+                raise error(f"Unrecognized format: {track.codec_name}", self)
+
+            lossy = form.is_lossy
             args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0"]
-            if lossy or is_fancy_codec(minfo):
+            if form.should_not_transcode():
                 args.extend(["-c:a", "copy"])
                 extension = form.ext
             else:
@@ -242,7 +311,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 extension = "flac"
 
             out = make_output(input.file, extension, "trimmed", self.output)
-            ainfo = parse_audioinfo(input.file, caller=self) if not input.info else input.info
+            ainfo = parse_audioinfo(input.file, is_thd=True, caller=self)
 
             if len(self.trim) == 1:
                 info(f"Trimming '{input.file.stem}' with ffmpeg...", self)
@@ -255,7 +324,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 if not run_commandline(args, quiet):
                     if tr[0] and lossy:
                         ms = tr[0] if self.trim_use_ms else self.resolved_ts.frame_to_time(tr[0], TimeType.EXACT, 3)
-                        cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
+                        cont_delay = self._calc_delay(ms, ainfo.num_samples(), track.raw_ffprobe.sample_rate or 48000)
                         debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
                         if self.preserve_delay:
                             cont_delay += input.container_delay
@@ -277,7 +346,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                         if first:
                             if tr[0]:
                                 ms = tr[0] if self.trim_use_ms else self.resolved_ts.frame_to_time(tr[0], TimeType.EXACT, 3)
-                                cont_delay = self._calc_delay(ms, ainfo.num_samples(), getattr(minfo, "sampling_rate", 48000))
+                                cont_delay = self._calc_delay(ms, ainfo.num_samples(), track.raw_ffprobe.sample_rate or 48000)
                                 debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
                             first = False
                     else:
@@ -338,9 +407,11 @@ class FFMpeg(HasExtractor, HasTrimmer):
             with open(concat_file, "w", encoding="utf-8") as f:
                 f.writelines([f"file {_escape_name(str(af.file.resolve()))}\n" for af in audio_files])
 
-            first_format = format_from_track(audio_files[0].get_mediainfo())
+            first_format = audio_files[0].get_trackinfo().get_audio_format()
+            if not first_format:
+                raise error(f"Concat cannot work with unknown formats! ({audio_files[0].get_trackinfo().codec_name})", self)
 
-            format_mismatch = not all([format_from_track(af.get_mediainfo()).format == first_format.format for af in audio_files[1:]])
+            format_mismatch = not all([af.get_trackinfo().get_audio_format() == first_format for af in audio_files[1:]])
             if format_mismatch or first_format.ext == "wav":
                 out_codec = "flac"
                 out_ext = "flac"

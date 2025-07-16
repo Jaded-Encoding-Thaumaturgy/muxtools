@@ -134,7 +134,7 @@ class FF_FLAC(LosslessEncoder):
     def _base_command(self, fileIn: AudioFile, compression: int = 0) -> list[str]:
         # fmt: off
         args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(fileIn.file.resolve()), "-map", "0:a:0", "-c:a", "flac", "-compression_level", str(compression)]
-        minfo = fileIn.get_mediainfo()
+        minfo = fileIn.get_trackinfo()
         args.extend(get_preprocess_args(fileIn, self.preprocess, minfo, self) + self.get_custom_args())
         return args
         # fmt: on
@@ -193,11 +193,12 @@ class Opus(Encoder):
         source = ensure_valid_in(fileIn, preprocess=self.preprocess, caller=self, valid_type=ValidInputType.FLAC, supports_pipe=True)
         bitrate = self.bitrate
         if not bitrate:
-            mInfo = fileIn.get_mediainfo()
-            match mInfo.channel_s:
-                case _ if mInfo.channel_s == 2 or [p for p in sanitize_pre(self.preprocess) if isinstance(p, Downmix)]:
+            track_info = fileIn.get_trackinfo()
+            channels = track_info.raw_ffprobe.channels or 2
+            match channels:
+                case _ if channels == 2 or [p for p in sanitize_pre(self.preprocess) if isinstance(p, Downmix)]:
                     bitrate = 192
-                case _ if mInfo.channel_s > 6:
+                case _ if channels > 6:
                     bitrate = 420
                 case _:
                     bitrate = 320
@@ -337,7 +338,7 @@ class FDK_AAC(Encoder):
                 args.extend(["-vbr", str(self.bitrate_mode)])
             else:
                 args.extend(["-b:a", f"{self.bitrate}k"])
-            args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self) + self.get_custom_args())
+            args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_trackinfo(), self) + self.get_custom_args())
             args.append(str(output))
 
         if self.use_binary:

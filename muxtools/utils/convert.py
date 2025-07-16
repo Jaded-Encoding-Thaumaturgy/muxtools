@@ -9,9 +9,10 @@ from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, 
 
 from ..utils.types import PathLike, TimeScale, VideoMeta, TimeSourceT, TimeScaleT
 from ..utils.log import info, warn, crit, debug, error
-from ..utils.files import ensure_path_exists, get_workdir, ensure_path, is_video_file
+from ..utils.files import ensure_path_exists, get_workdir, ensure_path
 from ..utils.env import get_setup_attr
 from ..utils.download import get_executable
+from ..utils.probe import ParsedFile
 
 __all__: list[str] = [
     "format_timedelta",
@@ -116,9 +117,9 @@ def resolve_timesource_and_scale(
     if isinstance(timesource, PathLike):
         if isinstance(timesource, Path) or os.path.isfile(timesource):
             timesource = ensure_path(timesource, caller)
-            is_video = is_video_file(timesource)
+            parsed = ParsedFile.from_file(timesource, caller, False)
 
-            if is_video:
+            if parsed and parsed.is_video_file:
                 meta = get_timemeta_from_video(timesource, caller=caller)
                 return VideoTimestamps(meta.pts, meta.timescale, fps=meta.fps, rounding_method=rounding_method)
             else:

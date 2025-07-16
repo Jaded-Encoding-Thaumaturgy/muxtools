@@ -20,7 +20,8 @@ from ..utils.types import PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScal
 from ..utils.log import debug, error, info, warn, log_escape
 from ..utils.convert import resolve_timesource_and_scale
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
-from ..utils.files import ensure_path_exists, get_absolute_track, make_output, clean_temp_files, uniquify_path, ensure_path
+from ..utils.files import ensure_path_exists, make_output, clean_temp_files, uniquify_path, ensure_path
+from ..utils.probe import ParsedFile
 from ..muxing.muxfiles import MuxingFile
 from .basesub import BaseSubFile, _Line, ASSHeader, ShiftMode, OutOfBoundsMode
 
@@ -884,21 +885,21 @@ class SubFile(BaseSubFile):
         :param kwargs:          Other args to pass to `from_srt` if trying to extract srt subtitles
         """
         caller = "SubFile.from_mkv"
-        file = ensure_path_exists(file, caller)
-        track = get_absolute_track(file, track, TrackType.SUB, caller)
+        parsed = ParsedFile.from_file(file, caller)
+        parsed_track = parsed.find_tracks(relative_id=track, type=TrackType.SUB, error_if_empty=True, caller=caller)[0]
 
-        if track.format not in ["ASS", "UTF-8"]:
+        if parsed_track.codec_name not in ["ass", "subrip"]:
             raise error("The selected track is not an ASS or SRT subtitle.", caller)
 
         mkvextract = get_executable("mkvextract")
-        out = Path(get_workdir(), f"{file.stem}_{track.track_id}.{'ass' if track.format == 'ASS' else 'srt'}")
-        args = [mkvextract, str(file), "tracks", f"{track.track_id}:{str(out)}"]
+        out = Path(get_workdir(), f"{file.stem}_{parsed_track.index}.{'ass' if parsed_track.codec_name == 'ass' else 'srt'}")
+        args = [mkvextract, str(file), "tracks", f"{parsed_track.index}:{str(out)}"]
         if run_commandline(args, quiet):
             raise error("Failed to extract subtitle!", caller)
 
-        delay = 0 if not preserve_delay else getattr(track, "delay_relative_to_video", 0)
+        delay = 0 if not preserve_delay else parsed_track.container_delay
 
-        if track.format == "UTF-8":
+        if parsed_track.codec_name == "subrip":
             subfile = cls.from_srt(out, **kwargs)
             subfile.container_delay = delay
             subfile.source = file

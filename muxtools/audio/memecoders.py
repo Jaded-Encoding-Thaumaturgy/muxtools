@@ -92,7 +92,7 @@ class TTA(LosslessEncoder):
         tags = dict[str, str](ENCODER="ffmpeg -c:a tta")
 
         args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(fileIn.file.resolve()), "-map", "0:a:0", "-c:a", "tta"]
-        args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_mediainfo(), self) + self.get_custom_args())
+        args.extend(get_preprocess_args(fileIn, self.preprocess, fileIn.get_trackinfo(), self) + self.get_custom_args())
         args.append(str(output))
 
         info(f"Encoding '{fileIn.file.stem}' to TTA using ffmpeg...", self)

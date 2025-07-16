@@ -1,6 +1,5 @@
 from pathlib import Path
 from dataclasses import dataclass
-from pymediainfo import MediaInfo, Track
 from datetime import timedelta
 from typing import Any
 
@@ -10,8 +9,9 @@ from ..utils.log import error
 from ..utils.glob import GlobSearch
 from ..utils.env import run_commandline
 from ..utils.download import get_executable
-from ..utils.types import AudioInfo, PathLike
+from ..utils.types import PathLike, TrackType
 from ..utils.files import ensure_path, ensure_path_exists
+from ..utils.probe import TrackInfo, ContainerInfo, ParsedFile
 
 __all__ = [
     "FileMixin",
@@ -88,40 +88,30 @@ class VideoFile(MuxingFile):
 
 @dataclass
 class AudioFile(MuxingFile):
-    info: AudioInfo | None = None
     duration: timedelta | None = None
+    container: ContainerInfo | None = None
+    track_metadata: TrackInfo | None = None
 
     def __post_init__(self):
         self.file = ensure_path_exists(self.file, self)
 
-    def get_containerinfo(self, mediainfo: MediaInfo | None = None) -> Track:
-        if not mediainfo:
-            mediainfo = MediaInfo.parse(self.file)
-        return mediainfo.general_tracks[0]
+    def get_containerinfo(self) -> ContainerInfo:
+        if not self.container:
+            parsed = ParsedFile.from_file(self.file, allow_mkvmerge_warning=False)
+            if not parsed.container_info.nb_streams:
+                raise error("No valid container found!", self)
+            self.container = parsed.container_info
+        return self.container
 
-    def get_mediainfo(self, mediainfo: MediaInfo | None = None) -> Track:
-        if not mediainfo:
-            mediainfo = MediaInfo.parse(self.file)
-        return mediainfo.audio_tracks[0]
+    def get_trackinfo(self) -> TrackInfo:
+        if not self.track_metadata:
+            parsed = ParsedFile.from_file(self.file, allow_mkvmerge_warning=False)
+            self.track_metadata = parsed.find_tracks(relative_id=0, type=TrackType.AUDIO, error_if_empty=True)[0]
 
-    def is_lossy(self) -> bool:
-        from ..audio.audioutils import format_from_track
-
-        minfo = self.get_mediainfo()
-        form = format_from_track(minfo)
-        if form:
-            return form.lossy
-
-        return getattr(minfo, "compression_mode", "lossless").lower() == "lossy"
+        return self.track_metadata
 
     def has_multiple_tracks(self, caller: Any = None) -> bool:
-        fileIn = ensure_path_exists(self.file, caller)
-        minfo = MediaInfo.parse(fileIn)
-        if len(minfo.audio_tracks) > 1 or len(minfo.video_tracks) > 1 or len(minfo.text_tracks) > 1:
-            return True
-        elif len(minfo.audio_tracks) == 0:
-            raise error(f"'{fileIn.name}' does not contain an audio track!", caller)
-        return False
+        return self.get_containerinfo().nb_streams > 1
 
     def to_mka(self, delete: bool = True, quiet: bool = True) -> Path:
         """

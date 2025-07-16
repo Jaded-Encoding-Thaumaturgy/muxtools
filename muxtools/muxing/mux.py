@@ -1,5 +1,4 @@
 from shlex import join as joincommand
-from pymediainfo import MediaInfo
 from shutil import rmtree
 from pathlib import Path
 from typing import Any
@@ -20,6 +19,7 @@ from ..utils.download import get_executable
 from ..utils.log import debug, error, info, warn, danger
 from ..utils.env import get_setup_attr, get_setup_dir, get_workdir, run_commandline
 from ..utils.files import ensure_path, ensure_path_exists, get_crc32, clean_temp_files
+from ..utils.probe import ParsedFile
 
 __all__ = ["mux"]
 
@@ -92,20 +92,27 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     try:
         from importlib.metadata import version
 
-        minfo = MediaInfo.parse(outfile, parse_speed=0.375)
-        container_info = minfo.general_tracks[0]
+        parsed = ParsedFile.from_file(outfile, "Mux")
+        tags = parsed.container_info.tags
+        if not tags:
+            debug("File does not contain writing library tags. Skipping the muxtools branding.", "Mux")
+
         mkvpropedit = get_executable("mkvpropedit", False, False)
+        if not mkvpropedit:
+            warn("Mkvpropedit could not be found!", "Mux", 0)
         muxtools_version = version("muxtools")
         version_tag = f" + muxtools v{muxtools_version}"
 
-        muxing_application = getattr(container_info, "writing_library", None)
+        muxing_application = tags.get("encoder", None)
 
         if mkvpropedit and muxing_application and (match := writing_lib_regex.search(muxing_application)):
             muxing_application = f"libebml v{match.group(1)} + libmatroska v{match.group(2)}" + version_tag
             args = [mkvpropedit, "--edit", "info", "--set", f"muxing-application={muxing_application}", str(outfile.resolve())]
-            run_commandline(args)
-    except:
-        pass
+            if run_commandline(args, mkvmerge=True) > 1:
+                danger("Failed to add muxtools information via mkvpropedit!", "Mux")
+    except Exception as e:
+        print(e)
+        danger("Failed to add muxtools information via mkvpropedit!", "Mux")
 
     if "#crc32#" in outfile.stem:
         debug("Generating CRC32 for the muxed file...", "Mux")
