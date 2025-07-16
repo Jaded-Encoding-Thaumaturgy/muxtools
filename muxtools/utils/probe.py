@@ -136,7 +136,10 @@ class ParsedFile:
                 if mkvmerge_out and type in ["video", "audio", "subtitle"]:
                     found = [tr for tr in mkvmerge_out.tracks if tr.id == track.index and type in tr.type.name.lower()]
                     mkvmerge_meta = found[0] if found else None
-                if not track.codec_name:
+                codec_name = track.codec_name
+                if track.codec_type == "attachment" and not codec_name:
+                    codec_name = "attachment"
+                if not codec_name:
                     raise error(f"Track {track.index} in '{path.stem}' does not have a codec_name!", caller)
                 is_default = bool(track.disposition.default) if track.disposition and track.disposition.default else False
                 is_forced = bool(track.disposition.forced) if track.disposition and track.disposition.forced else False
@@ -162,7 +165,7 @@ class ParsedFile:
                 trackinfo = TrackInfo(
                     index=track.index,
                     relative_index=i,
-                    codec_name=track.codec_name,
+                    codec_name=codec_name,
                     codec_long_name=track.codec_long_name,
                     type=track_type[0],
                     profile=track.profile,
