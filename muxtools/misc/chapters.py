@@ -299,7 +299,7 @@ class Chapters:
             raise error("Failed to extract chapters!", caller)
 
         if timesource is None:
-            chapters = Chapters(out, file)
+            chapters = Chapters(out, file, _print=_print)
         else:
             chapters = Chapters(out, timesource, timescale, _print)
 
