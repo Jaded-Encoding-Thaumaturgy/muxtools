@@ -33,7 +33,7 @@ class MKVPropEdit:
                                     It can also take a muxtools Chapters object and create a txt from that.\n
                                     An empty string will remove any chapters. `None` will do nothing.
 
-        :param tags:                Global tags to add or replace.\n
+        :param tags:                Global tags to add. This will replace all custom tags set before.\n
                                     An empty dict will remove any global tags. `None` will do nothing.
         """
         self._executable = ensure_path(get_executable("mkvpropedit"), self)
@@ -159,6 +159,7 @@ class MKVPropEdit:
         :param forced:              Specifies whether a track should be played with tracks of a different type but same language
 
         :param tags:                Any custom/arbitrary tags to set for the track.\n
+                                    Do note that this will replace all custom tags the track may already have.\n
                                     An empty dict will remove any custom tags. `None` will do nothing.
 
         :param kwargs:              Any other properties to set or remove.\n
@@ -189,6 +190,7 @@ class MKVPropEdit:
         :param forced:              Specifies whether a track should be played with tracks of a different type but same language
 
         :param tags:                Any custom/arbitrary tags to set for the track.\n
+                                    Do note that this will replace all custom tags the track may already have.\n
                                     An empty dict will remove any custom tags. `None` will do nothing.
 
         :param kwargs:              Any other properties to set or remove.\n
@@ -219,6 +221,7 @@ class MKVPropEdit:
         :param forced:              Specifies whether a track should be played with tracks of a different type but same language
 
         :param tags:                Any custom/arbitrary tags to set for the track.\n
+                                    Do note that this will replace all custom tags the track may already have.\n
                                     An empty dict will remove any custom tags. `None` will do nothing.
 
         :param kwargs:              Any other properties to set or remove.\n
