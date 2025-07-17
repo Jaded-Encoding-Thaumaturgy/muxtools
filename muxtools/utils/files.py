@@ -124,7 +124,7 @@ def create_tags_xml(fileOut: PathLike, tags: dict[str, Any]) -> None:
         value.text = str(v)
 
     with open(fileOut, "w") as f:
-        ET.ElementTree(main).write(f, "unicode")
+        ET.ElementTree(main).write(f, "utf-8")
 
 
 def make_output(source: PathLike, ext: str, suffix: str = "", user_passed: PathLike | None = None, temp: bool = False) -> Path:
