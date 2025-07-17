@@ -2,7 +2,7 @@ from pathlib import Path
 from typing_extensions import Self
 
 from ..misc import Chapters
-from ..utils import PathLike, ensure_path_exists, make_output, ensure_path, get_executable, run_commandline
+from ..utils import PathLike, ensure_path_exists, make_output, ensure_path, get_executable, run_commandline, clean_temp_files
 from ..utils.files import create_tags_xml
 from ..utils.log import error
 
@@ -10,14 +10,14 @@ __all__ = ["MKVPropEdit"]
 
 
 class MKVPropEdit:
-    main_args: list[str]
-    track_args: list[str]
-    fileIn: Path
-    has_info: bool = False
-    video_index: int = 1
-    audio_index: int = 1
-    subtitle_index: int = 1
-    executable: Path
+    _main_args: list[str]
+    _track_args: list[str]
+    _fileIn: Path
+    _has_info: bool = False
+    _video_index: int = 1
+    _audio_index: int = 1
+    _subtitle_index: int = 1
+    _executable: Path
 
     def __init__(
         self, fileIn: PathLike, track_statistics: bool | None = None, chapters: PathLike | Chapters = None, tags: dict[str, str] | None = None
@@ -36,30 +36,30 @@ class MKVPropEdit:
         :param tags:                Global tags to add or replace.\n
                                     An empty dict will remove any global tags. `None` will do nothing.
         """
-        self.executable = ensure_path(get_executable("mkvpropedit"), self)
-        self.fileIn = ensure_path_exists(fileIn, self)
-        self.main_args = []
-        self.track_args = []
+        self._executable = ensure_path(get_executable("mkvpropedit"), self)
+        self._fileIn = ensure_path_exists(fileIn, self)
+        self._main_args = []
+        self._track_args = []
 
         if track_statistics is not None:
-            self.main_args.append("--add-track-statistics-tags" if track_statistics else "--delete-track-statistics-tags")
+            self._main_args.append("--add-track-statistics-tags" if track_statistics else "--delete-track-statistics-tags")
 
         if chapters is not None:
             if isinstance(chapters, str) and not chapters:
-                self.main_args.extend(["-c", ""])
+                self._main_args.extend(["-c", ""])
             else:
                 if isinstance(chapters, Chapters):
                     chapters = chapters.to_file()
                 chapters = ensure_path_exists(chapters, self)
                 if chapters.suffix.lower() not in [".txt", ".xml"]:
                     raise error("Chapters have to be a txt or xml file.", self)
-                self.main_args.extend(["-c", str(chapters)])
+                self._main_args.extend(["-c", str(chapters)])
         if tags is not None:
             out = ""
             if len(tags) > 0:
                 out = make_output(fileIn, "xml", "global_tags", temp=True)
                 create_tags_xml(out, tags)
-            self.main_args.extend(["-t", f"global:{str(out)}"])
+            self._main_args.extend(["-t", f"global:{str(out)}"])
 
     def _edit_args(self, name: str, value: bool | str | None) -> list[str]:
         if value is None:
@@ -84,13 +84,13 @@ class MKVPropEdit:
         tags: dict[str, str] | None,
         **kwargs: bool | str | None,
     ):
-        selector = type if index <= 0 else f"{type}{index}"
+        selector = type if index <= 0 else f"track:{type}{index}"
         if tags is not None:
             out = ""
             if len(tags) > 0:
-                out = make_output(self.fileIn, "xml", f"{selector}_tags", temp=True)
+                out = make_output(self._fileIn, "xml", f"{type}{index}_tags", temp=True)
                 create_tags_xml(out, tags)
-            self.main_args.extend(["-t", f"{selector}:{str(out)}"])
+            self._main_args.extend(["-t", f"{selector}:{str(out)}"])
         if not any([not_none for not_none in (title, language, default, forced) if not_none is not None]) and not kwargs:
             return
 
@@ -109,7 +109,7 @@ class MKVPropEdit:
             if e_args := self._edit_args(k, v):
                 args.extend(e_args)
 
-        self.track_args.extend(args)
+        self._track_args.extend(args)
 
     def info(
         self,
@@ -132,10 +132,10 @@ class MKVPropEdit:
         :param kwargs:              Any other properties to set or remove.\n
                                     Check out the 'Segment information' section in `mkvpropedit -l` to see what's available.
         """
-        if self.has_info:
+        if self._has_info:
             raise error("Info tagging was already added!", self)
         self._edit_track("info", -1, title, date=date, muxing_application=muxing_application, writing_application=writing_application, **kwargs)
-        self.has_info = True
+        self._has_info = True
         return self
 
     def video_track(
@@ -164,8 +164,8 @@ class MKVPropEdit:
         :param kwargs:              Any other properties to set or remove.\n
                                     Check out the 'Track headers' section in `mkvpropedit -l` to see what's available.
         """
-        self._edit_track("v", self.video_index, name, language, default, forced, tags, **kwargs)
-        self.video_index += 1
+        self._edit_track("v", self._video_index, name, language, default, forced, tags, **kwargs)
+        self._video_index += 1
         return self
 
     def audio_track(
@@ -194,8 +194,8 @@ class MKVPropEdit:
         :param kwargs:              Any other properties to set or remove.\n
                                     Check out the 'Track headers' section in `mkvpropedit -l` to see what's available.
         """
-        self._edit_track("a", self.audio_index, name, language, default, forced, tags, **kwargs)
-        self.audio_index += 1
+        self._edit_track("a", self._audio_index, name, language, default, forced, tags, **kwargs)
+        self._audio_index += 1
         return self
 
     def sub_track(
@@ -224,8 +224,8 @@ class MKVPropEdit:
         :param kwargs:              Any other properties to set or remove.\n
                                     Check out the 'Track headers' section in `mkvpropedit -l` to see what's available.
         """
-        self._edit_track("s", self.subtitle_index, name, language, default, forced, tags, **kwargs)
-        self.subtitle_index += 1
+        self._edit_track("s", self._subtitle_index, name, language, default, forced, tags, **kwargs)
+        self._subtitle_index += 1
         return self
 
     def run(self, quiet: bool = True, error_on_failure: bool = True) -> bool:
@@ -238,10 +238,10 @@ class MKVPropEdit:
         :param error_on_failure:    Raise an exception on failure.\n
                                     Otherwise this function will return a bool indicating the success.
         """
-        args = [str(self.executable), str(self.fileIn)] + self.main_args + self.track_args
+        args = [str(self._executable), str(self._fileIn)] + self._main_args + self._track_args
         code = run_commandline(args, quiet, mkvmerge=True)
-
+        clean_temp_files()
         if code > 1 and error_on_failure:
-            raise error(f"Failed to edit properties for '{self.fileIn.name}'!")
+            raise error(f"Failed to edit properties for '{self._fileIn.name}'!")
 
         return code < 2
