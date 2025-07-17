@@ -1,3 +1,3 @@
 from . import propedit
 
-from propedit import *
+from .propedit import *
