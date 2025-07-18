@@ -13,7 +13,7 @@ def setup_and_remove():
     yield
 
     sleep(0.5)
-    # rmtree(get_workdir())
+    rmtree(get_workdir())
 
 
 def test_mkvpropedit():
@@ -64,18 +64,6 @@ def test_mkvpropedit_crops():
 
     copy(sample_file, f)
 
-    MKVPropEdit(f).video_track(crop=(1, 2, 3, 4)).run()
-    parsed = ParsedFile.from_file(f)
-    assert parsed.tracks[0].raw_ffprobe.side_data_list
-
-    side_data = parsed.tracks[0].raw_ffprobe.side_data_list.side_data[0]
-    assert side_data.type == "Frame Cropping"
-    assert [data for data in side_data.side_datum if data.key == "crop_left"][0].value == "1"
-    assert [data for data in side_data.side_datum if data.key == "crop_top"][0].value == "2"
-    assert [data for data in side_data.side_datum if data.key == "crop_right"][0].value == "3"
-    assert [data for data in side_data.side_datum if data.key == "crop_bottom"][0].value == "4"
-
-    # Full crop
     MKVPropEdit(f).video_track(crop=(1, 2, 3, 4)).run()
     parsed = ParsedFile.from_file(f)
     assert parsed.tracks[0].raw_ffprobe.side_data_list
