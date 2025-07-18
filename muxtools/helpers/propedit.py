@@ -2,7 +2,7 @@ from pathlib import Path
 from typing_extensions import Self
 
 from ..misc import Chapters
-from ..utils import PathLike, ensure_path_exists, make_output, ensure_path, get_executable, run_commandline, clean_temp_files
+from ..utils import PathLike, ensure_path_exists, make_output, ensure_path, get_executable, run_commandline, clean_temp_files, ParsedFile, TrackType
 from ..utils.files import create_tags_xml
 from ..utils.log import error
 
@@ -13,6 +13,7 @@ class MKVPropEdit:
     _main_args: list[str]
     _track_args: list[str]
     _fileIn: Path
+    _parsed: ParsedFile
     _has_info: bool = False
     _video_index: int = 1
     _audio_index: int = 1
@@ -33,11 +34,12 @@ class MKVPropEdit:
                                     It can also take a muxtools Chapters object and create a txt from that.\n
                                     An empty string will remove any chapters. `None` will do nothing.
 
-        :param tags:                Global tags to add. This will replace all custom tags set before.\n
+        :param tags:                Global tags to add/replace. An empty string as value will remove a tag.\n
                                     An empty dict will remove any global tags. `None` will do nothing.
         """
         self._executable = ensure_path(get_executable("mkvpropedit"), self)
         self._fileIn = ensure_path_exists(fileIn, self)
+        self._parsed = ParsedFile.from_file(self._fileIn, self)
         self._main_args = []
         self._track_args = []
 
@@ -57,6 +59,8 @@ class MKVPropEdit:
         if tags is not None:
             out = ""
             if len(tags) > 0:
+                if self._parsed.container_info.tags:
+                    tags = dict(**self._parsed.container_info.tags) | tags
                 out = make_output(fileIn, "xml", "global_tags", temp=True)
                 create_tags_xml(out, tags)
             self._main_args.extend(["-t", f"global:{str(out)}"])
@@ -85,9 +89,19 @@ class MKVPropEdit:
         **kwargs: bool | str | None,
     ):
         selector = type if index <= 0 else f"track:{type}{index}"
-        if tags is not None:
+        if tags is not None and type != "info":
             out = ""
             if len(tags) > 0:
+                match type:
+                    case "v":
+                        tracktype = TrackType.VIDEO
+                    case "a":
+                        tracktype = TrackType.AUDIO
+                    case _:
+                        tracktype = TrackType.SUB
+                track = self._parsed.find_tracks(type=tracktype, relative_id=index - 1, error_if_empty=True, caller=self)[0]
+                if track.other_tags:
+                    tags = dict(**track.other_tags) | tags
                 out = make_output(self._fileIn, "xml", f"{type}{index}_tags", temp=True)
                 create_tags_xml(out, tags)
             self._main_args.extend(["-t", f"{selector}:{str(out)}"])
@@ -105,7 +119,9 @@ class MKVPropEdit:
 
         for k, v in kwargs.items():
             if not k.endswith("_"):
-                k = k[:-1].replace("_", "-")
+                k = k.replace("_", "-")
+            else:
+                k = k[:-1]
             if e_args := self._edit_args(k, v):
                 args.extend(e_args)
 
@@ -145,6 +161,7 @@ class MKVPropEdit:
         default: bool | None = None,
         forced: bool | None = None,
         tags: dict[str, str] | None = None,
+        crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
         **kwargs: bool | str | None,
     ) -> Self:
         """
@@ -158,13 +175,21 @@ class MKVPropEdit:
         :param default:             Specifies whether a track should be eligible for automatic selection
         :param forced:              Specifies whether a track should be played with tracks of a different type but same language
 
-        :param tags:                Any custom/arbitrary tags to set for the track.\n
-                                    Do note that this will replace all custom tags the track may already have.\n
+        :param tags:                Any custom/arbitrary tags to set for the track. An empty string as value will remove a tag\n
                                     An empty dict will remove any custom tags. `None` will do nothing.
+
+        :param crop:                Container based cropping with (horizontal, vertical) or (left, top, right, bottom).\n
+                                    Will crop the same on all sides if passed a single integer.
 
         :param kwargs:              Any other properties to set or remove.\n
                                     Check out the 'Track headers' section in `mkvpropedit -l` to see what's available.
         """
+        if crop is not None:
+            if isinstance(crop, int):
+                crop = tuple([crop] * 4)
+            elif len(crop) == 2:
+                crop = crop * 2
+            kwargs.update(pixel_crop_left=str(crop[0]), pixel_crop_top=str(crop[1]), pixel_crop_right=str(crop[2]), pixel_crop_bottom=str(crop[3]))
         self._edit_track("v", self._video_index, name, language, default, forced, tags, **kwargs)
         self._video_index += 1
         return self
@@ -189,8 +214,7 @@ class MKVPropEdit:
         :param default:             Specifies whether a track should be eligible for automatic selection
         :param forced:              Specifies whether a track should be played with tracks of a different type but same language
 
-        :param tags:                Any custom/arbitrary tags to set for the track.\n
-                                    Do note that this will replace all custom tags the track may already have.\n
+        :param tags:                Any custom/arbitrary tags to set for the track. An empty string as value will remove a tag.\n
                                     An empty dict will remove any custom tags. `None` will do nothing.
 
         :param kwargs:              Any other properties to set or remove.\n
@@ -220,8 +244,7 @@ class MKVPropEdit:
         :param default:             Specifies whether a track should be eligible for automatic selection
         :param forced:              Specifies whether a track should be played with tracks of a different type but same language
 
-        :param tags:                Any custom/arbitrary tags to set for the track.\n
-                                    Do note that this will replace all custom tags the track may already have.\n
+        :param tags:                Any custom/arbitrary tags to set for the track. An empty string as value will remove a tag.\n
                                     An empty dict will remove any custom tags. `None` will do nothing.
 
         :param kwargs:              Any other properties to set or remove.\n
@@ -241,6 +264,8 @@ class MKVPropEdit:
         :param error_on_failure:    Raise an exception on failure.\n
                                     Otherwise this function will return a bool indicating the success.
         """
+        if not self._main_args and not self._track_args:
+            raise error("No changes made to the file!", self)
         args = [str(self._executable), str(self._fileIn)] + self._main_args + self._track_args
         code = run_commandline(args, quiet, mkvmerge=True)
         clean_temp_files()
