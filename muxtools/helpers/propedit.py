@@ -258,7 +258,7 @@ class MKVPropEdit:
         """
         Run the mkvpropedit process.
 
-        :param quiet:               Supresses the output.\n
+        :param quiet:               Suppresses the output.\n
                                     The stdout will still be printed on failure regardless of this setting.
 
         :param error_on_failure:    Raise an exception on failure.\n
