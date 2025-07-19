@@ -6,6 +6,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    env:
+      MKVTOOLNIX_VERSION: "93.0"
     strategy:
       fail-fast: false
       matrix:
@@ -28,12 +30,25 @@ jobs:
         uses: AnimMouse/setup-ffmpeg@27e66fd2fe1d643b73a7c5cb105f3b4116bfb8db # v1.2.1
         with:
           version: 7.1
-      - name: Setup mkvtoolnix
+      - name: Cache MKVToolNix
+        id: cache-mkvtoolnix
+        uses: actions/cache@v4
+        with:
+          path: MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage
+          key: mkvtoolnix-${{ env.MKVTOOLNIX_VERSION }}-appimage
+      - name: Download MKVToolNix
+        if: steps.cache-mkvtoolnix.outputs.cache-hit != 'true'
+        run: wget https://mkvtoolnix.download/appimage/MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage
+      - name: Setup MKVToolNix
+        # Extract the appimage so we don't have to install libfuse and add included libs to ldconfig
         run: |
-          sudo wget -O /usr/share/keyrings/gpg-pub-moritzbunkus.gpg https://mkvtoolnix.download/gpg-pub-moritzbunkus.gpg
-          echo "deb [signed-by=/usr/share/keyrings/gpg-pub-moritzbunkus.gpg] https://mkvtoolnix.download/ubuntu/ noble main\ndeb-src [signed-by=/usr/share/keyrings/gpg-pub-moritzbunkus.gpg] https://mkvtoolnix.download/ubuntu/ noble main" | sudo tee --append /etc/apt/sources.list.d/mkvtoolnix.download.list
-          sudo apt-get update
-          sudo apt-get -y install mkvtoolnix
+          chmod u+x "MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage" && "./MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage" --appimage-extract
+          echo "$PWD/squashfs-root/usr/lib" | sudo tee /etc/ld.so.conf.d/mkvtoolnix.conf
+          sudo ldconfig
+          chmod u+x -R $PWD/squashfs-root/usr/bin
+          sudo ln -sf "$PWD/squashfs-root/usr/bin/mkvmerge" "/usr/bin/mkvmerge"
+          sudo ln -sf "$PWD/squashfs-root/usr/bin/mkvpropedit" "/usr/bin/mkvpropedit"
+          sudo ln -sf "$PWD/squashfs-root/usr/bin/mkvinfo" "/usr/bin/mkvinfo"
       - name: Check mkvmerge
         run: mkvmerge --version
       - name: Run tests (Python ${{ matrix.python-version }})
