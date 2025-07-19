@@ -25,44 +25,22 @@ def setup_and_remove():
 def test_invalid_values():
     f = get_workdir() / "Test.m2ts"
     for transfer in [BSF_Transfer.LOG100, BSF_Transfer.HLG, BSF_Transfer.BT2020_10]:
-        failed = False
-
-        try:
+        with pytest.raises(Exception):
             apply_mpeg2_bsf(f, transfer=transfer)
-        except:
-            failed = True
-
-        assert failed
 
     for matrix in [BSF_Matrix.RGB, BSF_Matrix.YCGCO]:
-        failed = False
-
-        try:
+        with pytest.raises(Exception):
             apply_mpeg2_bsf(f, matrix=matrix)
-        except:
-            failed = True
-
-        assert failed
 
     for primaries in [BSF_Primaries.FILM, BSF_Primaries.BT2020]:
-        failed = False
-
-        try:
+        with pytest.raises(Exception):
             apply_mpeg2_bsf(f, primaries=primaries)
-        except:
-            failed = True
-
-        assert failed
 
 
 def test_nothing_ever_happens():
     f = get_workdir() / "Test.m2ts"
-    failed = False
-    try:
+    with pytest.raises(Exception):
         apply_mpeg2_bsf(f)
-    except:
-        failed = True
-    assert failed
 
 
 def test_apply():

@@ -12,7 +12,7 @@ def setup_and_remove():
 
     yield
 
-    sleep(0.5)
+    sleep(0.1)
     rmtree(get_workdir())
 
 
@@ -31,13 +31,9 @@ def test_mkvpropedit():
         .run()
     )
 
-    no_chapters = False
-    try:
+    with pytest.raises(Exception):
         Chapters.from_mkv(f)
-    except:
-        no_chapters = True
 
-    assert no_chapters
     assert Chapters.from_mkv(sample_file, _print=False)
 
     original = ParsedFile.from_file(sample_file)

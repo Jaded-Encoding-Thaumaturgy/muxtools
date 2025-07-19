@@ -16,7 +16,7 @@ def setup_and_remove():
 
     yield
 
-    sleep(0.5)  # Just in case there's still a lock on some file lol
+    sleep(0.1)
     rmtree(get_workdir())
 
 

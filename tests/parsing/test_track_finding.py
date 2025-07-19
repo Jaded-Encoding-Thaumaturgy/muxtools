@@ -56,11 +56,5 @@ def test_find_custom_condition(parsed_file):
 
 
 def test_error_on_empty(parsed_file):
-    failed = False
-
-    try:
+    with pytest.raises(Exception):
         parsed_file.find_tracks(custom_condition=lambda track: track.get_audio_format() == AudioFormat.FLAC, error_if_empty=True)
-    except:
-        failed = True
-
-    assert failed
