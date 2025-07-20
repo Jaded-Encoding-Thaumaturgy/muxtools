@@ -200,7 +200,11 @@ class Chapters:
         with open(out_file, "w", encoding="UTF-8") as f:
             chapters = [
                 "CHAPTER{num:02d}={time}\nCHAPTER{num:02d}NAME={name}\n".format(
-                    num=i + 1, time=format_timedelta((chapter[0] - timedelta(milliseconds=1)) if minus_one_ms_hack else chapter[0]), name=chapter[1]
+                    num=i + 1,
+                    time=format_timedelta(
+                        (chapter[0] - timedelta(milliseconds=1)) if minus_one_ms_hack and chapter[0] > timedelta(milliseconds=0) else chapter[0]
+                    ),
+                    name=chapter[1],
                 )
                 for i, chapter in enumerate(sorted(self.chapters, key=lambda x: x[0]))
             ]
