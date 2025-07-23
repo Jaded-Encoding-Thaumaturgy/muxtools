@@ -91,7 +91,7 @@ class Chapters:
                 chapters.append(tuple(current))
 
             self.chapters = chapters
-        if trim_end != 0:
+        if trim_end is not None and trim_end != 0:
             if trim_end > 0:
                 chapters: list[Chapter] = []
                 for chapter in self.chapters:
