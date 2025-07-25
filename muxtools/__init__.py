@@ -3,6 +3,7 @@ from .muxing import *
 from .audio import *
 from .subtitle import *
 from .misc import *
+from .helpers import *
 
 from . import main
 from . import functions

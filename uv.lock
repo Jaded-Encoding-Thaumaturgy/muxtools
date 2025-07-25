@@ -587,6 +587,7 @@ dependencies = [
     { name = "requests" },
     { name = "rich" },
     { name = "typed-ffmpeg-compatible" },
+    { name = "typing-extensions" },
     { name = "videotimestamps" },
     { name = "wget" },
 ]
@@ -611,6 +612,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.1.0" },
     { name = "typed-ffmpeg-compatible", specifier = "==3.6.0" },
+    { name = "typing-extensions", specifier = ">=4.12.0" },
     { name = "videotimestamps", specifier = ">=0.2.0" },
     { name = "wget", specifier = ">=3.2" },
 ]
