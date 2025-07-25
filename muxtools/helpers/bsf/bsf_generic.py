@@ -1,6 +1,26 @@
 from enum import IntEnum
+from pathlib import Path
+from typing import Any
+from shutil import move
 
-__all__ = ["BSF_Matrix", "BSF_Transfer", "BSF_Primaries", "BSF_Format"]
+from ...utils import make_output, get_executable, run_commandline, clean_temp_files, error
+
+__all__ = ["BSF_Matrix", "BSF_Transfer", "BSF_Primaries", "BSF_Format", "BSF_ChromaLocation"]
+
+
+class BSF_ChromaLocation(IntEnum):
+    """
+    Collection of known chroma sample location values.
+
+    For more documentation on these, check out the [H265 Specification](https://www.itu.int/rec/t-rec-h.265) (Figure E.1) or [JET Documentation](https://jaded-encoding-thaumaturgy.github.io/vs-jetpack/api/vstools/enums/generic/#vstools.enums.generic.ChromaLocation).
+    """
+
+    LEFT = 0
+    CENTER = 1
+    TOP_LEFT = 2
+    TOP = 3
+    BOTTOM_LEFT = 4
+    BOTTOM = 5
 
 
 class BSF_Matrix(IntEnum):
@@ -98,3 +118,26 @@ class BSF_Format(IntEnum):
     SECAM = 3
     MAC = 4
     UNSPECIFIED = 5
+
+
+def _apply_bsf(
+    fileIn: Path,
+    filter_name: str,
+    filter_options: list[str],
+    caller: Any,
+    quiet: bool = True,
+):
+    out = make_output(fileIn, fileIn.suffix[1:], "bsf", temp=True)
+    ffmpeg = get_executable("ffmpeg")
+
+    filter_options = ":".join(filter_options)
+    args = [ffmpeg, "-hide_banner", "-i", str(fileIn), "-map", "0", "-c", "copy", "-bsf:v", f"{filter_name}={filter_options}", str(out)]
+
+    result = run_commandline(args, quiet)
+    if bool(result):
+        clean_temp_files()
+        raise error(f"Failed to apply {filter_name.split('_')[0]} bitstream filter!", caller)
+
+    fileIn.unlink()
+    move(out, fileIn)
+    clean_temp_files()
