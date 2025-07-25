@@ -102,7 +102,7 @@ class ParsedFile:
         path = ensure_path_exists(path, caller)
         ffprobe_exe = get_executable("ffprobe")
         try:
-            out = probe_obj(path, cmd=ffprobe_exe)
+            out = probe_obj(path, cmd=ffprobe_exe, show_chapters=True)
             assert out and out.format
         except:
             raise error(f"Failed to parse file '{path.stem}' with ffprobe!", caller)
