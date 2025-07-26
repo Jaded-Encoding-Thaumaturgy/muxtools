@@ -66,11 +66,11 @@ class SubFilePGS(MuxingFile):
         """
         Extract a PGS subtitle track from a file using ffmpeg.\n
 
-        :param fileIn: The input file to extract from.
-        :param track: The track number to extract.
-        :param preserve_delay: If True, the container delay will be preserved.
-        :param quiet: If True, suppresses ffmpeg output.
-        :return: An instance of SubFilePGS containing the extracted subtitle.
+        :param fileIn:          The input file to extract from.
+        :param track:           The track number to extract.
+        :param preserve_delay:  If True, the container delay will be preserved.
+        :param quiet:           If True, suppresses ffmpeg output.
+        :return:                An instance of SubFilePGS containing the extracted subtitle.
         """
         caller = "SubFilePGS.extract_from"
         parsed = ParsedFile.from_file(fileIn, caller)
