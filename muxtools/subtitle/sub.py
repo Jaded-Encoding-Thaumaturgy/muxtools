@@ -2,11 +2,12 @@ from __future__ import annotations
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
 from video_timestamps import TimeType
+from typing_extensions import Self
 import shutil
 import json
 import re
@@ -40,7 +41,7 @@ class FontFile(MuxingFile):
 @dataclass
 class SubFile(BaseSubFile):
     """
-    Utility class representing a subtitle file with various functions to run on.
+    Utility class representing an ASS/SSA subtitle file with various functions to run on.
 
     :param file:            Can be a string, Path object or GlobSearch.
                             If the GlobSearch returns multiple results or if a list was passed it will merge them.
@@ -95,7 +96,7 @@ class SubFile(BaseSubFile):
                     self._read_doc().dump_file(writer)
                 self.file = out
 
-    def manipulate_lines(self: SubFileSelf, func: Callable[[LINES], LINES | None]) -> SubFileSelf:
+    def manipulate_lines(self, func: Callable[[LINES], LINES | None]) -> Self:
         """
         Function to manipulate any lines.
 
@@ -105,7 +106,7 @@ class SubFile(BaseSubFile):
         super().manipulate_lines(func)
         return self
 
-    def set_header(self: SubFileSelf, header: str | ASSHeader, value: str | int | bool | None) -> SubFileSelf:
+    def set_header(self, header: str | ASSHeader, value: str | int | bool | None) -> Self:
         """
         A function to add headers to the "Script Info" section of the subtitle file.
         This will validate the input for known functional headers but also allows arbitrary ones.
@@ -117,7 +118,7 @@ class SubFile(BaseSubFile):
         super().set_header(header, value)
         return self
 
-    def set_headers(self: SubFileSelf, *headers: tuple[str | ASSHeader, str | int | bool | None]) -> SubFileSelf:
+    def set_headers(self, *headers: tuple[str | ASSHeader, str | int | bool | None]) -> Self:
         """
         A function to add headers to the "Script Info" section of the subtitle file.
         This will validate the input for known functional headers but also allows arbitrary ones.
@@ -130,7 +131,7 @@ class SubFile(BaseSubFile):
         self._update_doc(doc)
         return self
 
-    def clean_styles(self: SubFileSelf) -> SubFileSelf:
+    def clean_styles(self) -> Self:
         """
         Deletes unused styles from the document.
         """
@@ -144,7 +145,7 @@ class SubFile(BaseSubFile):
         self._update_doc(doc)
         return self
 
-    def clean_garbage(self: SubFileSelf) -> SubFileSelf:
+    def clean_garbage(self) -> Self:
         """
         Removes the "Aegisub Project Garbage" section from the file.
         """
@@ -153,7 +154,7 @@ class SubFile(BaseSubFile):
         self._update_doc(doc)
         return self
 
-    def clean_extradata(self: SubFileSelf) -> SubFileSelf:
+    def clean_extradata(self) -> Self:
         """
         Removes the "Aegisub Extradata" section from the file.
         """
@@ -162,20 +163,20 @@ class SubFile(BaseSubFile):
         self._update_doc(doc)
         return self
 
-    def clean_comments(self: SubFileSelf) -> SubFileSelf:
+    def clean_comments(self) -> Self:
         """
         Removes all comment lines from the file.
         """
         return self.manipulate_lines(lambda lines: list(filter(lambda line: str(line.TYPE).lower() != "comment", lines)))
 
     def autoswapper(
-        self: SubFileSelf,
+        self,
         allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES,
         print_swaps: bool = False,
         inline_marker: str = "*",
         line_marker: str = "***",
         inline_tag_markers: str | None = None,
-    ) -> SubFileSelf:
+    ) -> Self:
         r"""
         autoswapper allows replacing text in the script with a different text.
         Useful for creating honorific tracks.
@@ -293,7 +294,7 @@ class SubFile(BaseSubFile):
         return self
 
     def unfuck_cr(
-        self: SubFileSelf,
+        self,
         default_style: str = "Default",
         keep_flashback: bool = True,
         dialogue_styles: list[str] | None = ["main", "default", "narrator", "narration"],
@@ -301,7 +302,7 @@ class SubFile(BaseSubFile):
         italics_styles: list[str] | None = ["italics", "internal"],
         alt_style: str = "Alt",
         alt_styles: list[str] | None = None,
-    ) -> SubFileSelf:
+    ) -> Self:
         """
         Removes any top and italics styles and replaces them with tags.
 
@@ -351,11 +352,11 @@ class SubFile(BaseSubFile):
         return self.manipulate_lines(_func).clean_styles()
 
     def shift_0(
-        self: SubFileSelf,
+        self,
         timesource: TimeSourceT = None,
         timescale: TimeScaleT = None,
         allowed_styles: list[str] | None = DEFAULT_DIALOGUE_STYLES,
-    ) -> SubFileSelf:
+    ) -> Self:
         """
         Does the famous shift by 0 frames to fix frame timing issues.
         (It's basically just converting time to frame and back)
@@ -378,7 +379,7 @@ class SubFile(BaseSubFile):
         return self.manipulate_lines(_func)
 
     def merge(
-        self: SubFileSelf,
+        self,
         file: PathLike | GlobSearch,
         sync: None | int | str = None,
         sync2: None | str = None,
@@ -389,7 +390,7 @@ class SubFile(BaseSubFile):
         sort_lines: bool = False,
         shift_mode: ShiftMode = ShiftMode.FRAME,
         oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR,
-    ) -> SubFileSelf:
+    ) -> Self:
         """
         Merge another subtitle file with syncing if needed.
 
@@ -563,9 +564,7 @@ class SubFile(BaseSubFile):
 
         return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing, use_ntfs_compliant_names)
 
-    def restyle(
-        self: SubFileSelf, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True
-    ) -> SubFileSelf:
+    def restyle(self, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True) -> Self:
         """
         Add (and replace existing) styles to the subtitle file.
 
@@ -600,13 +599,13 @@ class SubFile(BaseSubFile):
             return self
 
     def resample(
-        self: SubFileSelf,
+        self,
         video: PathLike | None = None,
         src_width: int | None = None,
         src_height: int | None = None,
         use_arch: bool | None = None,
         quiet: bool = True,
-    ) -> SubFileSelf:
+    ) -> Self:
         """
         Resample subtitles to match the resolution of the specified video.
 
@@ -655,8 +654,8 @@ class SubFile(BaseSubFile):
         return self
 
     def separate_signs(
-        self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, inverse: bool = False, heuristics: bool = False, print_heuristics: bool = True
-    ) -> SubFileSelf:
+        self, styles: list[str] = DEFAULT_DIALOGUE_STYLES, inverse: bool = False, heuristics: bool = False, print_heuristics: bool = True
+    ) -> Self:
         """
         Basically deletes lines that have any of the passed styles.
 
@@ -710,7 +709,7 @@ class SubFile(BaseSubFile):
 
         return self.manipulate_lines(filter_lines).clean_styles()
 
-    def change_layers(self: SubFileSelf, styles: list[str] = DEFAULT_DIALOGUE_STYLES, layer: int | None = None, additive: bool = True) -> SubFileSelf:
+    def change_layers(self, styles: list[str] = DEFAULT_DIALOGUE_STYLES, layer: int | None = None, additive: bool = True) -> Self:
         """
         Set layer to the specified number or adds the number to the existing one on every line with a style you selected.
 
@@ -729,7 +728,7 @@ class SubFile(BaseSubFile):
 
         return self.manipulate_lines(_func)
 
-    def purge_macrons(self: SubFileSelf, styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> SubFileSelf:
+    def purge_macrons(self, styles: list[str] | None = DEFAULT_DIALOGUE_STYLES) -> Self:
         """
         Removes romaji macrons from every dialogue line.
         German subs use this a lot and a lot of fonts don't support it, so I like to purge them.
@@ -751,12 +750,12 @@ class SubFile(BaseSubFile):
         return self.manipulate_lines(_func)
 
     def shift(
-        self: SubFileSelf,
+        self,
         frames: int,
         timesource: TimeSourceT = None,
         timescale: TimeScaleT = None,
         oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR,
-    ) -> SubFileSelf:
+    ) -> Self:
         """
         Shifts all lines by any frame number.
 
@@ -783,7 +782,7 @@ class SubFile(BaseSubFile):
 
         return self.manipulate_lines(shift_lines)
 
-    def copy(self: SubFileSelf, filename: PathLike = None) -> SubFileSelf:
+    def copy(self, filename: PathLike = None) -> Self:
         """
         Creates a new copy of the current SubFile object, including its file.
         So you can run anything on the new one without impacting the other one.
@@ -808,14 +807,14 @@ class SubFile(BaseSubFile):
 
     @classmethod
     def from_srt(
-        cls: type[SubFileSelf],
+        cls: type[Self],
         file: PathLike,
         an8_all_caps: bool = True,
         style_all_caps: bool = True,
         timesource: TimeSourceT = Fraction(24000, 1001),
         timescale: TimeScaleT = TimeScale.MKV,
         encoding: str = "UTF8",
-    ) -> SubFileSelf:
+    ) -> Self:
         """
         Convert srt subtitles to an ass SubFile.
         Automatically applies Gandhi styling. Feel free to restyle.
@@ -873,11 +872,10 @@ class SubFile(BaseSubFile):
         return out.restyle(GJM_GANDHI_PRESET)
 
     @classmethod
-    def from_mkv(
-        cls: type[SubFileSelf], file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True, **kwargs: Any
-    ) -> SubFileSelf:
+    def from_mkv(cls: type[Self], file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True, **kwargs: Any) -> Self:
         """
-        Extract subtitle from mkv.
+        Extract subtitle from mkv.\n
+        The track must be either an ASS or SRT subtitle. SRT will be converted automatically.
 
         :param file:            Input mkv file
         :param track:           Relative track number
@@ -885,6 +883,7 @@ class SubFile(BaseSubFile):
         :param kwargs:          Other args to pass to `from_srt` if trying to extract srt subtitles
         """
         caller = "SubFile.from_mkv"
+        file = ensure_path_exists(file, caller)
         parsed = ParsedFile.from_file(file, caller)
         parsed_track = parsed.find_tracks(relative_id=track, type=TrackType.SUB, error_if_empty=True, caller=caller)[0]
 
@@ -907,6 +906,3 @@ class SubFile(BaseSubFile):
             return subfile
 
         return cls(out, delay, file)
-
-
-SubFileSelf = TypeVar("SubFileSelf", bound=SubFile)
