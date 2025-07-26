@@ -47,8 +47,8 @@ def apply_mpeg2_bsf(
     :param fps:                         Set the frame rate in the stream
     :param format:                      Set the video format in the stream
     :param primaries:                   Set the color primaries in the stream
-    :param transfer_characteristics:    Set the transfer characteristics in the stream
-    :param matrix_coefficients:         Set the matrix coefficients in the stream
+    :param transfer:                    Set the transfer characteristics in the stream
+    :param matrix:                      Set the matrix coefficients in the stream
     :param quiet:                       Suppresses the output of ffmpeg
     """
     f = ensure_path_exists(fileIn, apply_mpeg2_bsf)

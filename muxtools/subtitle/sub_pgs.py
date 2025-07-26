@@ -16,11 +16,8 @@ class SubFilePGS(MuxingFile):
     Utility class representing a PGS/SUP subtitle file.
 
     :param file:            Can be a string, Path object or GlobSearch.
-                            If the GlobSearch returns multiple results or if a list was passed it will merge them.
-
     :param container_delay: Set a container delay used in the muxing process later.
     :param source:          The file this sub originates from, will be set by the constructor.
-    :param encoding:        Encoding used for reading and writing the subtitle files.
     """
 
     def __post_init__(self):
