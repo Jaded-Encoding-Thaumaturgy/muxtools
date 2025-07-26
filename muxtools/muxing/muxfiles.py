@@ -47,6 +47,7 @@ class MuxingFile(FileMixin):
     ) -> _track:
         from ..muxing.tracks import AudioTrack, SubTrack, Attachment
         from ..subtitle.sub import SubFile
+        from ..subtitle.sub_pgs import SubFilePGS
 
         new_args = dict(
             file=self.file,
@@ -59,7 +60,7 @@ class MuxingFile(FileMixin):
         )
         if isinstance(self, AudioFile):
             return AudioTrack(**new_args, lang=lang if lang else "ja")
-        elif isinstance(self, SubFile):
+        elif isinstance(self, SubFile) or isinstance(self, SubFilePGS):
             return SubTrack(**new_args, lang=lang if lang else "en")
         else:
             return Attachment(self.file)
