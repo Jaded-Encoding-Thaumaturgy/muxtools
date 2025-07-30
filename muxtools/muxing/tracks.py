@@ -226,7 +226,7 @@ class Premux(_track):
                 video = [video]
             lv = []
             for num in video:
-                abso = parsed.find_tracks(relative_id=num, type=TrackType.VIDEO, error_if_empty=True) if not assume_absolute else num
+                abso = parsed.find_tracks(relative_id=num, type=TrackType.VIDEO, error_if_empty=True)[0].index if not assume_absolute else num
                 lv.append(abso)
             args += f" -d {','.join(str(i) for i in lv)}"
 
@@ -237,7 +237,7 @@ class Premux(_track):
                 audio = [audio]
             la = []
             for num in audio:
-                abso = parsed.find_tracks(relative_id=num, type=TrackType.AUDIO, error_if_empty=True) if not assume_absolute else num
+                abso = parsed.find_tracks(relative_id=num, type=TrackType.AUDIO, error_if_empty=True)[0].index if not assume_absolute else num
                 la.append(abso)
             args += f" -a {','.join(str(i) for i in la)}"
 
@@ -248,7 +248,7 @@ class Premux(_track):
                 subtitles = [subtitles]
             ls = []
             for num in subtitles:
-                abso = parsed.find_tracks(relative_id=num, type=TrackType.SUB, error_if_empty=True) if not assume_absolute else num
+                abso = parsed.find_tracks(relative_id=num, type=TrackType.SUB, error_if_empty=True)[0].index if not assume_absolute else num
                 ls.append(abso)
             args += f" -s {','.join(str(i) for i in ls)}"
 
