@@ -305,7 +305,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0"]
             if form.should_not_transcode():
                 args.extend(["-c:a", "copy"])
-                extension = form.ext
+                extension = form.extension
             else:
                 args.extend(["-c:a", "flac", "-compression_level", "0"])
                 extension = "flac"
@@ -412,12 +412,12 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 raise error(f"Concat cannot work with unknown formats! ({audio_files[0].get_trackinfo().codec_name})", self)
 
             format_mismatch = not all([af.get_trackinfo().get_audio_format() == first_format for af in audio_files[1:]])
-            if format_mismatch or first_format.ext == "wav":
+            if format_mismatch or first_format.extension == "wav":
                 out_codec = "flac"
                 out_ext = "flac"
             else:
                 out_codec = "copy"
-                out_ext = first_format.ext
+                out_ext = first_format.extension
 
             output = make_output(audio_files[0].file, out_ext, "concat", self.output)
             args = [get_executable("ffmpeg"), "-f", "concat", "-safe", "0", "-i", str(concat_file), "-c", out_codec, str(output)]
