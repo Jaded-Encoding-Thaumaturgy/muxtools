@@ -144,7 +144,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             if should_truncate:
                 if specified_depth > actual_depth:
                     debug(f"Detected fake/padded {specified_depth} bit. Actual depth is {actual_depth} bit.", self)
-                if actual_depth == 16:
+                if actual_depth <= 16:
                     debug("Track will be converted to flac and truncated to 16 bit instead.", self)
                     out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
                     args.extend(["-c:a", "flac", "-sample_fmt", "s16", "-compression_level", "0"])
