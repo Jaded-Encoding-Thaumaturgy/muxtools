@@ -10,7 +10,8 @@ from pathlib import Path
 from .utils.log import info, warn, error
 from .utils.download import unpack_all
 from .utils.env import get_temp_workdir
-from .utils.files import clean_temp_files, ensure_path_exists, ensure_path, is_video_file
+from .utils.files import clean_temp_files, ensure_path_exists, ensure_path
+from .utils.probe import ParsedFile
 from .utils.convert import get_timemeta_from_video
 
 CONF = "([green bold]Y[/] | [red]n[/])"
@@ -222,7 +223,8 @@ def generate_videometa(file: str | None = None, output: str | None = None):
         sys.exit(1)
 
     in_path = ensure_path_exists(file, None)
-    if not is_video_file(in_path):
+    parsed = ParsedFile.from_file(in_path, None, False)
+    if not parsed.is_video_file:
         error(f'"{in_path.name}" is not a video file!', None)
         sys.exit(1)
 
