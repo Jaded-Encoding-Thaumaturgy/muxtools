@@ -28,14 +28,14 @@ class Tool:
 tools = [
     Tool("CUETools.FLACCL.cmd", "https://github.com/gchudov/cuetools.net/releases/download/v2.2.6/CUETools_2.2.6.zip", ["flaccl"]),
     # non-free builds for libfdk_aac if one so desires
-    Tool("ffmpeg", "https://github.com/Vodes/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-win64-nonfree-7.1.zip", ["ffprobe"]),
-    Tool("mkvmerge", "https://mkvtoolnix.download/windows/releases/93.0/mkvtoolnix-64-bit-93.0.7z", ['mkvextract', 'mkvinfo', 'mkvpropedit']), 
+    Tool("ffmpeg", "https://github.com/Vodes/muxtools-binaries/releases/download/latest-ffmpeg/ffmpeg-latest-windows-amd64.zip", ["ffprobe"]),
+    Tool("mkvmerge", "https://github.com/Vodes/muxtools-binaries/releases/download/latest-mkvtoolnix/mkvtoolnix-latest-windows-amd64.zip", ['mkvextract', 'mkvinfo', 'mkvpropedit']), 
     Tool("eac3to", "https://files.catbox.moe/hn9oms.7z"), # Custom package because of removed sounds and updated libFlac
     Tool("x264", "https://github.com/DJATOM/x264-aMod/releases/download/r3101+20/x264-aMod-x64-core164-r3101+20.7z"),
     Tool("x265", "https://github.com/DJATOM/x265-aMod/releases/download/3.5+67/x265-x64-v3.5+67-aMod-gcc12.2.1+opt.7z"),
     Tool("qaac", "https://pomf2.lain.la/f/u8yyfyed.7z"), # 2.85 with flac, w64 and iTunes libraries included; Yes catbox frontend is down and I can't upload stuff there right now
-    Tool("opusenc", "https://www.rarewares.org/files/opus/opus-tools%200.2-34-g98f3ddc-x64.zip"),
-    Tool("flac", "https://github.com/xiph/flac/releases/download/1.5.0/flac-1.5.0-win.zip"),
+    Tool("opusenc", "https://github.com/Vodes/muxtools-binaries/releases/download/latest-opus-tools/opus-tools-latest-windows-amd64.zip"),
+    Tool("flac", "https://github.com/Vodes/muxtools-binaries/releases/download/latest-flac/flac-latest-windows-amd64.zip"),
     Tool("wavpack", "https://github.com/dbry/WavPack/releases/download/5.8.1/wavpack-5.8.0-x64.zip")
 ]
 # fmt: on
