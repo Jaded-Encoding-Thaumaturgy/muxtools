@@ -1,5 +1,5 @@
-from ass import Style, Document
-from ass.data import Color
+from ass import Style, Document  # type: ignore[import-untyped]
+from ass.data import Color  # type: ignore[import-untyped]
 from copy import deepcopy
 from typing import Any
 

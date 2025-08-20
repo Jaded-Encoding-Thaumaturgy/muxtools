@@ -3,7 +3,7 @@ from shlex import split as split_args
 
 from ..utils.files import make_output, create_tags_xml
 from ..utils.glob import GlobSearch
-from ..utils.types import PathLike, TrackType
+from ..utils.types import PathLike, TrackType, FileMixin
 from ..utils.files import ensure_path_exists
 from ..utils.probe import ParsedFile
 
@@ -41,8 +41,6 @@ class _track:
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> None:
-        from .muxfiles import MuxingFile
-
         """
         :param file:        Filepath as string or Path object
         :param type:        TrackType enum, or int or string (1 = 'video', 2 = 'audio', 3 = 'sub')
@@ -56,7 +54,7 @@ class _track:
         self.default = default
         self.forced = forced
         self.name = name
-        self.delay = file.container_delay if isinstance(file, MuxingFile) else delay
+        self.delay = file.container_delay if isinstance(file, FileMixin) else delay
         self.lang = lang
         self.type = type if isinstance(type, TrackType) else (TrackType(type) if isinstance(type, int) else TrackType[type.upper()])
         self.args = args

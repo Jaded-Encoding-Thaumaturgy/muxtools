@@ -5,7 +5,7 @@ from fractions import Fraction
 from typing import Union, Optional
 from datetime import timedelta
 from dataclasses import dataclass, asdict
-from video_timestamps import ABCTimestamps
+from video_timestamps import ABCTimestamps  # type: ignore[import-untyped]
 
 from ..utils.dataclass import FractionEncoder, fraction_hook
 
@@ -22,6 +22,7 @@ __all__ = [
     "LossyWavQuality",
     "VideoMeta",
     "TimeScale",
+    "FileMixin",
 ]
 
 PathLike = Union[Path, str, None]
@@ -54,7 +55,9 @@ class VideoMeta:
 
     @staticmethod
     def from_json(file: PathLike) -> "VideoMeta":
-        with open(file, "r", encoding="utf-8") as f:
+        from .files import ensure_path_exists
+
+        with open(ensure_path_exists(file, VideoMeta), "r", encoding="utf-8") as f:
             meta_json = json.loads(f.read(), object_hook=fraction_hook)
             return VideoMeta(**meta_json)
 
@@ -148,6 +151,25 @@ class ValidInputType(IntEnum):
         return ValidInputType.RF64
 
 
+class FileMixin:
+    file: Path
+    container_delay: int = 0
+    source: PathLike | None = None
+    tags: dict[str, str] | None = None
+
+    def __init__(
+        self,
+        file: Path,
+        container_delay: int = 0,
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+    ):
+        self.file = file
+        self.container_delay = container_delay
+        self.source = source
+        self.tags = tags
+
+
 @dataclass
 class AudioFrame:
     """
@@ -199,10 +221,14 @@ class AudioStats:
 
 @dataclass
 class AudioInfo:
-    stats: AudioStats = None
+    stats: AudioStats | None = None
     frames: list[AudioFrame] | None = None
 
     def num_samples(self) -> int:
+        if not self.frames:
+            return 0
         for frame in self.frames:
             if frame.num_samples:
                 return frame.num_samples
+
+        return 0

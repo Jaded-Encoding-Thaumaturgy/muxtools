@@ -3,40 +3,34 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
-from .tracks import VideoTrack
+from .tracks import AudioTrack, SubTrack, Attachment, VideoTrack, _track
 
 from ..utils.log import error
 from ..utils.glob import GlobSearch
 from ..utils.env import run_commandline
 from ..utils.download import get_executable
-from ..utils.types import PathLike, TrackType
+from ..utils.types import PathLike, TrackType, FileMixin
 from ..utils.files import ensure_path, ensure_path_exists
 from ..utils.probe import TrackInfo, ContainerInfo, ParsedFile
 
 __all__ = [
-    "FileMixin",
     "MuxingFile",
     "VideoFile",
     "AudioFile",
 ]
 
 
-@dataclass
-class FileMixin:
-    file: PathLike | list[PathLike] | GlobSearch
-    container_delay: int = 0
-    source: PathLike | None = None
-    tags: dict[str, str] | None = None
-
-
-@dataclass
 class MuxingFile(FileMixin):
-    from ..muxing.tracks import _track
+    def __init__(
+        self,
+        file: PathLike | list[PathLike] | GlobSearch,
+        container_delay: int = 0,
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+    ):
+        super().__init__(ensure_path(file, self), container_delay, source, tags)
 
-    def __post_init__(self):
-        self.file = ensure_path(self.file, self)
-
-    def to_track(
+    def _to_track(
         self,
         name: str = "",
         lang: str = "",
@@ -45,7 +39,6 @@ class MuxingFile(FileMixin):
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> _track:
-        from ..muxing.tracks import AudioTrack, SubTrack, Attachment
         from ..subtitle.sub import SubFile
         from ..subtitle.sub_pgs import SubFilePGS
 
@@ -66,7 +59,6 @@ class MuxingFile(FileMixin):
             return Attachment(self.file)
 
 
-@dataclass
 class VideoFile(MuxingFile):
     def to_track(
         self,
@@ -78,7 +70,7 @@ class VideoFile(MuxingFile):
         crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
         args: list[str] = [],
         tags: dict[str, str] | None = None,
-    ):
+    ) -> VideoTrack:
         """
         :param timecode_file:       Pass a path for proper vfr playback if needed.
         :param crop:                Container based cropping with (horizontal, vertical) or (left, top, right, bottom).
@@ -87,11 +79,21 @@ class VideoFile(MuxingFile):
         return VideoTrack(self.file, name, lang, default, forced, self.container_delay, timecode_file, crop, args, tags or self.tags)
 
 
-@dataclass
 class AudioFile(MuxingFile):
     duration: timedelta | None = None
     container: ContainerInfo | None = None
     track_metadata: TrackInfo | None = None
+
+    def __init__(
+        self,
+        file: PathLike | list[PathLike] | GlobSearch,
+        container_delay: int = 0,
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+        duration: timedelta | None = None,
+    ):
+        super().__init__(ensure_path(file, self), container_delay, source, tags)
+        self.duration = duration
 
     def __post_init__(self):
         self.file = ensure_path_exists(self.file, self)

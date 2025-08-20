@@ -11,6 +11,7 @@ from video_timestamps import ABCTimestamps, TimeType
 from ..utils.log import error, warn, danger
 from ..utils.types import PathLike
 from ..muxing.muxfiles import MuxingFile
+from ..utils.files import GlobSearch, ensure_path
 
 __all__ = ["_Line", "ASSHeader", "ShiftMode", "OutOfBoundsMode"]
 
@@ -127,6 +128,15 @@ class BaseSubFile(ABC, MuxingFile):
     A base class for the SubFile class.\n
     Mostly contains the functions to read/write the file and some commonly reused functions to manipulate headers/lines.
     """
+
+    def __init__(
+        self,
+        file: PathLike | list[PathLike] | GlobSearch,
+        container_delay: int = 0,
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+    ):
+        super().__init__(ensure_path(file, self), container_delay, source, tags)
 
     def _read_doc(self, file: PathLike | None = None) -> Document:
         with open(self.file if not file else file, "r", encoding=self.encoding) as reader:

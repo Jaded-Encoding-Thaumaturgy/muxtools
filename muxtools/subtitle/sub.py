@@ -33,12 +33,10 @@ SRT_REGEX = r"\d+[\r\n](?:(?P<start>\d+:\d+:\d+,\d+) --> (?P<end>\d+:\d+:\d+,\d+
 LINES = list[_Line]
 
 
-@dataclass
 class FontFile(MuxingFile):
     pass
 
 
-@dataclass
 class SubFile(BaseSubFile):
     """
     Utility class representing an ASS/SSA subtitle file with various functions to run on.
@@ -51,13 +49,21 @@ class SubFile(BaseSubFile):
     :param encoding:        Encoding used for reading and writing the subtitle files.
     """
 
-    encoding = "utf_8_sig"
+    encoding: str = "utf_8_sig"
 
-    def __post_init__(self):
-        if isinstance(self.file, GlobSearch):
-            self.file = self.file.paths
+    def __init__(
+        self,
+        file: PathLike | list[PathLike] | GlobSearch,
+        container_delay: int = 0,
+        encoding: str = "utf_8_sig",
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+    ):
+        self.encoding = encoding
+        if isinstance(file, GlobSearch):
+            file = file.paths
 
-        if isinstance(self.file, list) and len(self.file) > 1:
+        if isinstance(file, list) and len(file) > 1:
             debug("Merging sub files...", self)
             docs: list[Document] = []
             for i, f in enumerate(self.file):
@@ -66,7 +72,7 @@ class SubFile(BaseSubFile):
                     doc = parseDoc(read)
                     docs.append(doc)
                     if i != 0:
-                        self._warn_mismatched_properties(docs[0], doc, ensure_path(self.file[0], self).name, f.name)
+                        self._warn_mismatched_properties(docs[0], doc, ensure_path(file[0], self).name, f.name)
 
             main = docs[0]
             existing_styles = [style.name for style in (main.styles)]
@@ -80,21 +86,23 @@ class SubFile(BaseSubFile):
                         continue
                     main.styles.append(style)
 
-            self.source = self.file[0]
+            source = self.file[0]
             out = make_output(self.file[0], "ass", "merged")
             with open(out, "w", encoding=self.encoding) as writer:
                 main.dump_file(writer)
 
-            self.file = out
+            file = out
             debug("Done")
         else:
-            self.file = ensure_path_exists(self.file, self)
-            self.source = self.file
-            if not os.path.samefile(self.file.parent, get_workdir()):
-                out = make_output(self.file, "ass", "vof")
+            file = ensure_path_exists(file, self)
+            source = file
+            if not os.path.samefile(file.parent, get_workdir()):
+                out = make_output(file, "ass", "vof")
                 with open(out, "w", encoding=self.encoding) as writer:
                     self._read_doc().dump_file(writer)
-                self.file = out
+                file = out
+
+        super().__init__(file, container_delay, source, tags)
 
     def manipulate_lines(self, func: Callable[[LINES], LINES | None]) -> Self:
         """
