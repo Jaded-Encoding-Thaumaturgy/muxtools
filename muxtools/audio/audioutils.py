@@ -2,7 +2,7 @@ import os
 import re
 import subprocess
 from datetime import timedelta
-from typing import Any
+from typing import Any, Literal, overload
 from collections.abc import Sequence
 
 from .preprocess import Preprocessor, Resample
@@ -23,6 +23,26 @@ def sanitize_pre(preprocess: Preprocessor | Sequence[Preprocessor] | None = None
     if not preprocess:
         return []
     return list(preprocess) if isinstance(preprocess, Sequence) else [preprocess]
+
+
+@overload
+def ensure_valid_in(
+    fileIn: AudioFile,
+    supports_pipe: Literal[True] = ...,
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = None,
+    valid_type: ValidInputType = ValidInputType.FLAC,
+    caller: Any = None,
+) -> subprocess.Popen: ...
+
+
+@overload
+def ensure_valid_in(
+    fileIn: AudioFile,
+    supports_pipe: Literal[False] = ...,
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = None,
+    valid_type: ValidInputType = ValidInputType.FLAC,
+    caller: Any = None,
+) -> AudioFile: ...
 
 
 def ensure_valid_in(

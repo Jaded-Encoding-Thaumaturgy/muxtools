@@ -92,7 +92,10 @@ def run_commandline(
     return returncode
 
 
-def get_binary_version(executable: Path, regex: str, args: list[str] | None = None) -> str | None:
+def get_binary_version(executable: PathLike, regex: str, args: list[str] | None = None) -> str | None:
+    from .files import ensure_path
+
+    executable = ensure_path(executable, None)
     args = [executable] + args if args else [executable]
     _, readout = communicate_stdout(args)
 

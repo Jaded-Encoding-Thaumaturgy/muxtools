@@ -404,8 +404,8 @@ class FFMpeg(HasExtractor, HasTrimmer):
             info(f"Concatenating {len(audio_files)} audio tracks...", self)
 
             concat_file = get_temp_workdir() / "concat.txt"
-            with open(concat_file, "w", encoding="utf-8") as f:
-                f.writelines([f"file {_escape_name(str(af.file.resolve()))}\n" for af in audio_files])
+            with open(concat_file, "w", encoding="utf-8") as fout:
+                fout.writelines([f"file {_escape_name(str(af.file.resolve()))}\n" for af in audio_files])
 
             first_format = audio_files[0].get_trackinfo().get_audio_format()
             if not first_format:

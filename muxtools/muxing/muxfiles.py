@@ -30,7 +30,7 @@ class MuxingFile(FileMixin):
     ):
         super().__init__(ensure_path(file, self), container_delay, source, tags)
 
-    def _to_track(
+    def to_track(
         self,
         name: str = "",
         lang: str = "",

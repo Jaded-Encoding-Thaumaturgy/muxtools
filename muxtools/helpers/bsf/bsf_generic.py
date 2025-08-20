@@ -130,8 +130,8 @@ def _apply_bsf(
     out = make_output(fileIn, fileIn.suffix[1:], "bsf", temp=True)
     ffmpeg = get_executable("ffmpeg")
 
-    filter_options = ":".join(filter_options)
-    args = [ffmpeg, "-hide_banner", "-i", str(fileIn), "-map", "0", "-c", "copy", "-bsf:v", f"{filter_name}={filter_options}", str(out)]
+    options = ":".join(filter_options)
+    args = [ffmpeg, "-hide_banner", "-i", str(fileIn), "-map", "0", "-c", "copy", "-bsf:v", f"{filter_name}={options}", str(out)]
 
     result = run_commandline(args, quiet)
     if bool(result):

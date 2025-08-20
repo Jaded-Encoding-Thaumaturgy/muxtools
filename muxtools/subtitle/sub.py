@@ -66,7 +66,7 @@ class SubFile(BaseSubFile):
         if isinstance(file, list) and len(file) > 1:
             debug("Merging sub files...", self)
             docs: list[Document] = []
-            for i, f in enumerate(self.file):
+            for i, f in enumerate(file):
                 f = ensure_path_exists(f, self)
                 with open(f, "r", encoding=self.encoding) as read:
                     doc = parseDoc(read)
@@ -86,8 +86,8 @@ class SubFile(BaseSubFile):
                         continue
                     main.styles.append(style)
 
-            source = self.file[0]
-            out = make_output(self.file[0], "ass", "merged")
+            source = file[0]
+            out = make_output(file[0], "ass", "merged")
             with open(out, "w", encoding=self.encoding) as writer:
                 main.dump_file(writer)
 
@@ -99,7 +99,7 @@ class SubFile(BaseSubFile):
             if not os.path.samefile(file.parent, get_workdir()):
                 out = make_output(file, "ass", "vof")
                 with open(out, "w", encoding=self.encoding) as writer:
-                    self._read_doc().dump_file(writer)
+                    self._read_doc(file).dump_file(writer)
                 file = out
 
         super().__init__(file, container_delay, source, tags)
@@ -123,7 +123,7 @@ class SubFile(BaseSubFile):
         :param header:      The name of the header or a header chosen from the enum.
         :param value:       The value of the header. None will remove the header unless it's the Matrix header because None has a meaning there.
         """
-        super().set_header(header, value)
+        super()._set_header(header, value)
         return self
 
     def set_headers(self, *headers: tuple[str | ASSHeader, str | int | bool | None]) -> Self:
@@ -135,7 +135,7 @@ class SubFile(BaseSubFile):
         """
         doc = self._read_doc()
         for header, value in headers:
-            super().set_header(header, value, doc)
+            super()._set_header(header, value, doc)
         self._update_doc(doc)
         return self
 

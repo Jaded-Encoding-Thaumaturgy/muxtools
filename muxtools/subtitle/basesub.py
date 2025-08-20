@@ -264,7 +264,7 @@ class BaseSubFile(ABC, MuxingFile):
         new_line.end = timedelta(milliseconds=end * 10)
         return ShiftResult(new_line, outofbounds)
 
-    def set_header(self, header: str | ASSHeader, value: str | int | bool | None, opened_doc: None | Document = None) -> None:
+    def _set_header(self, header: str | ASSHeader, value: str | int | bool | None, opened_doc: None | Document = None) -> None:
         doc = opened_doc or self._read_doc()
         functional_headers = ASSHeader._member_map_.items()
         section: dict = doc.sections["Script Info"]

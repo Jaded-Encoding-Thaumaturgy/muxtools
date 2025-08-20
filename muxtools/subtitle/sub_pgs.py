@@ -3,25 +3,43 @@ from typing_extensions import Self
 from video_timestamps import TimeType
 from shutil import move
 
-from ..utils import ParsedFile, make_output, get_executable, run_commandline, error, clean_temp_files, resolve_timesource_and_scale, ensure_path, info
+from ..utils import (
+    ParsedFile,
+    make_output,
+    get_executable,
+    run_commandline,
+    error,
+    clean_temp_files,
+    resolve_timesource_and_scale,
+    ensure_path,
+    info,
+    GlobSearch,
+)
 from ..utils.types import PathLike, TimeSourceT, TimeScaleT, TrackType
 from ..muxing.muxfiles import MuxingFile
 
 __all__ = ["SubFilePGS"]
 
 
-@dataclass
 class SubFilePGS(MuxingFile):
     """
     Utility class representing a PGS/SUP subtitle file.
-
-    :param file:            Can be a string, Path object or GlobSearch.
-    :param container_delay: Set a container delay used in the muxing process later.
-    :param source:          The file this sub originates from, will be set by the constructor.
     """
 
-    def __post_init__(self):
-        super().__post_init__()
+    def __init__(
+        self,
+        file: PathLike | list[PathLike] | GlobSearch,
+        container_delay: int = 0,
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+    ):
+        """
+        :param file:            Can be a string, Path object or GlobSearch.
+        :param container_delay: Set a container delay used in the muxing process later.
+        :param source:          The file this sub originates from.
+        :param tags:            Custom matroska tags to assign to this as a track later on.
+        """
+        super().__init__(file, container_delay, source, tags)
         parsed = ParsedFile.from_file(self.file, self)
         parsed_track = parsed.find_tracks(type=TrackType.SUB, relative_id=0, error_if_empty=True, caller=self)[0]
         if parsed_track.codec_name.lower() != "hdmv_pgs_subtitle":
