@@ -138,7 +138,7 @@ class AudioFile(MuxingFile):
             raise error("Failed to mux AudioFile to mka.", self)
 
     @staticmethod
-    def from_file(pathIn: PathLike, caller: Any):
+    def from_file(pathIn: PathLike, caller: Any) -> "AudioFile":
         from ..utils.log import warn
 
         file = ensure_path_exists(pathIn, caller)

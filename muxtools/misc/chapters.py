@@ -4,7 +4,7 @@ from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
 from typing import TypeVar
-from video_timestamps import TimeType, ABCTimestamps
+from video_timestamps import TimeType, ABCTimestamps  # type: ignore[import-untyped]
 import os
 import re
 
@@ -12,7 +12,7 @@ from ..subtitle.sub import SubFile
 from ..utils.log import error, info, warn, debug
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
-from ..utils.types import Chapter, PathLike, TimeSourceT, TimeScaleT, TimeScale
+from ..utils.types import Chapter, LooseChapter, PathLike, TimeSourceT, TimeScaleT, TimeScale
 from ..utils.parsing import parse_ogm, parse_xml
 from ..utils.files import clean_temp_files, ensure_path_exists, ensure_path
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline, get_setup_attr
@@ -28,7 +28,7 @@ class Chapters:
 
     def __init__(
         self,
-        chapter_source: PathLike | GlobSearch | Chapter | list[Chapter],
+        chapter_source: PathLike | GlobSearch | LooseChapter | list[LooseChapter],
         timesource: TimeSourceT = Fraction(24000, 1001),
         timescale: TimeScaleT = TimeScale.MKV,
         _print: bool = True,
@@ -44,30 +44,25 @@ class Chapters:
         """
         self.timestamps = resolve_timesource_and_scale(timesource, timescale, caller=self)
         if isinstance(chapter_source, tuple):
-            self.chapters = [chapter_source]
+            chapters = [chapter_source]
         elif isinstance(chapter_source, list):
-            self.chapters = chapter_source
+            chapters = chapter_source
         else:
-            # Handle both OGM .txt files and xml files
-            if isinstance(chapter_source, GlobSearch):
-                chapter_source = chapter_source.paths[0]
-            chapter_source = chapter_source if isinstance(chapter_source, Path) else Path(chapter_source)
-
-            self.chapters = parse_xml(chapter_source) if chapter_source.suffix.lower() == ".xml" else parse_ogm(chapter_source)
-            if _print:
-                self.print()
+            chapter_source = ensure_path(chapter_source, self)
+            chapters = parse_xml(chapter_source) if chapter_source.suffix.lower() == ".xml" else parse_ogm(chapter_source)  # type: ignore
 
         # Convert all framenumbers to timedeltas
-        chapters = []
-        for ch in self.chapters:
-            if isinstance(ch[0], int):
-                current = list(ch)
-                ms = self.timestamps.frame_to_time(current[0], TimeType.START, 3)
-                current[0] = timedelta(milliseconds=ms)
-                chapters.append(tuple(current))
+        normalized_chapters = list[Chapter]()
+        for time_value, name in chapters:
+            if isinstance(time_value, int):
+                ms = self.timestamps.frame_to_time(time_value, TimeType.START, 3)
+                normalized_chapters.append((timedelta(milliseconds=ms), name))
             else:
-                chapters.append(ch)
-        self.chapters = chapters
+                normalized_chapters.append((time_value, name))
+        self.chapters = normalized_chapters
+
+        if _print and isinstance(chapter_source, Path):
+            self.print()
 
     def trim(self: ChaptersSelf, trim_start: int = 0, trim_end: int = 0, num_frames: int = 0) -> ChaptersSelf:
         """
@@ -75,25 +70,24 @@ class Chapters:
         """
         if trim_start > 0:
             chapters: list[Chapter] = []
-            for chapter in self.chapters:
-                if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) == 0:
-                    chapters.append(chapter)
+            for time_value, name in self.chapters:
+                if self.timestamps.time_to_frame(int(time_value.total_seconds() * 1000), TimeType.START, 3) == 0:
+                    chapters.append((time_value, name))
                     continue
-                if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) - trim_start < 0:
+                if self.timestamps.time_to_frame(int(time_value.total_seconds() * 1000), TimeType.START, 3) - trim_start < 0:
                     continue
-                current = list(chapter)
                 trim_start_ms = self.timestamps.frame_to_time(trim_start, TimeType.START, 3)
-                current[0] = current[0] - timedelta(milliseconds=trim_start_ms)
+                time_value = time_value - timedelta(milliseconds=trim_start_ms)
                 if num_frames:
                     last_frame_ms = self.timestamps.frame_to_time(num_frames - 1, TimeType.START, 3)
-                    if current[0] > timedelta(milliseconds=last_frame_ms):
+                    if time_value > timedelta(milliseconds=last_frame_ms):
                         continue
-                chapters.append(tuple(current))
+                chapters.append((time_value, name))
 
             self.chapters = chapters
         if trim_end is not None and trim_end != 0:
             if trim_end > 0:
-                chapters: list[Chapter] = []
+                chapters: list[Chapter] = []  # type: ignore[no-redef]
                 for chapter in self.chapters:
                     if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) < trim_end:
                         chapters.append(chapter)
@@ -107,7 +101,7 @@ class Chapters:
 
         :param names:   List of names
         """
-        old: list[str] = [chapter[1] for chapter in self.chapters]
+        old: list[str | None] = [chapter[1] for chapter in self.chapters]
         if len(names) > len(old):
             self.print()
             raise error("Chapters: too many names!", self)
@@ -116,9 +110,8 @@ class Chapters:
 
         chapters: list[Chapter] = []
         for i, name in enumerate(names):
-            current = list(self.chapters[i])
-            current[1] = name
-            chapters.append(tuple(current))
+            time, _ = self.chapters[i]
+            chapters.append((time, name))
 
         self.chapters = chapters
         return self
@@ -154,14 +147,14 @@ class Chapters:
         :param chapter:         Chapter number (starting at 0)
         :param shift_amount:    Frames to shift by
         """
-        ch = list(self.chapters[chapter])
-        ch_frame = self.timestamps.time_to_frame(int(ch[0].total_seconds() * 1000), TimeType.START, 3) + shift_amount
+        time, name = self.chapters[chapter]
+        ch_frame = self.timestamps.time_to_frame(int(time.total_seconds() * 1000), TimeType.START, 3) + shift_amount
         if ch_frame > 0:
             ms = self.timestamps.frame_to_time(ch_frame, TimeType.START, 3)
-            ch[0] = timedelta(milliseconds=ms)
+            time = timedelta(milliseconds=ms)
         else:
-            ch[0] = timedelta(seconds=0)
-        self.chapters[chapter] = tuple(ch)
+            time = timedelta(seconds=0)
+        self.chapters[chapter] = (time, name)
         return self
 
     def shift(self: ChaptersSelf, shift_amount: int) -> ChaptersSelf:
@@ -183,7 +176,7 @@ class Chapters:
         print("", end="\n")
         return self
 
-    def to_file(self: ChaptersSelf, out: PathLike | None = None, minus_one_ms_hack: bool = True) -> str:
+    def to_file(self: ChaptersSelf, out: PathLike | None = None, minus_one_ms_hack: bool = True) -> Path:
         """
         Outputs the chapters to an OGM file
 
@@ -194,7 +187,7 @@ class Chapters:
             out = get_workdir()
         out = ensure_path(out, self)
         if out.is_dir():
-            out_file = os.path.join(out, "chapters.txt")
+            out_file = out / "chapters.txt"
         else:
             out_file = out
         with open(out_file, "w", encoding="UTF-8") as f:
@@ -233,7 +226,7 @@ class Chapters:
         :param _print:          Prints the chapters after parsing
         :param encoding:        Encoding used to read the ass file if need be
         """
-        from ass import parse_file, Comment
+        from ass import parse_file, Comment  # type: ignore[import-untyped]
 
         caller = "Chapters.from_sub"
 
@@ -277,7 +270,7 @@ class Chapters:
             debug("Using default timescale from setup.", caller)
             timescale = setup_timescale
 
-        ch = Chapters(chapters, timesource, timescale)
+        ch = Chapters(chapters, timesource, timescale)  # type: ignore
         if _print and chapters:
             ch.print()
         return ch

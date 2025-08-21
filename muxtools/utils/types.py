@@ -18,6 +18,7 @@ __all__ = [
     "AudioStats",
     "AudioInfo",
     "Chapter",
+    "LooseChapter",
     "DitherType",
     "LossyWavQuality",
     "VideoMeta",
@@ -30,8 +31,13 @@ Trim = tuple[int | None, int | None]
 
 Paths = Union[PathLike, list[PathLike]]
 
-# Timedelta (or frame, which will be converted internally), Optional Name
-Chapter = tuple[timedelta | int, Optional[str]]
+LooseChapter = tuple[timedelta | int, Optional[str]]
+"""
+Chapter type where the time can be a frame number or timedelta.\n
+The chapters class will normalize these to just timedeltas.
+"""
+
+Chapter = tuple[timedelta, Optional[str]]
 
 
 class TrackType(IntEnum):
@@ -73,7 +79,7 @@ class TimeScale(IntEnum):
     """Typical m2ts timescale"""
 
 
-TimeSourceT = Union[PathLike, Fraction, float, list, VideoMeta, ABCTimestamps, None]
+TimeSourceT = PathLike | Fraction | float | list | VideoMeta | ABCTimestamps
 """
 The source of timestamps/timecodes.\n
 For actual timestamps, this can be a timestamps (v1/v2/v4) file, a video file or a list of integers.\n
@@ -83,7 +89,7 @@ Can also be an already instantiated Timestamps class from the videotimestamps li
 `None` will usually fallback to 24000/1001 but exact behavior might differ based on the target function.
 """
 
-TimeScaleT = Union[TimeScale, Fraction, int, None]
+TimeScaleT = TimeScale | Fraction | int | None
 """
 Unit of time (in seconds) in terms of which frame timestamps are represented.\n
 While you can pass an int, the needed type is always a Fraction and will be converted via `Fraction(your_int)`.\n
