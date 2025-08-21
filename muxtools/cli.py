@@ -191,9 +191,9 @@ def request_install(
     return -1
 
 
-def get_exe_folder(name: str) -> Path:
+def get_exe_folder(name: str) -> Path | None:
     exe_path = shutil.which(name)
-    if exe_path:
+    if exe_path is not None:
         exe_path = Path(exe_path)
         # if this was installed with scoop
         if exe_path.parent.name == "shims":

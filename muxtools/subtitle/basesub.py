@@ -1,17 +1,18 @@
 from abc import ABC
-from ass import Document, parse as parseDoc
+from ass import Document, parse as parseDoc  # type: ignore[import-untyped]
 from datetime import timedelta
 from typing import Any, NamedTuple
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from enum import IntEnum, Enum
 from copy import deepcopy
 
-from video_timestamps import ABCTimestamps, TimeType
+from video_timestamps import ABCTimestamps, TimeType  # type: ignore[import-untyped]
 
 from ..utils.log import error, warn, danger
 from ..utils.types import PathLike
 from ..muxing.muxfiles import MuxingFile
 from ..utils.files import GlobSearch, ensure_path
+from ..muxing.tracks import SubTrack
 
 __all__ = ["_Line", "ASSHeader", "ShiftMode", "OutOfBoundsMode"]
 
@@ -129,14 +130,29 @@ class BaseSubFile(ABC, MuxingFile):
     Mostly contains the functions to read/write the file and some commonly reused functions to manipulate headers/lines.
     """
 
+    encoding: str = "utf_8_sig"
+
     def __init__(
         self,
-        file: PathLike | list[PathLike] | GlobSearch,
+        file: PathLike | Sequence[PathLike] | GlobSearch,
         container_delay: int = 0,
         source: PathLike | None = None,
         tags: dict[str, str] | None = None,
+        encoding: str = "utf_8_sig",
     ):
         super().__init__(ensure_path(file, self), container_delay, source, tags)
+        self.encoding = encoding
+
+    def to_track(
+        self,
+        name: str = "",
+        lang: str = "en",
+        default: bool | None = None,
+        forced: bool | None = None,
+        args: list[str] | None = None,
+        tags: dict[str, str] | None = None,
+    ) -> SubTrack:
+        return SubTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags)
 
     def _read_doc(self, file: PathLike | None = None) -> Document:
         with open(self.file if not file else file, "r", encoding=self.encoding) as reader:
@@ -184,7 +200,7 @@ class BaseSubFile(ABC, MuxingFile):
 
         setattr(doc.styles, "field_order", fields)
 
-    def manipulate_lines(self, func: Callable[[list[_Line]], list[_Line] | None]) -> None:
+    def _manipulate_lines(self, func: Callable[[list[_Line]], list[_Line] | None]) -> None:
         doc = self._read_doc()
         returned = func(doc.events)  # type: ignore
         if returned:

@@ -1,7 +1,8 @@
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
+from typing import Any, Sequence
+from abc import abstractmethod
 
 from .tracks import AudioTrack, SubTrack, Attachment, VideoTrack, _track
 
@@ -23,40 +24,15 @@ __all__ = [
 class MuxingFile(FileMixin):
     def __init__(
         self,
-        file: PathLike | list[PathLike] | GlobSearch,
+        file: PathLike | Sequence[PathLike] | GlobSearch,
         container_delay: int = 0,
         source: PathLike | None = None,
         tags: dict[str, str] | None = None,
     ):
         super().__init__(ensure_path(file, self), container_delay, source, tags)
 
-    def to_track(
-        self,
-        name: str = "",
-        lang: str = "",
-        default: bool | None = None,
-        forced: bool | None = None,
-        args: list[str] | None = None,
-        tags: dict[str, str] | None = None,
-    ) -> _track:
-        from ..subtitle.sub import SubFile
-        from ..subtitle.sub_pgs import SubFilePGS
-
-        new_args = dict(
-            file=self.file,
-            name=name,
-            delay=self.container_delay,
-            default=True if default is None else default,
-            forced=False if forced is None else forced,
-            args=args,
-            tags=tags or self.tags,
-        )
-        if isinstance(self, AudioFile):
-            return AudioTrack(**new_args, lang=lang if lang else "ja")
-        elif isinstance(self, SubFile) or isinstance(self, SubFilePGS):
-            return SubTrack(**new_args, lang=lang if lang else "en")
-        else:
-            return Attachment(self.file)
+    @abstractmethod
+    def to_track(self, *args) -> _track: ...
 
 
 class VideoFile(MuxingFile):
@@ -86,7 +62,7 @@ class AudioFile(MuxingFile):
 
     def __init__(
         self,
-        file: PathLike | list[PathLike] | GlobSearch,
+        file: PathLike | Sequence[PathLike] | GlobSearch,
         container_delay: int = 0,
         source: PathLike | None = None,
         tags: dict[str, str] | None = None,
@@ -97,6 +73,17 @@ class AudioFile(MuxingFile):
 
     def __post_init__(self):
         self.file = ensure_path_exists(self.file, self)
+
+    def to_track(
+        self,
+        name: str = "",
+        lang: str = "ja",
+        default: bool | None = None,
+        forced: bool | None = None,
+        args: list[str] | None = None,
+        tags: dict[str, str] | None = None,
+    ) -> AudioTrack:
+        return AudioTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags)
 
     def get_containerinfo(self) -> ContainerInfo:
         if not self.container:

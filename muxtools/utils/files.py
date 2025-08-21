@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-def ensure_path(pathIn: PathLike | list[PathLike] | GlobSearch | FileMixin, caller: Any) -> Path:
+def ensure_path(pathIn: PathLike | Sequence[PathLike] | GlobSearch | FileMixin, caller: Any) -> Path:
     """
     Utility function for other functions to make sure a path was passed to them.
 
@@ -38,7 +38,7 @@ def ensure_path(pathIn: PathLike | list[PathLike] | GlobSearch | FileMixin, call
         return Path(pathIn).resolve()
 
 
-def ensure_path_exists(pathIn: PathLike | list[PathLike] | GlobSearch | FileMixin, caller: Any, allow_dir: bool = False) -> Path:
+def ensure_path_exists(pathIn: PathLike | Sequence[PathLike] | GlobSearch | FileMixin, caller: Any, allow_dir: bool = False) -> Path:
     """
     Utility function for other functions to make sure a path was passed to them and that it exists.
 

@@ -192,6 +192,8 @@ def parse_chapters_bdmv(
                 raise error("There are no playlist marks in this file!", parse_chapters_bdmv)
 
         for i, playitem in enumerate(playlist.play_items):
+            if not playitem.clip_information_filename or not playitem.clip_codec_identifier:
+                continue
             if playitem.clip_information_filename == src.stem and playitem.clip_codec_identifier.lower() == src.suffix.lower().split(".")[1]:
                 if _print:
                     info(f'Found chapters for "{src.name}" in "{f.name}":')

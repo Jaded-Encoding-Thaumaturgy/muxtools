@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing_extensions import Self
-from video_timestamps import TimeType
+from video_timestamps import TimeType  # type: ignore[import-untyped]
 from shutil import move
 
 from ..utils import (
@@ -17,6 +17,7 @@ from ..utils import (
 )
 from ..utils.types import PathLike, TimeSourceT, TimeScaleT, TrackType
 from ..muxing.muxfiles import MuxingFile
+from ..muxing.tracks import SubTrack
 
 __all__ = ["SubFilePGS"]
 
@@ -44,6 +45,17 @@ class SubFilePGS(MuxingFile):
         parsed_track = parsed.find_tracks(type=TrackType.SUB, relative_id=0, error_if_empty=True, caller=self)[0]
         if parsed_track.codec_name.lower() != "hdmv_pgs_subtitle":
             raise error(f"The passed file is not a PGS subtitle file. ({parsed_track.codec_name})", caller=self)
+
+    def to_track(
+        self,
+        name: str = "",
+        lang: str = "en",
+        default: bool | None = None,
+        forced: bool | None = None,
+        args: list[str] | None = None,
+        tags: dict[str, str] | None = None,
+    ) -> SubTrack:
+        return SubTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags)
 
     def shift(self, shift: int, shift_is_ms: bool = False, timesource: TimeSourceT = None, timescale: TimeScaleT = None, quiet: bool = True) -> Self:
         """

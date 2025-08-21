@@ -1,12 +1,12 @@
 from __future__ import annotations
-from ass import Document, Comment, Dialogue, Style, parse as parseDoc
+from ass import Document, Comment, Dialogue, Style, parse as parseDoc  # type: ignore[import-untyped]
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, Sequence
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
-from video_timestamps import TimeType
+from video_timestamps import TimeType  # type: ignore[import-untyped]
 from typing_extensions import Self
 import shutil
 import json
@@ -24,6 +24,7 @@ from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, make_output, clean_temp_files, uniquify_path, ensure_path
 from ..utils.probe import ParsedFile
 from ..muxing.muxfiles import MuxingFile
+from ..muxing.tracks import Attachment
 from .basesub import BaseSubFile, _Line, ASSHeader, ShiftMode, OutOfBoundsMode
 
 __all__ = ["FontFile", "SubFile", "DEFAULT_DIALOGUE_STYLES"]
@@ -34,7 +35,8 @@ LINES = list[_Line]
 
 
 class FontFile(MuxingFile):
-    pass
+    def to_track(self, *args) -> Attachment:
+        return Attachment(self.file)
 
 
 class SubFile(BaseSubFile):
@@ -49,17 +51,14 @@ class SubFile(BaseSubFile):
     :param encoding:        Encoding used for reading and writing the subtitle files.
     """
 
-    encoding: str = "utf_8_sig"
-
     def __init__(
         self,
-        file: PathLike | list[PathLike] | GlobSearch,
+        file: PathLike | Sequence[PathLike] | GlobSearch,
         container_delay: int = 0,
-        encoding: str = "utf_8_sig",
         source: PathLike | None = None,
         tags: dict[str, str] | None = None,
+        encoding: str = "utf_8_sig",
     ):
-        self.encoding = encoding
         if isinstance(file, GlobSearch):
             file = file.paths
 
@@ -102,7 +101,7 @@ class SubFile(BaseSubFile):
                     self._read_doc(file).dump_file(writer)
                 file = out
 
-        super().__init__(file, container_delay, source, tags)
+        super().__init__(file, container_delay, source, tags, encoding)
 
     def manipulate_lines(self, func: Callable[[LINES], LINES | None]) -> Self:
         """
@@ -111,7 +110,7 @@ class SubFile(BaseSubFile):
         :param func:        Your own function you want to run on the list of lines.
                             This can return a new list or just edit the one passed into it.
         """
-        super().manipulate_lines(func)
+        super()._manipulate_lines(func)
         return self
 
     def set_header(self, header: str | ASSHeader, value: str | int | bool | None) -> Self:

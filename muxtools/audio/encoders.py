@@ -53,11 +53,11 @@ class FLAC(LosslessEncoder):
             args.append("--verify")
 
         if self.threads or self.threads is None:
-            if re.search(r"1\.[2|3|4]\.\d+?", version):
+            if not version or re.search(r"1\.[2|3|4]\.\d+?", version):
                 warn("Using outdated FLAC encoder that does not support threading!", self)
             else:
                 if self.threads is None:
-                    self.threads = min(os.cpu_count(), 8)
+                    self.threads = min(os.cpu_count() or 1, 8)
                 args.append(f"--threads={self.threads}")
 
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
@@ -256,7 +256,7 @@ class qAAC(Encoder):
         tags = dict[str, str](ENCODER=f"qaac {ver}")
 
         info(f"Encoding '{fileIn.file.stem}' to AAC using qAAC...", self)
-        args = [qaac, "--no-delay", "--no-optimize", "--threading", f"--{self.mode.name.lower()}", str(self.q)]
+        args = [qaac, "--no-delay", "--no-optimize", "--threading", f"--{qAAC_MODE(self.mode).name.lower()}", str(self.q)]
         args.extend(self.get_custom_args())
         args.extend(["-o", str(output), str(source.file.resolve()) if isinstance(source, AudioFile) else "-"])
 

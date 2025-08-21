@@ -64,7 +64,7 @@ def download_allowed() -> bool:
     return get_setup_attr("allow_binary_download", False)
 
 
-def communicate_stdout(command: list[str] | list[str], shell: bool = False, **kwargs) -> tuple[int, str]:
+def communicate_stdout(command: str | list[str], shell: bool = False, **kwargs) -> tuple[int, str]:
     if os.name != "nt" and isinstance(command, str):
         shell = True
     p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, shell=shell, **kwargs)

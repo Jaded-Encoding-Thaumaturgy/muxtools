@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from ass import Document
+from ass import Document  # type: ignore[import-untyped]
 
 from ..utils.log import error
 from ..utils.env import run_commandline
