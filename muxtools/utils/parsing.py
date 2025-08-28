@@ -166,12 +166,10 @@ def parse_chapters_bdmv(
 
     stream_dir = src.parent
     if stream_dir.name.lower() != "stream":
-        print("Your source file is not in a default bdmv structure!\nWill skip chapters.")
-        return None
+        raise error("Your source file is not in a default bdmv structure!", parse_chapters_bdmv)
     playlist_dir = Path(os.path.join(stream_dir.parent, "PLAYLIST"))
     if not playlist_dir.exists():
-        print("PLAYLIST folder couldn't have been found!\nWill skip chapters.")
-        return None
+        raise error("PLAYLIST folder couldn't have been found!", parse_chapters_bdmv)
 
     chapters: list[Chapter] = []
     for f in playlist_dir.rglob("*"):

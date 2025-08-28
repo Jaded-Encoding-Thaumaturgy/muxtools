@@ -37,7 +37,7 @@ def run_cmd_pb(cmd: str | list[str], silent: bool = True, pbc: ProgressBarConfig
     ) as pro:
         task = pro.add_task(pbc.description)
         prev = 0
-
+        assert process.stdout
         for line in iter(process.stdout.readline, b""):
             if not silent:
                 print(line, end="" if line.endswith("\n") else "\n")

@@ -60,20 +60,23 @@ def apply_mpeg2_bsf(
     if fps is not None:
         filter_options.append(f"frame_rate={str(fps.value) if isinstance(fps, MPEG2_FPS) else str(fps)}")
 
-    if format is not None and (format := BSF_Format(format)) is not None:
-        filter_options.append(f"video_format={str(format.value)}")
+    if format is not None:
+        filter_options.append(f"video_format={str(BSF_Format(format).value)}")
 
-    if primaries is not None and (primaries := BSF_Primaries(primaries)) is not None:
+    if primaries is not None:
+        primaries = BSF_Primaries(primaries)
         if primaries.value not in range(1, 8):
             raise error(f"'{primaries}' is not a valid primaries value for MPEG2 streams!")
         filter_options.append(f"colour_primaries={str(primaries.value)}")
 
-    if transfer is not None and (transfer := BSF_Transfer(transfer)) is not None:
+    if transfer is not None:
+        transfer = BSF_Transfer(transfer)
         if transfer.value not in range(1, 9):
             raise error(f"'{transfer}' is not a valid transfer value for MPEG2 streams!")
         filter_options.append(f"transfer_characteristics={str(transfer.value)}")
 
-    if matrix is not None and (matrix := BSF_Matrix(matrix)) is not None:
+    if matrix is not None:
+        matrix = BSF_Matrix(matrix)
         if matrix.value not in range(1, 8):
             raise error(f"'{matrix}' is not a valid matrix value for MPEG2 streams!")
         filter_options.append(f"matrix_coefficients={str(matrix.value)}")

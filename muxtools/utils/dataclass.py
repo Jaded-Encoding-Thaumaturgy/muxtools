@@ -72,7 +72,7 @@ class CLIKwargs(ABC):
         if not hasattr(self, "affinity"):
             return False
 
-        threads = self.affinity
+        threads = self.affinity  # type: ignore[attr-defined]
 
         if not threads:
             return []

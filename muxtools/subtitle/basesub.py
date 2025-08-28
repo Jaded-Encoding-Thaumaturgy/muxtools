@@ -291,7 +291,7 @@ class BaseSubFile(ABC, MuxingFile):
                 if name.casefold() == header.casefold() or name.replace("_", " ").casefold() == header.casefold()
             ]
             if corr:
-                corr = ASSHeader(corr[0])
+                corr = ASSHeader(int(corr[0].value))
                 value = corr.validate_input(value, "SubFile.set_header")
                 if value is None and corr.name != "YCbCr_Matrix":
                     section.pop(corr.name)

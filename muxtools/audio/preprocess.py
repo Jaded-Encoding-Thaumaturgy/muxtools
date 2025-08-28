@@ -55,7 +55,7 @@ class Resample(Preprocessor):
         return (
             (self.depth and track.bit_depth != self.depth)
             or track.raw_ffprobe.sample_rate != self.sample_rate
-            or [p for p in preprocessors if isinstance(p, Loudnorm)]
+            or bool([p for p in preprocessors if isinstance(p, Loudnorm)])
         )
 
     def get_args(self, caller: Any = None) -> Sequence[str]:

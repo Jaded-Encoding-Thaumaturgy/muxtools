@@ -478,21 +478,22 @@ class Sox(Trimmer):
             fileIn = AudioFile.from_file(fileIn, self)
         out = make_output(fileIn.file, "flac", "trimmed", self.output)
         self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
-        self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
+        trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
         source = ensure_valid_in(fileIn, caller=self, supports_pipe=False)
 
-        if len(self.trim) > 1:
+        if len(trim) > 1:
             files_to_concat = []
             first = True
             info(f"Generating trimmed tracks for '{fileIn.file.stem}'...", self)
-            for i, t in enumerate(self.trim):
+            for i, t in enumerate(trim):
                 soxr = sox.Transformer()
                 soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
-                if t[0] < 0 and first:
+                trim_start = t[0] or 0
+                if trim_start < 0 and first:
                     soxr.trim(0, self._conv(t[1]))
-                    soxr.pad(self._conv(t[0]))
+                    soxr.pad(self._conv(trim_start))
                 else:
-                    soxr.trim(self._conv(t[0]), self._conv(t[1]))
+                    soxr.trim(self._conv(trim_start), self._conv(t[1]))
                 first = False
                 tout = os.path.join(get_temp_workdir(), f"{fileIn.file.stem}_trimmed_part{i}.wav")
                 soxr.build(str(source.file.resolve()), tout)
@@ -509,12 +510,13 @@ class Sox(Trimmer):
             soxr = sox.Transformer()
             soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
             info(f"Applying trim to '{fileIn.file.stem}'", self)
-            t = self.trim[0]
-            if t[0] < 0:
+            t = trim[0]
+            trim_start = t[0] or 0
+            if trim_start < 0:
                 soxr.trim(0, self._conv(t[1]))
-                soxr.pad(self._conv(t[0]))
+                soxr.pad(self._conv(trim_start))
             else:
-                soxr.trim(self._conv(t[0]), self._conv(t[1]))
+                soxr.trim(self._conv(trim_start), self._conv(t[1]))
             soxr.build(str(source.file), str(out.resolve()))
             debug("Done", self)
 

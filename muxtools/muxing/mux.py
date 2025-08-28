@@ -66,7 +66,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
                 warn("Chapters are None or empty!", "Mux")
                 continue
 
-            args.extend(["--chapters", track.to_file()])
+            args.extend(["--chapters", str(track.to_file())])
             continue
         elif isinstance(track, Path) or isinstance(track, str) or isinstance(track, GlobSearch):
             # Failsave for if someone passes Chapters().to_file() or a txt/xml file
@@ -182,9 +182,9 @@ def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: l
         epmeta = tmdb.get_episode_meta(epint) if not tmdb.movie else None
         if tmdb.needs_xml():
             xml = tmdb.make_xml(mediameta, epmeta)
-            args.extend(["--global-tags", xml])
+            args.extend(["--global-tags", str(xml)])
 
-        if not tmdb.movie:
+        if not tmdb.movie and epmeta:
             if tmdb.write_cover and epmeta.thumb_url:
                 cover = Path(get_workdir(), f"cover_land{Path(epmeta.thumb_url).suffix}")
                 if wget.download(epmeta.thumb_url, str(cover), None):

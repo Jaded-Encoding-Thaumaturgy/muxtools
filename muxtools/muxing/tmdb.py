@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
 from enum import IntEnum
+from pathlib import Path
 from typing import cast
 import requests
 import logging
 
-from ..utils.types import PathLike
 from ..utils.log import debug, error, info
 from ..utils.files import create_tags_xml
 
@@ -155,7 +155,7 @@ class TmdbConfig:
                         info(f"Selecting episode group '{wanted_order['name']}'.", self)
                         setattr(self, "order_id", str(wanted_order["id"]))
 
-                url = f"{BASE_URL}/tv/episode_group/{self.order_id}?language={self.language}"
+                url = f"{BASE_URL}/tv/episode_group/{self.order_id}?language={self.language}"  # type: ignore[attr-defined]
             else:
                 url = f"{BASE_URL}/tv/{self.id}/season/{self.season}?language={self.language}"
 
@@ -202,7 +202,7 @@ class TmdbConfig:
             sanitized_title,
         )
 
-    def make_xml(self, media: MediaMetadata, episode: EpisodeMetadata | None = None) -> PathLike:
+    def make_xml(self, media: MediaMetadata, episode: EpisodeMetadata | None = None) -> Path:
         from ..utils.files import make_output
 
         tags = dict()

@@ -69,10 +69,10 @@ class TrackInfo:
 
 
 def tags_to_dict(tags: tagsType | None) -> dict[str, str]:
-    if not tags:
+    if not tags or not tags.tag:
         return dict()
     new_dict = dict[str, str]()
-    for tag in tags.tag:
+    for tag in [tag for tag in tags.tag if tag is not None]:
         if not tag.key:
             continue
         new_dict[tag.key] = tag.value or ""
@@ -108,7 +108,7 @@ class ParsedFile:
             raise error(f"Failed to parse file '{path.stem}' with ffprobe!", caller)
 
         if not out.streams or not out.streams.stream or "tty" in out.format.format_name:
-            return ParsedFile(ContainerInfo(0, "Unknown", None, {}, out.format, None), [], False, path, out)
+            return ParsedFile(ContainerInfo(0, "Unknown", None, {}, out.format, None), [], False, path, out, None)
 
         is_video_file = bool([stream for stream in out.streams.stream if (stream.codec_type or "").lower() == "video"])
         container_info = ContainerInfo(
@@ -217,6 +217,8 @@ class ParsedFile:
         tracks = self.tracks
 
         def name_matches(title: str) -> bool:
+            if name is None:
+                return False
             if title.casefold().strip() == name.casefold().strip():
                 return True
             if use_regex:

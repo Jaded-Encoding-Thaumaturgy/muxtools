@@ -43,7 +43,7 @@ def get_setup_dir() -> list[str]:
     if not envi:
         return []
     loaded = json.loads(envi)
-    return loaded.keys() if isinstance(loaded, dict) else dir(loaded)
+    return loaded.keys() if isinstance(loaded, dict) else dir(loaded)  # type: ignore
 
 
 def get_workdir() -> Path:
@@ -95,7 +95,7 @@ def run_commandline(
 def get_binary_version(executable: PathLike, regex: str, args: list[str] | None = None) -> str | None:
     from .files import ensure_path
 
-    executable = ensure_path(executable, None)
+    executable = str(ensure_path(executable, None))
     args = [executable] + args if args else [executable]
     _, readout = communicate_stdout(args)
 

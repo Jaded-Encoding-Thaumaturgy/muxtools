@@ -4,7 +4,7 @@ from shlex import split as split_args
 from ..utils.files import make_output, create_tags_xml
 from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType, FileMixin
-from ..utils.files import ensure_path_exists
+from ..utils.files import ensure_path_exists, ensure_path
 from ..utils.probe import ParsedFile
 
 # fmt: off
@@ -136,7 +136,7 @@ class VideoTrack(_track):
             elif len(crop) == 2:
                 crop = crop * 2
             args.extend(["--cropping", f"0:{crop[0]},{crop[1]},{crop[2]},{crop[3]}"])
-        super().__init__(file, TrackType.VIDEO, name, lang, default, forced, delay, args, tags)
+        super().__init__(ensure_path(file, self), TrackType.VIDEO, name, lang, default, forced, delay, args, tags)
 
 
 class AudioTrack(_track):
@@ -155,7 +155,7 @@ class AudioTrack(_track):
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> None:
-        super().__init__(file, TrackType.AUDIO, name, lang, default, forced, delay, args, tags)
+        super().__init__(ensure_path(file, self), TrackType.AUDIO, name, lang, default, forced, delay, args, tags)
 
 
 class Attachment(_track):
@@ -164,7 +164,7 @@ class Attachment(_track):
     """
 
     def __init__(self, file: str | Path, mimetype: str = "", name: str = "") -> None:
-        super().__init__(file, TrackType.ATTACHMENT, lang=mimetype, name=name)
+        super().__init__(ensure_path(file, self), TrackType.ATTACHMENT, lang=mimetype, name=name)
 
 
 class SubTrack(_track):
@@ -186,7 +186,7 @@ class SubTrack(_track):
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> None:
-        super().__init__(file, TrackType.SUB, name, lang, default, forced, delay, args, tags)
+        super().__init__(ensure_path(file, self), TrackType.SUB, name, lang, default, forced, delay, args, tags)
 
 
 class Premux(_track):
@@ -255,7 +255,7 @@ class Premux(_track):
 
         args = split_args(args.strip())
         mkvmerge_args = split_args(mkvmerge_args.strip()) if isinstance(mkvmerge_args, str) else mkvmerge_args
-        super().__init__(file, TrackType.MKV, args=args + mkvmerge_args)
+        super().__init__(ensure_path(file, self), TrackType.MKV, args=args + mkvmerge_args)
 
 
 VT = VideoTrack

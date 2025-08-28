@@ -35,6 +35,10 @@ def ensure_path(pathIn: PathLike | Sequence[PathLike] | GlobSearch | FileMixin, 
             pathIn = pathIn.paths
         if isinstance(pathIn, Sequence) and not isinstance(pathIn, str):
             pathIn = pathIn[0]
+
+        if not isinstance(pathIn, Path) and not isinstance(pathIn, str):
+            raise crit("Path is not a Path object or a string!", caller)
+
         return Path(pathIn).resolve()
 
 

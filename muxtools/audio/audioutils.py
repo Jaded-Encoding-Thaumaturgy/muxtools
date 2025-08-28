@@ -158,9 +158,11 @@ def get_pcm(
 
 
 def sanitize_trims(
-    trims: Trim | list[Trim], total_frames: int = 0, uses_frames: bool = True, allow_negative_start: bool = False, caller: Any = None
+    trims: Trim | list[Trim] | None, total_frames: int = 0, uses_frames: bool = True, allow_negative_start: bool = False, caller: Any = None
 ) -> list[Trim]:
     caller = caller if caller else sanitize_trims
+    if trims is None:
+        return []
     if not isinstance(trims, (list, tuple)):
         raise error("Trims must be a list of 2-tuples (or just one 2-tuple)", caller)
     if not isinstance(trims, list):

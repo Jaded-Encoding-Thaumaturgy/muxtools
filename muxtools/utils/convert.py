@@ -114,7 +114,7 @@ def resolve_timesource_and_scale(
     if isinstance(timesource, ABCTimestamps):
         return timesource
 
-    if isinstance(timesource, PathLike):
+    if isinstance(timesource, Path) or isinstance(timesource, str):
         if isinstance(timesource, Path) or os.path.isfile(timesource):
             timesource = ensure_path(timesource, caller)
             parsed = ParsedFile.from_file(timesource, caller, False)
