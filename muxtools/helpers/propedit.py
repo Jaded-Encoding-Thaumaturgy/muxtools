@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing_extensions import Self
+from typing import Sequence
 
 from ..misc import Chapters
 from ..utils import PathLike, ensure_path_exists, make_output, ensure_path, get_executable, run_commandline, clean_temp_files, ParsedFile, TrackType
@@ -150,7 +151,19 @@ class MKVPropEdit:
         """
         if self._has_info:
             raise error("Info tagging was already added!", self)
-        self._edit_track("info", -1, title, date=date, muxing_application=muxing_application, writing_application=writing_application, **kwargs)
+        self._edit_track(
+            "info",
+            -1,
+            title,
+            language=None,
+            default=None,
+            forced=None,
+            tags=None,
+            date=date,
+            muxing_application=muxing_application,
+            writing_application=writing_application,
+            **kwargs,
+        )
         self._has_info = True
         return self
 
@@ -161,7 +174,7 @@ class MKVPropEdit:
         default: bool | None = None,
         forced: bool | None = None,
         tags: dict[str, str] | None = None,
-        crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
+        crop: int | Sequence[int] | None = None,
         **kwargs: bool | str | None,
     ) -> Self:
         """
@@ -185,11 +198,17 @@ class MKVPropEdit:
                                     Check out the 'Track headers' section in `mkvpropedit -l` to see what's available.
         """
         if crop is not None:
-            if isinstance(crop, int):
-                crop = tuple([crop] * 4)
-            elif len(crop) == 2:
-                crop = crop * 2
-            kwargs.update(pixel_crop_left=str(crop[0]), pixel_crop_top=str(crop[1]), pixel_crop_right=str(crop[2]), pixel_crop_bottom=str(crop[3]))
+            normalized_crop = crop
+            if isinstance(normalized_crop, int):
+                normalized_crop = [normalized_crop] * 4
+            elif len(normalized_crop) == 2:
+                normalized_crop = list[int](normalized_crop) * 2
+            kwargs.update(
+                pixel_crop_left=str(normalized_crop[0]),
+                pixel_crop_top=str(normalized_crop[1]),
+                pixel_crop_right=str(normalized_crop[2]),
+                pixel_crop_bottom=str(normalized_crop[3]),
+            )
         self._edit_track("v", self._video_index, name, language, default, forced, tags, **kwargs)
         self._video_index += 1
         return self
