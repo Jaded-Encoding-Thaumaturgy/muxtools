@@ -2,7 +2,7 @@ import re
 import shutil
 import logging
 from pathlib import Path
-from font_collector import ABCFontFace, VariableFontFace  # type: ignore[import-untyped]
+from font_collector import ABCFontFace, VariableFontFace
 
 from .sub import SubFile, FontFile as MTFontFile
 from ..utils.env import get_workdir

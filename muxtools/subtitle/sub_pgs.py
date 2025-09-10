@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing_extensions import Self
-from video_timestamps import TimeType  # type: ignore[import-untyped]
+from video_timestamps import TimeType
 from shutil import move
 
 from ..utils import (

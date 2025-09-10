@@ -5,7 +5,7 @@ from fractions import Fraction
 from typing import Union, Optional
 from datetime import timedelta
 from dataclasses import dataclass, asdict
-from video_timestamps import ABCTimestamps  # type: ignore[import-untyped]
+from video_timestamps import ABCTimestamps
 
 from ..utils.dataclass import FractionEncoder, fraction_hook
 

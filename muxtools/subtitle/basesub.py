@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 from enum import IntEnum, Enum
 from copy import deepcopy
 
-from video_timestamps import ABCTimestamps, TimeType  # type: ignore[import-untyped]
+from video_timestamps import ABCTimestamps, TimeType
 
 from ..utils.log import error, warn, danger
 from ..utils.types import PathLike

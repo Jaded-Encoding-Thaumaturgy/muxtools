@@ -4,7 +4,7 @@ from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
 from typing import TypeVar
-from video_timestamps import TimeType, ABCTimestamps  # type: ignore[import-untyped]
+from video_timestamps import TimeType, ABCTimestamps
 import os
 import re
 

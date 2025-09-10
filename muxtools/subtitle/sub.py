@@ -6,7 +6,7 @@ from typing import Any, cast, Sequence
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
-from video_timestamps import TimeType  # type: ignore[import-untyped]
+from video_timestamps import TimeType
 from typing_extensions import Self
 import shutil
 import json
