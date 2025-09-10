@@ -6,14 +6,14 @@ description = "A library for various muxing and automation tools for anything an
 authors = [{ name = "Vodes", email = "vodes.imp@gmail.com" }]
 dependencies = [
     "requests>=2.31.0",
-    "fontcollector>=3.0.0",
+    "fontcollector>=3.1.2",
     "ass>=0.5.3",
     "wget>=3.2",
     "rich>=13.1.0",
     "pyparsebluray>=0.1.4",
     "pydantic>=2.5.0",
     "psutil>=5.6.4",
-    "videotimestamps>=0.2.0",
+    "videotimestamps>=0.2.1",
     "typed-ffmpeg-compatible==3.6.0",
     "mkvinfo==0.0.2",
     "typing-extensions>=4.12.0"
@@ -45,6 +45,7 @@ dev = [
     "ruff>=0.6.5",
     "scipy-stubs>=1.15.2.1",
     "types-psutil>=7.0.0.20250218",
+    "types-requests>=2.31.0.20240406",
     "py7zr>=0.20.5",
     "sox>=1.5.0",
     "mypy==1.17.1",
@@ -74,6 +75,10 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = false
+
+[tool.mypy]
+local_partial_types = true
+allow_redefinition_new = true
 
 [tool.pytest.ini_options]
 testpaths = [

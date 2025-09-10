@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-import wget
+import wget  # type: ignore[import-untyped]
 import shlex
 import shutil
 import subprocess

@@ -219,11 +219,11 @@ class TmdbConfig:
             if self.movie:
                 if media.release_date:
                     tags.update(DATE_RELEASED=media.release_date)
-            else:
+            elif episode is not None:
                 tags.update(DATE_RELEASED=episode.release_date)
         if self.write_summary:
             tags.update(SUMMARY=media.summary)
-        if self.write_synopsis and not self.movie:
+        if self.write_synopsis and not self.movie and episode is not None:
             tags.update(SYNOPSIS=episode.synopsis)
 
         outfile = make_output("tags", "xml")

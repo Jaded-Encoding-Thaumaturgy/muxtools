@@ -41,11 +41,9 @@ class LosslessEncoder(Encoder):
 
 class AutoTrimmer(Trimmer):
     def trim_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True) -> AudioFile:
-        # Dummy func
-        ...
+        raise RuntimeError("AutoTrimmer is not a class to be used directly and acts as a special type to be replaced.")
 
 
 class AutoEncoder(Encoder):
     def encode_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True, **kwargs) -> AudioFile:
-        # Dummy func
-        ...
+        raise RuntimeError("AutoEncoder is not a class to be used directly and acts as a special type to be replaced.")

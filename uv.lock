@@ -296,7 +296,7 @@ wheels = [
 
 [[package]]
 name = "fontcollector"
-version = "3.1.1"
+version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ass" },
@@ -306,9 +306,9 @@ dependencies = [
     { name = "freetype-py" },
     { name = "langcodes" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/4d/d735d13b5d88e1e9b448e25b8c12586e681546aa9f328389d17013002f65/fontcollector-3.1.1.tar.gz", hash = "sha256:42464cf3a42bfc30416dd6aca24aa80fd79c91dea98edf7099961ce995832f03", size = 45091, upload-time = "2025-04-21T14:44:57.404Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/62/3948bd12882a5e6c9bd625dcd5396a37788d096239eb065fce5429fe59f8/fontcollector-3.1.2.tar.gz", hash = "sha256:4c9a41b2923c2a65efe94415051a04a9fa52e641635e871745fdee54e838fd8c", size = 45427, upload-time = "2025-09-06T17:33:10.435Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6e/11/aa8190942ccc8f19b96e7cdd54d26441937807c7b4e5715aabf3f9d77bb8/fontcollector-3.1.1-py3-none-any.whl", hash = "sha256:26daf37aad4c96e329e1a37441da1bff879ee2984f510831ca98d72abb06cf71", size = 56669, upload-time = "2025-04-21T14:44:55.868Z" },
+    { url = "https://files.pythonhosted.org/packages/11/1f/c484bb43656381882336a84ce943544433d7e45d3d79a1db542dc723cfcf/fontcollector-3.1.2-py3-none-any.whl", hash = "sha256:3f7097555fcb8a8eec3262aa846975af215f395b7d565b1893a6808d8c9db904", size = 57435, upload-time = "2025-09-06T17:33:08.91Z" },
 ]
 
 [[package]]
@@ -606,12 +606,13 @@ dev = [
     { name = "sox" },
     { name = "ty" },
     { name = "types-psutil" },
+    { name = "types-requests" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "ass", specifier = ">=0.5.3" },
-    { name = "fontcollector", specifier = ">=3.0.0" },
+    { name = "fontcollector", specifier = ">=3.1.2" },
     { name = "mkvinfo", specifier = "==0.0.2" },
     { name = "psutil", specifier = ">=5.6.4" },
     { name = "pydantic", specifier = ">=2.5.0" },
@@ -620,7 +621,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.1.0" },
     { name = "typed-ffmpeg-compatible", specifier = "==3.6.0" },
     { name = "typing-extensions", specifier = ">=4.12.0" },
-    { name = "videotimestamps", specifier = ">=0.2.0" },
+    { name = "videotimestamps", specifier = ">=0.2.1" },
     { name = "wget", specifier = ">=3.2" },
 ]
 
@@ -634,6 +635,7 @@ dev = [
     { name = "sox", specifier = ">=1.5.0" },
     { name = "ty", specifier = "==0.0.1a19" },
     { name = "types-psutil", specifier = ">=7.0.0.20250218" },
+    { name = "types-requests", specifier = ">=2.31.0.20240406" },
 ]
 
 [[package]]
@@ -1421,6 +1423,18 @@ wheels = [
 ]
 
 [[package]]
+name = "types-requests"
+version = "2.32.4.20250809"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ed/b0/9355adb86ec84d057fea765e4c49cce592aaf3d5117ce5609a95a7fc3dac/types_requests-2.32.4.20250809.tar.gz", hash = "sha256:d8060de1c8ee599311f56ff58010fb4902f462a1470802cf9f6ed27bc46c4df3", size = 23027, upload-time = "2025-08-09T03:17:10.664Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2b/6f/ec0012be842b1d888d46884ac5558fd62aeae1f0ec4f7a581433d890d4b5/types_requests-2.32.4.20250809-py3-none-any.whl", hash = "sha256:f73d1832fb519ece02c85b1f09d5f0dd3108938e7d47e7f94bbfa18a6782b163", size = 20644, upload-time = "2025-08-09T03:17:09.716Z" },
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.13.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1452,11 +1466,11 @@ wheels = [
 
 [[package]]
 name = "videotimestamps"
-version = "0.2.0"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5d/e9/ffdcfea76279063ad144ab9c0812e3a1e2906dc4254fd01ccd12b73a5d3f/videotimestamps-0.2.0.tar.gz", hash = "sha256:547cf4cc3ecca73843c50b707ef84250f27b54d22271e438f3207b46132993de", size = 21265, upload-time = "2025-04-28T01:53:34.82Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/84/8f/a7ed2f65cbf14bef918bf9d7b1766ae339d29d626faf23f394b2c5a8912f/videotimestamps-0.2.1.tar.gz", hash = "sha256:671c8aff75976d0e2e6e5c93ff08b5eaaf3ec3cdf332f6b8bb091141468fd77a", size = 21295, upload-time = "2025-08-21T19:32:07.327Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/4b/8e9b138bd10883f64690c4a8bee0c980d58a0537b434a115398034fc8075/videotimestamps-0.2.0-py3-none-any.whl", hash = "sha256:73a192eca77be3150a7736b6a7cb3da0859d992e7408c7952b5f785f50705f44", size = 17618, upload-time = "2025-04-28T01:53:33.468Z" },
+    { url = "https://files.pythonhosted.org/packages/60/14/5036f6dc2457a18d61a8affeca607190167a97d71cf35ba89e06fc246475/videotimestamps-0.2.1-py3-none-any.whl", hash = "sha256:40a092bbe7fa26e423097ec9743841e3afd6b94c5e7407043a3aedd6c1880015", size = 17741, upload-time = "2025-08-21T19:32:06.445Z" },
 ]
 
 [[package]]
