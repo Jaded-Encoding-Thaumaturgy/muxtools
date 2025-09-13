@@ -133,7 +133,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             args = [self.executable, "-hide_banner", "-i", str(input.resolve()), "-map_chapters", "-1", "-map", f"0:a:{self.track}"]
 
             specified_depth = track.bit_depth or 16
-            should_truncate = (
+            could_truncate = (
                 not self.skip_analysis
                 and not lossy
                 and form
@@ -141,15 +141,18 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 and bool(actual_depth := self._analyse_bitdepth(input, specified_depth, quiet))
                 and specified_depth > actual_depth
             )
+            will_truncate = False
 
-            if should_truncate:
+            if could_truncate:
                 if specified_depth > actual_depth:
                     debug(f"Detected fake/padded {specified_depth} bit. Actual depth is {actual_depth} bit.", self)
                 if actual_depth <= 16:
                     debug("Track will be converted to flac and truncated to 16 bit instead.", self)
                     out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
                     args.extend(["-c:a", "flac", "-sample_fmt", "s16", "-compression_level", "0"])
-            else:
+                    will_truncate = True
+
+            if not will_truncate:
                 if force_flac and extension in ["dts", "wav"] and not lossy:
                     out = make_output(input, "flac", f"extracted_{self.track}", self.output, temp=is_temp)
                     args.extend(["-c:a", "flac", "-compression_level", "0"])
@@ -191,7 +194,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 "-",
             ]
             ffmpeg_process = subprocess.Popen(
-                args_ffmpeg, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL if quiet else subprocess.STDOUT, text=False
+                args_ffmpeg, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL if quiet else None, text=False
             )
             args_flac = [flac, "-0", "-o", str(temp_out), "-"]
             if not version or re.search(r"1\.[2|3|4]\.\d+?", version):

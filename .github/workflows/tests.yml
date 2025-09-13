@@ -8,6 +8,9 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       MKVTOOLNIX_VERSION: "93.0"
+      OPUS_VER: "opus-tools-0.2-libopus-1.5.2"
+      FLAC_VER: "flac-1.5.0"
+      FFMPEG_VER: "ffmpeg-2025-08-05"
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +55,19 @@ jobs:
           sudo ln -sf "$PWD/squashfs-root/usr/bin/mkvextract" "/usr/bin/mkvextract"
       - name: Check mkvmerge
         run: mkvmerge --version
+
+      - name: Download other binaries
+        run: |
+          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.OPUS_VER }}/${{ env.OPUS_VER }}-linux-x86_64.zip && sudo unzip -o ${{ env.OPUS_VER }}-linux-x86_64.zip -d /usr/bin
+          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.FLAC_VER }}/${{ env.FLAC_VER }}-linux-x86_64.zip && sudo unzip -o ${{ env.FLAC_VER }}-linux-x86_64.zip -d /usr/bin
+          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.FFMPEG_VER }}/${{ env.FFMPEG_VER }}-linux-x86_64.zip && sudo unzip -o ${{ env.FFMPEG_VER }}-linux-x86_64.zip -d /usr/bin
+          sudo chmod 777 -R /usr/bin # Don't do this
+      - name: Check binaries
+        run: |
+          opusenc --version
+          flac --version
+          ffmpeg -version
+
       - name: Run tests (Python ${{ matrix.python-version }})
         run: uv run --python ${{ matrix.python-version }} pytest tests
 
