@@ -124,7 +124,8 @@ def resolve_timesource_and_scale(
                 return VideoTimestamps(meta.pts, meta.timescale, fps=meta.fps, rounding_method=rounding_method)
             else:
                 try:
-                    return VideoMeta.from_json(timesource)
+                    meta = VideoMeta.from_json(timesource)
+                    return resolve_timesource_and_scale(meta, timescale, rounding_method, allow_warn, fetch_from_setup, caller)
                 except:
                     timescale = check_timescale(timescale)
                     return TextFileTimestamps(timesource, timescale, rounding_method=rounding_method)

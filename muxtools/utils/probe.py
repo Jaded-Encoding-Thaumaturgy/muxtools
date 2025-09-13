@@ -9,7 +9,7 @@ from itertools import groupby
 
 from .log import error, warn
 from .types import PathLike, TrackType
-from .files import ensure_path_exists
+from .files import ensure_path_exists, GlobSearch
 from .download import get_executable
 from .formats import AudioFormat
 
@@ -90,7 +90,7 @@ class ParsedFile:
     raw_mkvmerge: MKVInfo | None
 
     @staticmethod
-    def from_file(path: PathLike, caller: Any | None = None, allow_mkvmerge_warning: bool = True) -> "ParsedFile":
+    def from_file(path: PathLike | GlobSearch, caller: Any | None = None, allow_mkvmerge_warning: bool = True) -> "ParsedFile":
         """
         Parses a file with ffprobe and, if given and a video track is found, mkvmerge.
 
@@ -107,7 +107,7 @@ class ParsedFile:
         except:
             raise error(f"Failed to parse file '{path.stem}' with ffprobe!", caller)
 
-        if not out.streams or not out.streams.stream or "tty" in out.format.format_name:
+        if not out.streams or not out.streams.stream or (out.format.format_name is not None and "tty" in out.format.format_name):
             return ParsedFile(ContainerInfo(0, "Unknown", None, {}, out.format, None), [], False, path, out, None)
 
         is_video_file = bool([stream for stream in out.streams.stream if (stream.codec_type or "").lower() == "video"])
@@ -132,6 +132,9 @@ class ParsedFile:
             if not type:
                 raise error(f"Could not get codec_type for some tracks in '{path.stem}'!", caller)
             for i, track in enumerate(values):
+                if track.index is None:
+                    raise error(f"Track {i} (assumed) in '{path.stem}' does not have a real track index!", caller)
+
                 mkvmerge_meta = None
                 if mkvmerge_out and type in ["video", "audio", "subtitle"]:
                     found = [tr for tr in mkvmerge_out.tracks if tr.id == track.index and type in tr.type.name.lower()]
@@ -141,6 +144,7 @@ class ParsedFile:
                     codec_name = "attachment"
                 if not codec_name:
                     raise error(f"Track {track.index} in '{path.stem}' does not have a codec_name!", caller)
+
                 is_default = bool(track.disposition.default) if track.disposition and track.disposition.default else False
                 is_forced = bool(track.disposition.forced) if track.disposition and track.disposition.forced else False
                 container_delay = 0
@@ -222,7 +226,7 @@ class ParsedFile:
             if title.casefold().strip() == name.casefold().strip():
                 return True
             if use_regex:
-                return re.match(name, title, re.I)
+                return bool(re.match(name, title, re.I))
             return False
 
         def get_languages(track: TrackInfo) -> list[str]:

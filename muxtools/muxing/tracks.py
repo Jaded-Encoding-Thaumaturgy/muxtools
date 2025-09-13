@@ -77,7 +77,9 @@ class _track:
             return args
 
         elif self.type == TrackType.MKV:
-            return [*self.args, filepath]
+            if self.args:
+                return [*self.args, filepath]
+            return [filepath]
         elif self.type == TrackType.CHAPTERS:
             return ["--chapters", filepath]
 
@@ -132,10 +134,12 @@ class VideoTrack(_track):
             args.extend(["--timestamps", f"0:{ensure_path_exists(timecode_file, self).resolve()}"])
         if crop:
             if isinstance(crop, int):
-                crop = tuple([crop] * 4)
+                croplist = [crop] * 4
             elif len(crop) == 2:
-                crop = crop * 2
-            args.extend(["--cropping", f"0:{crop[0]},{crop[1]},{crop[2]},{crop[3]}"])
+                croplist = list[int](crop) * 2
+            else:
+                croplist = list[int](crop)
+            args.extend(["--cropping", f"0:{croplist[0]},{croplist[1]},{croplist[2]},{croplist[3]}"])
         super().__init__(ensure_path(file, self), TrackType.VIDEO, name, lang, default, forced, delay, args, tags)
 
 

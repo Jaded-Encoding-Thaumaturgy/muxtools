@@ -205,16 +205,16 @@ class TmdbConfig:
     def make_xml(self, media: MediaMetadata, episode: EpisodeMetadata | None = None) -> Path:
         from ..utils.files import make_output
 
-        tags = dict()
+        tags = dict[str, str]()
 
         if self.write_title and episode:
             tags.update(DESCRIPTION=episode.title)
         if self.write_ids:
             if not self.movie and media.tvdb_id:
-                tags.update(TVDB=media.tvdb_id)
+                tags.update(TVDB=str(media.tvdb_id))
             prefix = "movie/" if self.movie else "tv/"
             tags.update(TMDB=prefix + str(media.tmdb_id))
-            tags.update(IMDB=media.imdb_id)
+            tags.update(IMDB=str(media.imdb_id))
         if self.write_date:
             if self.movie:
                 if media.release_date:

@@ -455,8 +455,10 @@ class SubFile(BaseSubFile):
         for line in mergedoc.events:
             if not isinstance(sync, str) and not sync2:
                 break
-            else:
+            elif not isinstance(sync, int):
                 sync2 = sync2 or sync
+            if not sync2:
+                break
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
                 if shift_mode == ShiftMode.FRAME:
@@ -656,7 +658,7 @@ class SubFile(BaseSubFile):
                 raise error("Failed to resample perspective of subtitles!", self)
 
         self.file.unlink(True)
-        self.file = shutil.copy(output, self.file)
+        self.file = ensure_path(shutil.copy(output, self.file), self)
         clean_temp_files()
         return self
 
