@@ -1,10 +1,9 @@
 from pathlib import Path
-from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Sequence
 from abc import abstractmethod
 
-from .tracks import AudioTrack, SubTrack, Attachment, VideoTrack, _track
+from .tracks import AudioTrack, VideoTrack, _track
 
 from ..utils.log import error
 from ..utils.glob import GlobSearch

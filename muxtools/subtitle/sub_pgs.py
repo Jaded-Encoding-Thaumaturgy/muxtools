@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing_extensions import Self
 from video_timestamps import TimeType
 from shutil import move

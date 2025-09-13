@@ -32,7 +32,7 @@ def ensure_valid_in(
     preprocess: Preprocessor | Sequence[Preprocessor] | None = None,
     valid_type: ValidInputType = ValidInputType.FLAC,
     caller: Any = None,
-) -> subprocess.Popen: ...
+) -> AudioFile | subprocess.Popen: ...
 
 
 @overload

@@ -5,7 +5,6 @@ from fractions import Fraction
 from pathlib import Path
 from typing import TypeVar
 from video_timestamps import TimeType, ABCTimestamps
-import os
 import re
 
 from ..subtitle.sub import SubFile

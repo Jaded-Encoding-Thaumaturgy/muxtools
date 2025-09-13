@@ -1,7 +1,6 @@
 from __future__ import annotations
 from ass import Document, Comment, Dialogue, Style, parse as parseDoc  # type: ignore[import-untyped]
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any, cast, Sequence
 from datetime import timedelta
 from fractions import Fraction
