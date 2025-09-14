@@ -203,7 +203,7 @@ class BaseSubFile(ABC, MuxingFile):
     def _manipulate_lines(self, func: Callable[[list[_Line]], list[_Line] | None]) -> None:
         doc = self._read_doc()
         returned = func(doc.events)  # type: ignore
-        if returned:
+        if returned is not None:
             doc.events = returned
         self._update_doc(doc)
 
