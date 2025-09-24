@@ -21,7 +21,7 @@ from .convert import (
 
 __all__: list[str] = ["parse_ogm", "parse_xml", "parse_chapters_bdmv", "parse_m2ts_path", "parse_audioinfo"]
 
-OGM_REGEX = r"(^CHAPTER(?P<num>\d+)=(?P<time>.*)\nCHAPTER\d\dNAME=(?P<name>.*))"
+OGM_REGEX = r"(^CHAPTER(?P<num>\d+)=(?P<time>.*)\nCHAPTER\d+NAME=(?P<name>.*))"
 XML_REGEX = r"(\<ChapterAtom\>.*?\<ChapterTimeStart\>(?P<time>[^\<]*).*?\<ChapterString\>(?P<name>[^\<]*)\<\/ChapterString\>.*?\<\/ChapterAtom\>)"
 AUDIOFRAME_REGEX = r"\[Parsed_ashowinfo.*\] n:(?P<n>\d+).*pts:(?P<pts>\d+).*pts_time:(?P<pts_time>\d+\.?\d+).+nb_samples:(?P<samples>\d+)"
 AUDIOSTATS_REGEX = r"\[Parsed_astats.*\] (?:(?:(?P<key>.+): (?P<val>.+))|(?P<other>Overall))"
