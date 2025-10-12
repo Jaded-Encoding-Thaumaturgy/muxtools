@@ -89,30 +89,31 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     if run_commandline(args, quiet, mkvmerge=True) > 1:
         raise error("Muxing failed!", "Mux")
 
-    try:
-        from importlib.metadata import version
+    if not get_setup_attr("skip_mux_branding", False):
+        try:
+            from importlib.metadata import version
 
-        parsed = ParsedFile.from_file(outfile, "Mux")
-        tags = parsed.container_info.tags
-        if not tags:
-            debug("File does not contain writing library tags. Skipping the muxtools branding.", "Mux")
+            parsed = ParsedFile.from_file(outfile, "Mux")
+            tags = parsed.container_info.tags
+            if not tags:
+                debug("File does not contain writing library tags. Skipping the muxtools branding.", "Mux")
 
-        mkvpropedit = get_executable("mkvpropedit", False, False)
-        if not mkvpropedit:
-            warn("Mkvpropedit could not be found!", "Mux", 0)
-        muxtools_version = version("muxtools")
-        version_tag = f" + muxtools v{muxtools_version}"
+            mkvpropedit = get_executable("mkvpropedit", False, False)
+            if not mkvpropedit:
+                warn("Mkvpropedit could not be found!", "Mux", 0)
+            muxtools_version = version("muxtools")
+            version_tag = f" + muxtools v{muxtools_version}"
 
-        muxing_application = tags.get("encoder", None)
+            muxing_application = tags.get("encoder", None)
 
-        if mkvpropedit and muxing_application and (match := writing_lib_regex.search(muxing_application)):
-            muxing_application = f"libebml v{match.group(1)} + libmatroska v{match.group(2)}" + version_tag
-            args = [mkvpropedit, "--edit", "info", "--set", f"muxing-application={muxing_application}", str(outfile.resolve())]
-            if run_commandline(args, mkvmerge=True) > 1:
-                danger("Failed to add muxtools information via mkvpropedit!", "Mux")
-    except Exception as e:
-        print(e)
-        danger("Failed to add muxtools information via mkvpropedit!", "Mux")
+            if mkvpropedit and muxing_application and (match := writing_lib_regex.search(muxing_application)):
+                muxing_application = f"libebml v{match.group(1)} + libmatroska v{match.group(2)}" + version_tag
+                args = [mkvpropedit, "--edit", "info", "--set", f"muxing-application={muxing_application}", str(outfile.resolve())]
+                if run_commandline(args, mkvmerge=True) > 1:
+                    danger("Failed to add muxtools information via mkvpropedit!", "Mux")
+        except Exception as e:
+            print(e)
+            danger("Failed to add muxtools information via mkvpropedit!", "Mux")
 
     if "#crc32#" in outfile.stem:
         debug("Generating CRC32 for the muxed file...", "Mux")
