@@ -45,7 +45,11 @@ dev = [
     "ruff>=0.6.5",
     "scipy-stubs>=1.15.2.1",
     "types-psutil>=7.0.0.20250218",
-    "py7zr>=0.20.5"
+    "types-requests>=2.31.0.20240406",
+    "py7zr>=0.20.5",
+    "sox>=1.5.0",
+    "mypy==1.17.1",
+    "ty==0.0.1a19",
 ]
 
 [project.urls]
