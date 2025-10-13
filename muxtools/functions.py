@@ -112,13 +112,15 @@ def do_audio(
         if not encoder:
             setattr(trimmer, "output", output)
         trimmed = trimmer.trim_audio(audio, quiet)
-        ensure_path(audio.file, do_audio).unlink(missing_ok=True)
+        if extractor:
+            ensure_path(audio.file, do_audio).unlink(missing_ok=True)
         audio = trimmed
 
     if encoder:
         setattr(encoder, "output", output)
         encoded = encoder.encode_audio(audio, quiet)
-        ensure_path(audio.file, do_audio).unlink(missing_ok=True)
+        if extractor or (trimmer and trims):
+            ensure_path(audio.file, do_audio).unlink(missing_ok=True)
         audio = encoded
 
     print("")
