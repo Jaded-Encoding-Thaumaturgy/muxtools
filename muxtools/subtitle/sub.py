@@ -202,7 +202,7 @@ class SubFile(BaseSubFile):
         - `abc{*}{\b1}def{*}` becomes `abc{**[/b1]def}` (Hide Word)
 
 
-        :param allowed_styles:          List of allowed styles to do the swapping on
+        :param allowed_styles:          List of allowed styles to do the swapping on (case insensitive)
                                         Will run on every line if passed `None`
         :param print_swaps:             Prints the swaps
         :param inline_marker:           Marker to use for inline swaps.
@@ -306,6 +306,9 @@ class SubFile(BaseSubFile):
         """
         Removes any top and italics styles and replaces them with tags.
 
+        Style names are case-insensitive and use substring matching.
+        i.e. if `top_styles=["top"]`, `"MainTop"` or `"main_top"` would both be considered top styles.
+
         :param default_style:       The default style that everything will be set to
         :param keep_flashback:      If not it will set the flashback styles to default_style
         :param dialogue_styles:     Styles that will be set to default_style
@@ -366,13 +369,14 @@ class SubFile(BaseSubFile):
         :param timesource:      The source of timestamps/timecodes. For details check the docstring on the type.
         :param timescale:       Unit of time (in seconds) in terms of which frame timestamps are represented.\n
                                 For details check the docstring on the type.
-        :param allowed_styles:  A list of style names this will run on. Will run on every line if None.
+        :param allowed_styles:  A list of style names this is run on (case-insensitive).
+                                Runs on every line if None.
         """
         resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
         def _func(lines: LINES):
             for line in lines:
-                if not allowed_styles or line.style.lower() in allowed_styles:
+                if not allowed_styles or line.style.casefold() in {style.casefold() for style in allowed_styles}:
                     result = self._shift_line_by_frames(line, 0, resolved_ts, OutOfBoundsMode.ERROR)
                     line = result.line
 
@@ -659,7 +663,7 @@ class SubFile(BaseSubFile):
         """
         Basically deletes lines that have any of the passed styles.
 
-        :param styles:      List of style names to get rid of
+        :param styles:      List of style names to get rid of (case-insensitive)
         :param inverse:     Treat the list as the opposite. Will remove lines that *don't* have any of those styles.
         :param heuristics:  Also use heuristics for detecting signs.
         """
@@ -713,14 +717,14 @@ class SubFile(BaseSubFile):
         """
         Set layer to the specified number or adds the number to the existing one on every line with a style you selected.
 
-        :param styles:      List of styles to look for.
+        :param styles:      List of styles to look for (case-insensitive)
         :param layer:       The layer you want. Defaults to 50 for additive and 99 otherwise.
         :param additive:    Add specified layer number instead of replacing the existing one.
         """
         if not layer:
             layer = 50 if additive else 99
 
-        def _func(lines: LINES):
+        def _func(lines: LINES) -> None:
             for line in lines:
                 for style in styles:
                     if str(line.style).strip().casefold() == style.strip().casefold():
@@ -733,7 +737,8 @@ class SubFile(BaseSubFile):
         Removes romaji macrons from every dialogue line.
         German subs use this a lot and a lot of fonts don't support it, so I like to purge them.
 
-        :param styles:      List of styles to look for
+        :param styles:      List of styles to look for (case-insensitive).
+                            Runs on all styles if None.
         """
         macrons: list[tuple[str, str]] = [("ā", "a"), ("ē", "e"), ("ī", "i"), ("ō", "o"), ("ū", "u")]
 
