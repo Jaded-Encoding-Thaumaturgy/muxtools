@@ -166,9 +166,10 @@ def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: l
     title = get_setup_attr("mkv_title_naming", "")
 
     try:
-        if " " in episode:
-            episode = str(episode).split(" ")[0]
-        epint = int(episode)
+        ep_temp = str(episode)
+        if " " in ep_temp:
+            ep_temp = ep_temp.split(" ")[0]
+        epint = int(ep_temp)
     except:
         if tmdb and not tmdb.movie:
             danger(f"{episode} is not a valid integer! TMDB will be skipped.", "Mux", 3)

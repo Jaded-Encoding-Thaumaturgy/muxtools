@@ -4,7 +4,7 @@ from pathlib import Path
 from shutil import rmtree
 import xml.etree.ElementTree as ET
 
-from .log import crit
+from .log import crit, warn
 from .glob import GlobSearch
 from .types import PathLike, FileMixin
 from .env import get_temp_workdir, get_workdir
@@ -88,7 +88,7 @@ def get_crc32(file: PathLike) -> str:
     """
     try:
         from zlib import crc32
-    except:
+    except ImportError:
         from binascii import crc32
 
     buffer_size = 1024 * 1024 * 32
@@ -104,7 +104,10 @@ def get_crc32(file: PathLike) -> str:
 
 
 def clean_temp_files():
-    rmtree(get_temp_workdir())
+    try:
+        rmtree(get_temp_workdir())
+    except (FileNotFoundError, PermissionError) as e:
+        warn(f"Could not clean temp files! {e}", clean_temp_files)
 
 
 def create_tags_xml(fileOut: PathLike, tags: dict[str, Any]) -> None:
