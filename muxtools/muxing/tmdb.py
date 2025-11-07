@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
 from enum import IntEnum
+from pathlib import Path
 from typing import cast
 import requests
 import logging
 
-from ..utils.types import PathLike
 from ..utils.log import debug, error, info
 from ..utils.files import create_tags_xml
 
@@ -155,7 +155,7 @@ class TmdbConfig:
                         info(f"Selecting episode group '{wanted_order['name']}'.", self)
                         setattr(self, "order_id", str(wanted_order["id"]))
 
-                url = f"{BASE_URL}/tv/episode_group/{self.order_id}?language={self.language}"
+                url = f"{BASE_URL}/tv/episode_group/{self.order_id}?language={self.language}"  # type: ignore[attr-defined]
             else:
                 url = f"{BASE_URL}/tv/{self.id}/season/{self.season}?language={self.language}"
 
@@ -202,28 +202,28 @@ class TmdbConfig:
             sanitized_title,
         )
 
-    def make_xml(self, media: MediaMetadata, episode: EpisodeMetadata | None = None) -> PathLike:
+    def make_xml(self, media: MediaMetadata, episode: EpisodeMetadata | None = None) -> Path:
         from ..utils.files import make_output
 
-        tags = dict()
+        tags = dict[str, str]()
 
         if self.write_title and episode:
             tags.update(DESCRIPTION=episode.title)
         if self.write_ids:
             if not self.movie and media.tvdb_id:
-                tags.update(TVDB=media.tvdb_id)
+                tags.update(TVDB=str(media.tvdb_id))
             prefix = "movie/" if self.movie else "tv/"
             tags.update(TMDB=prefix + str(media.tmdb_id))
-            tags.update(IMDB=media.imdb_id)
+            tags.update(IMDB=str(media.imdb_id))
         if self.write_date:
             if self.movie:
                 if media.release_date:
                     tags.update(DATE_RELEASED=media.release_date)
-            else:
+            elif episode is not None:
                 tags.update(DATE_RELEASED=episode.release_date)
         if self.write_summary:
             tags.update(SUMMARY=media.summary)
-        if self.write_synopsis and not self.movie:
+        if self.write_synopsis and not self.movie and episode is not None:
             tags.update(SYNOPSIS=episode.synopsis)
 
         outfile = make_output("tags", "xml")

@@ -1,8 +1,7 @@
 from __future__ import annotations
-from ass import Document, Comment, Dialogue, Style, parse as parseDoc
+from ass import Document, Comment, Dialogue, Style, parse as parseDoc  # type: ignore[import-untyped]
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, Sequence
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
@@ -24,6 +23,7 @@ from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, make_output, clean_temp_files, uniquify_path, ensure_path
 from ..utils.probe import ParsedFile
 from ..muxing.muxfiles import MuxingFile
+from ..muxing.tracks import Attachment
 from .basesub import BaseSubFile, _Line, ASSHeader, ShiftMode, OutOfBoundsMode
 
 __all__ = ["FontFile", "SubFile", "DEFAULT_DIALOGUE_STYLES"]
@@ -33,12 +33,11 @@ SRT_REGEX = r"\d+[\r\n](?:(?P<start>\d+:\d+:\d+,\d+) --> (?P<end>\d+:\d+:\d+,\d+
 LINES = list[_Line]
 
 
-@dataclass
 class FontFile(MuxingFile):
-    pass
+    def to_track(self, *args) -> Attachment:
+        return Attachment(self.file)
 
 
-@dataclass
 class SubFile(BaseSubFile):
     """
     Utility class representing an ASS/SSA subtitle file with various functions to run on.
@@ -51,22 +50,27 @@ class SubFile(BaseSubFile):
     :param encoding:        Encoding used for reading and writing the subtitle files.
     """
 
-    encoding = "utf_8_sig"
+    def __init__(
+        self,
+        file: PathLike | Sequence[PathLike] | GlobSearch,
+        container_delay: int = 0,
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+        encoding: str = "utf_8_sig",
+    ):
+        if isinstance(file, GlobSearch):
+            file = file.paths
 
-    def __post_init__(self):
-        if isinstance(self.file, GlobSearch):
-            self.file = self.file.paths
-
-        if isinstance(self.file, list) and len(self.file) > 1:
+        if isinstance(file, list) and len(file) > 1:
             debug("Merging sub files...", self)
             docs: list[Document] = []
-            for i, f in enumerate(self.file):
+            for i, f in enumerate(file):
                 f = ensure_path_exists(f, self)
                 with open(f, "r", encoding=self.encoding) as read:
                     doc = parseDoc(read)
                     docs.append(doc)
                     if i != 0:
-                        self._warn_mismatched_properties(docs[0], doc, ensure_path(self.file[0], self).name, f.name)
+                        self._warn_mismatched_properties(docs[0], doc, ensure_path(file[0], self).name, f.name)
 
             main = docs[0]
             existing_styles = [style.name for style in (main.styles)]
@@ -80,21 +84,23 @@ class SubFile(BaseSubFile):
                         continue
                     main.styles.append(style)
 
-            self.source = self.file[0]
-            out = make_output(self.file[0], "ass", "merged")
+            source = file[0]
+            out = make_output(file[0], "ass", "merged")
             with open(out, "w", encoding=self.encoding) as writer:
                 main.dump_file(writer)
 
-            self.file = out
+            file = out
             debug("Done")
         else:
-            self.file = ensure_path_exists(self.file, self)
-            self.source = self.file
-            if not os.path.samefile(self.file.parent, get_workdir()):
-                out = make_output(self.file, "ass", "vof")
+            file = ensure_path_exists(file, self)
+            source = file
+            if not os.path.samefile(file.parent, get_workdir()):
+                out = make_output(file, "ass", "vof")
                 with open(out, "w", encoding=self.encoding) as writer:
-                    self._read_doc().dump_file(writer)
-                self.file = out
+                    self._read_doc(file).dump_file(writer)
+                file = out
+
+        super().__init__(file, container_delay, source, tags, encoding)
 
     def manipulate_lines(self, func: Callable[[LINES], LINES | None]) -> Self:
         """
@@ -103,7 +109,7 @@ class SubFile(BaseSubFile):
         :param func:        Your own function you want to run on the list of lines.
                             This can return a new list or just edit the one passed into it.
         """
-        super().manipulate_lines(func)
+        super()._manipulate_lines(func)
         return self
 
     def set_header(self, header: str | ASSHeader, value: str | int | bool | None) -> Self:
@@ -115,7 +121,7 @@ class SubFile(BaseSubFile):
         :param header:      The name of the header or a header chosen from the enum.
         :param value:       The value of the header. None will remove the header unless it's the Matrix header because None has a meaning there.
         """
-        super().set_header(header, value)
+        super()._set_header(header, value)
         return self
 
     def set_headers(self, *headers: tuple[str | ASSHeader, str | int | bool | None]) -> Self:
@@ -127,7 +133,7 @@ class SubFile(BaseSubFile):
         """
         doc = self._read_doc()
         for header, value in headers:
-            super().set_header(header, value, doc)
+            super()._set_header(header, value, doc)
         self._update_doc(doc)
         return self
 
@@ -452,8 +458,10 @@ class SubFile(BaseSubFile):
         for line in mergedoc.events:
             if not isinstance(sync, str) and not sync2:
                 break
-            else:
+            elif not isinstance(sync, int):
                 sync2 = sync2 or sync
+            if not sync2:
+                break
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
                 if shift_mode == ShiftMode.FRAME:
@@ -653,7 +661,7 @@ class SubFile(BaseSubFile):
                 raise error("Failed to resample perspective of subtitles!", self)
 
         self.file.unlink(True)
-        self.file = shutil.copy(output, self.file)
+        self.file = ensure_path(shutil.copy(output, self.file), self)
         clean_temp_files()
         return self
 

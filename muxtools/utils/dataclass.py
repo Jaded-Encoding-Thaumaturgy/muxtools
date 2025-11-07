@@ -72,7 +72,7 @@ class CLIKwargs(ABC):
         if not hasattr(self, "affinity"):
             return False
 
-        threads = self.affinity
+        threads = self.affinity  # type: ignore[attr-defined]
 
         if not threads:
             return []
@@ -129,8 +129,8 @@ class CLIKwargs(ABC):
         return join(new_args)
 
     def get_custom_args(self) -> list[str]:
-        init_args: dict[str, Any]
-        if not (init_args := getattr(self, "__pydantic_fields__", None)):
+        init_args: dict[str, Any] | None = getattr(self, "__pydantic_fields__", None)
+        if not init_args:
             return []
 
         args = list[str]()

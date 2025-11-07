@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Sequence
 
 from ...utils import ensure_path_exists, PathLike, error
 from .bsf_generic import BSF_Matrix, BSF_Primaries, BSF_Transfer, BSF_Format, BSF_ChromaLocation, _apply_bsf
@@ -6,11 +6,11 @@ from .bsf_generic import BSF_Matrix, BSF_Primaries, BSF_Transfer, BSF_Format, BS
 __all__ = ["apply_avc_bsf", "apply_hevc_bsf"]
 
 
-def _resolve_crop(crop: int | tuple[int, int] | tuple[int, int, int, int]) -> list[str]:
+def _resolve_crop(crop: int | Sequence[int]) -> list[str]:
     if isinstance(crop, int):
-        crop = tuple([crop] * 4)
+        crop = [crop] * 4
     elif len(crop) == 2:
-        crop = crop * 2
+        crop = list(crop) * 2
     return [f"crop_left={str(crop[0])}", f"crop_top={str(crop[1])}", f"crop_right={str(crop[2])}", f"crop_bottom={str(crop[3])}"]
 
 
@@ -37,16 +37,16 @@ def _apply_avc_hevc_bsf(
     if full_range is not None:
         filter_options.append(f"video_full_range_flag={str(int(full_range))}")
 
-    if cloc_type is not None and (cloc_type := BSF_ChromaLocation(cloc_type)) is not None:
-        filter_options.append(f"chroma_sample_loc_type={str(cloc_type.value)}")
-    if format is not None and (format := BSF_Format(format)) is not None:
-        filter_options.append(f"video_format={str(format.value)}")
-    if primaries is not None and (primaries := BSF_Primaries(primaries)) is not None:
-        filter_options.append(f"colour_primaries={str(primaries.value)}")
-    if transfer is not None and (transfer := BSF_Transfer(transfer)) is not None:
-        filter_options.append(f"transfer_characteristics={str(transfer.value)}")
-    if matrix is not None and (matrix := BSF_Matrix(matrix)) is not None:
-        filter_options.append(f"matrix_coefficients={str(matrix.value)}")
+    if cloc_type is not None:
+        filter_options.append(f"chroma_sample_loc_type={str(BSF_ChromaLocation(cloc_type).value)}")
+    if format is not None:
+        filter_options.append(f"video_format={str(BSF_Format(format).value)}")
+    if primaries is not None:
+        filter_options.append(f"colour_primaries={str(BSF_Primaries(primaries).value)}")
+    if transfer is not None:
+        filter_options.append(f"transfer_characteristics={str(BSF_Transfer(transfer).value)}")
+    if matrix is not None:
+        filter_options.append(f"matrix_coefficients={str(BSF_Matrix(matrix).value)}")
     if crop is not None:
         filter_options.extend(_resolve_crop(crop))
 

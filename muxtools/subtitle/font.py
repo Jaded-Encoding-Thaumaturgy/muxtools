@@ -41,6 +41,9 @@ def _get_fontname(font: ABCFontFace) -> str:
             found = font.get_best_family_name()
         name = found.value
     except:
+        # Not quite sure why this is nullable
+        if not font.font_file:
+            raise error(f"Could not find font file for '{font.get_best_exact_name()}'!")
         name = Path(font.font_file.filename).with_suffix("").name.strip()
         filename_fallback = True
 
@@ -107,6 +110,7 @@ def collect_fonts(
                 danger(msg, collect_fonts, 3)
         else:
             fontname = _get_fontname(query.font_face)
+            assert query.font_face.font_file
             fontpath = Path(query.font_face.font_file.filename)
             outpath = get_workdir() / f"{clean_name(fontname)}{fontpath.suffix}"
             family_name = query.font_face.get_best_family_name().value

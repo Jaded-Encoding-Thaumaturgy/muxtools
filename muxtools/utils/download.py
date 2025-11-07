@@ -4,10 +4,11 @@ from .log import crit, error, info
 from .files import ensure_path_exists
 
 import os
-import wget
+import wget  # type: ignore[import-untyped]
 import shutil as sh
 from pathlib import Path
 from dataclasses import dataclass
+from typing import Literal, overload
 
 __all__: list[str] = [
     "get_executable",
@@ -43,7 +44,15 @@ tools = [
 # TODO: check CPU to decide on which x264/5 file to use
 
 
-def get_executable(type: str, can_download: bool | None = None, can_error: bool = True) -> str:
+@overload
+def get_executable(type: str, can_download: bool | None = None, can_error: Literal[True] = ...) -> str: ...
+
+
+@overload
+def get_executable(type: str, can_download: bool | None = None, can_error: Literal[False] = ...) -> str | None: ...
+
+
+def get_executable(type: str, can_download: bool | None = None, can_error: bool = True) -> str | None:
     if can_download is None:
         can_download = download_allowed()
     path = sh.which(type)
@@ -131,7 +140,7 @@ def download_binary(type: str) -> str:
     return str(executable.resolve())
 
 
-def unpack_all(dir: PathLike):
+def unpack_all(dir: Path | str):
     dir = Path(dir) if isinstance(dir, str) else dir
 
     for file in dir.rglob("*.zip"):

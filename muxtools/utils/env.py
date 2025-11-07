@@ -43,7 +43,7 @@ def get_setup_dir() -> list[str]:
     if not envi:
         return []
     loaded = json.loads(envi)
-    return loaded.keys() if isinstance(loaded, dict) else dir(loaded)
+    return loaded.keys() if isinstance(loaded, dict) else dir(loaded)  # type: ignore
 
 
 def get_workdir() -> Path:
@@ -64,7 +64,7 @@ def download_allowed() -> bool:
     return get_setup_attr("allow_binary_download", False)
 
 
-def communicate_stdout(command: list[str] | list[str], shell: bool = False, **kwargs) -> tuple[int, str]:
+def communicate_stdout(command: str | list[str], shell: bool = False, **kwargs) -> tuple[int, str]:
     if os.name != "nt" and isinstance(command, str):
         shell = True
     p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, shell=shell, **kwargs)
@@ -92,7 +92,10 @@ def run_commandline(
     return returncode
 
 
-def get_binary_version(executable: Path, regex: str, args: list[str] | None = None) -> str | None:
+def get_binary_version(executable: PathLike, regex: str, args: list[str] | None = None) -> str | None:
+    from .files import ensure_path
+
+    executable = str(ensure_path(executable, None))
     args = [executable] + args if args else [executable]
     _, readout = communicate_stdout(args)
 

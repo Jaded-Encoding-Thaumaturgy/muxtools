@@ -3,8 +3,8 @@ from shlex import split as split_args
 
 from ..utils.files import make_output, create_tags_xml
 from ..utils.glob import GlobSearch
-from ..utils.types import PathLike, TrackType
-from ..utils.files import ensure_path_exists
+from ..utils.types import PathLike, TrackType, FileMixin
+from ..utils.files import ensure_path_exists, ensure_path
 from ..utils.probe import ParsedFile
 
 # fmt: off
@@ -41,8 +41,6 @@ class _track:
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> None:
-        from .muxfiles import MuxingFile
-
         """
         :param file:        Filepath as string or Path object
         :param type:        TrackType enum, or int or string (1 = 'video', 2 = 'audio', 3 = 'sub')
@@ -56,7 +54,7 @@ class _track:
         self.default = default
         self.forced = forced
         self.name = name
-        self.delay = file.container_delay if isinstance(file, MuxingFile) else delay
+        self.delay = file.container_delay if isinstance(file, FileMixin) else delay
         self.lang = lang
         self.type = type if isinstance(type, TrackType) else (TrackType(type) if isinstance(type, int) else TrackType[type.upper()])
         self.args = args
@@ -79,7 +77,9 @@ class _track:
             return args
 
         elif self.type == TrackType.MKV:
-            return [*self.args, filepath]
+            if self.args:
+                return [*self.args, filepath]
+            return [filepath]
         elif self.type == TrackType.CHAPTERS:
             return ["--chapters", filepath]
 
@@ -134,11 +134,13 @@ class VideoTrack(_track):
             args.extend(["--timestamps", f"0:{ensure_path_exists(timecode_file, self).resolve()}"])
         if crop:
             if isinstance(crop, int):
-                crop = tuple([crop] * 4)
+                croplist = [crop] * 4
             elif len(crop) == 2:
-                crop = crop * 2
-            args.extend(["--cropping", f"0:{crop[0]},{crop[1]},{crop[2]},{crop[3]}"])
-        super().__init__(file, TrackType.VIDEO, name, lang, default, forced, delay, args, tags)
+                croplist = list[int](crop) * 2
+            else:
+                croplist = list[int](crop)
+            args.extend(["--cropping", f"0:{croplist[0]},{croplist[1]},{croplist[2]},{croplist[3]}"])
+        super().__init__(ensure_path(file, self), TrackType.VIDEO, name, lang, default, forced, delay, args, tags)
 
 
 class AudioTrack(_track):
@@ -157,7 +159,7 @@ class AudioTrack(_track):
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> None:
-        super().__init__(file, TrackType.AUDIO, name, lang, default, forced, delay, args, tags)
+        super().__init__(ensure_path(file, self), TrackType.AUDIO, name, lang, default, forced, delay, args, tags)
 
 
 class Attachment(_track):
@@ -166,7 +168,7 @@ class Attachment(_track):
     """
 
     def __init__(self, file: str | Path, mimetype: str = "", name: str = "") -> None:
-        super().__init__(file, TrackType.ATTACHMENT, lang=mimetype, name=name)
+        super().__init__(ensure_path(file, self), TrackType.ATTACHMENT, lang=mimetype, name=name)
 
 
 class SubTrack(_track):
@@ -188,7 +190,7 @@ class SubTrack(_track):
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> None:
-        super().__init__(file, TrackType.SUB, name, lang, default, forced, delay, args, tags)
+        super().__init__(ensure_path(file, self), TrackType.SUB, name, lang, default, forced, delay, args, tags)
 
 
 class Premux(_track):
@@ -257,7 +259,7 @@ class Premux(_track):
 
         args = split_args(args.strip())
         mkvmerge_args = split_args(mkvmerge_args.strip()) if isinstance(mkvmerge_args, str) else mkvmerge_args
-        super().__init__(file, TrackType.MKV, args=args + mkvmerge_args)
+        super().__init__(ensure_path(file, self), TrackType.MKV, args=args + mkvmerge_args)
 
 
 VT = VideoTrack

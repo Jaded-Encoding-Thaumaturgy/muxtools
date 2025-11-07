@@ -1,8 +1,8 @@
 from abc import ABC
-from ass import Document, parse as parseDoc
+from ass import Document, parse as parseDoc  # type: ignore[import-untyped]
 from datetime import timedelta
 from typing import Any, NamedTuple
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from enum import IntEnum, Enum
 from copy import deepcopy
 
@@ -11,6 +11,8 @@ from video_timestamps import ABCTimestamps, TimeType
 from ..utils.log import error, warn, danger
 from ..utils.types import PathLike
 from ..muxing.muxfiles import MuxingFile
+from ..utils.files import GlobSearch, ensure_path
+from ..muxing.tracks import SubTrack
 
 __all__ = ["_Line", "ASSHeader", "ShiftMode", "OutOfBoundsMode"]
 
@@ -128,6 +130,30 @@ class BaseSubFile(ABC, MuxingFile):
     Mostly contains the functions to read/write the file and some commonly reused functions to manipulate headers/lines.
     """
 
+    encoding: str = "utf_8_sig"
+
+    def __init__(
+        self,
+        file: PathLike | Sequence[PathLike] | GlobSearch,
+        container_delay: int = 0,
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+        encoding: str = "utf_8_sig",
+    ):
+        super().__init__(ensure_path(file, self), container_delay, source, tags)
+        self.encoding = encoding
+
+    def to_track(
+        self,
+        name: str = "",
+        lang: str = "en",
+        default: bool | None = None,
+        forced: bool | None = None,
+        args: list[str] | None = None,
+        tags: dict[str, str] | None = None,
+    ) -> SubTrack:
+        return SubTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags)
+
     def _read_doc(self, file: PathLike | None = None) -> Document:
         with open(self.file if not file else file, "r", encoding=self.encoding) as reader:
             doc = parseDoc(reader)
@@ -174,7 +200,7 @@ class BaseSubFile(ABC, MuxingFile):
 
         setattr(doc.styles, "field_order", fields)
 
-    def manipulate_lines(self, func: Callable[[list[_Line]], list[_Line] | None]) -> None:
+    def _manipulate_lines(self, func: Callable[[list[_Line]], list[_Line] | None]) -> None:
         doc = self._read_doc()
         returned = func(doc.events)  # type: ignore
         if returned is not None:
@@ -254,7 +280,7 @@ class BaseSubFile(ABC, MuxingFile):
         new_line.end = timedelta(milliseconds=end * 10)
         return ShiftResult(new_line, outofbounds)
 
-    def set_header(self, header: str | ASSHeader, value: str | int | bool | None, opened_doc: None | Document = None) -> None:
+    def _set_header(self, header: str | ASSHeader, value: str | int | bool | None, opened_doc: None | Document = None) -> None:
         doc = opened_doc or self._read_doc()
         functional_headers = ASSHeader._member_map_.items()
         section: dict = doc.sections["Script Info"]
@@ -265,7 +291,7 @@ class BaseSubFile(ABC, MuxingFile):
                 if name.casefold() == header.casefold() or name.replace("_", " ").casefold() == header.casefold()
             ]
             if corr:
-                corr = ASSHeader(corr[0])
+                corr = ASSHeader(int(corr[0].value))
                 value = corr.validate_input(value, "SubFile.set_header")
                 if value is None and corr.name != "YCbCr_Matrix":
                     section.pop(corr.name)

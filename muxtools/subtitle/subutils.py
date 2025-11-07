@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from ass import Document
+from ass import Document  # type: ignore[import-untyped]
 
 from ..utils.log import error
 from ..utils.env import run_commandline
@@ -29,7 +29,10 @@ def has_arch_resampler() -> bool:
     check = [sourcedir]
 
     if os.name == "nt":
-        check.append(Path(os.getenv("APPDATA"), "Aegisub", "automation"))
+        appdata = os.getenv("APPDATA")
+        if not appdata:
+            raise error("No appdata environment variable found!")
+        check.append(Path(appdata, "Aegisub", "automation"))
     else:
         check.append(Path(Path.home(), ".aegisub", "automation"))
 

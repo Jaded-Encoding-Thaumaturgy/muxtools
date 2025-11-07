@@ -61,6 +61,7 @@ def do_audio(
             fileIn = [ensure_path_exists(f, do_audio) for f in fileIn]
             extracted = []
             for f in fileIn:
+                f = ensure_path_exists(f, do_audio)
                 try:
                     af = extractor.extract_audio(f, quiet, True, True)
                 except:

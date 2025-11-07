@@ -2,7 +2,7 @@ import os
 import re
 import subprocess
 from datetime import timedelta
-from typing import Any
+from typing import Any, Literal, overload
 from collections.abc import Sequence
 
 from .preprocess import Preprocessor, Resample
@@ -23,6 +23,26 @@ def sanitize_pre(preprocess: Preprocessor | Sequence[Preprocessor] | None = None
     if not preprocess:
         return []
     return list(preprocess) if isinstance(preprocess, Sequence) else [preprocess]
+
+
+@overload
+def ensure_valid_in(
+    fileIn: AudioFile,
+    supports_pipe: Literal[True] = ...,
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = None,
+    valid_type: ValidInputType = ValidInputType.FLAC,
+    caller: Any = None,
+) -> AudioFile | subprocess.Popen: ...
+
+
+@overload
+def ensure_valid_in(
+    fileIn: AudioFile,
+    supports_pipe: Literal[False] = ...,
+    preprocess: Preprocessor | Sequence[Preprocessor] | None = None,
+    valid_type: ValidInputType = ValidInputType.FLAC,
+    caller: Any = None,
+) -> AudioFile: ...
 
 
 def ensure_valid_in(
@@ -138,9 +158,11 @@ def get_pcm(
 
 
 def sanitize_trims(
-    trims: Trim | list[Trim], total_frames: int = 0, uses_frames: bool = True, allow_negative_start: bool = False, caller: Any = None
+    trims: Trim | list[Trim] | None, total_frames: int = 0, uses_frames: bool = True, allow_negative_start: bool = False, caller: Any = None
 ) -> list[Trim]:
     caller = caller if caller else sanitize_trims
+    if trims is None:
+        return []
     if not isinstance(trims, (list, tuple)):
         raise error("Trims must be a list of 2-tuples (or just one 2-tuple)", caller)
     if not isinstance(trims, list):

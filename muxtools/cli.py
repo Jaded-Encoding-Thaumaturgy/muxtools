@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-import wget
+import wget  # type: ignore[import-untyped]
 import shlex
 import shutil
 import subprocess
@@ -191,9 +191,9 @@ def request_install(
     return -1
 
 
-def get_exe_folder(name: str) -> Path:
+def get_exe_folder(name: str) -> Path | None:
     exe_path = shutil.which(name)
-    if exe_path:
+    if exe_path is not None:
         exe_path = Path(exe_path)
         # if this was installed with scoop
         if exe_path.parent.name == "shims":
@@ -206,7 +206,9 @@ def get_exe_folder(name: str) -> Path:
 def _run_powershell(args: str | list[str], quiet: bool = False) -> int:
     if isinstance(args, str):
         args = shlex.split(args)
-    pwsh = [shutil.which("powershell")]
+    powershell_exe = shutil.which("powershell")
+    assert powershell_exe
+    pwsh = [powershell_exe]
     pwsh.extend(args)
     if quiet:
         p = subprocess.Popen(pwsh, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -230,8 +232,8 @@ def generate_videometa(file: str | None = None, output: str | None = None):
 
     if not output:
         info("Generating VideoMeta file in your current work directory.", None)
-        output = ensure_path(os.getcwd(), None) / f"{in_path.stem}_meta.json"
+        out_path = ensure_path(os.getcwd(), None) / f"{in_path.stem}_meta.json"
     else:
-        output = ensure_path(output, None)
+        out_path = ensure_path(output, None)
 
-    get_timemeta_from_video(in_path, output, None)
+    get_timemeta_from_video(in_path, out_path, None)

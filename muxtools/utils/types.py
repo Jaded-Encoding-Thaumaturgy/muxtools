@@ -18,10 +18,12 @@ __all__ = [
     "AudioStats",
     "AudioInfo",
     "Chapter",
+    "LooseChapter",
     "DitherType",
     "LossyWavQuality",
     "VideoMeta",
     "TimeScale",
+    "FileMixin",
 ]
 
 PathLike = Union[Path, str, None]
@@ -29,8 +31,13 @@ Trim = tuple[int | None, int | None]
 
 Paths = Union[PathLike, list[PathLike]]
 
-# Timedelta (or frame, which will be converted internally), Optional Name
-Chapter = tuple[timedelta | int, Optional[str]]
+LooseChapter = tuple[timedelta | int, Optional[str]]
+"""
+Chapter type where the time can be a frame number or timedelta.\n
+The chapters class will normalize these to just timedeltas.
+"""
+
+Chapter = tuple[timedelta, Optional[str]]
 
 
 class TrackType(IntEnum):
@@ -54,7 +61,9 @@ class VideoMeta:
 
     @staticmethod
     def from_json(file: PathLike) -> "VideoMeta":
-        with open(file, "r", encoding="utf-8") as f:
+        from .files import ensure_path_exists
+
+        with open(ensure_path_exists(file, VideoMeta), "r", encoding="utf-8") as f:
             meta_json = json.loads(f.read(), object_hook=fraction_hook)
             return VideoMeta(**meta_json)
 
@@ -70,7 +79,7 @@ class TimeScale(IntEnum):
     """Typical m2ts timescale"""
 
 
-TimeSourceT = Union[PathLike, Fraction, float, list, VideoMeta, ABCTimestamps, None]
+TimeSourceT = PathLike | Fraction | float | list | VideoMeta | ABCTimestamps
 """
 The source of timestamps/timecodes.\n
 For actual timestamps, this can be a timestamps (v1/v2/v4) file, a video file or a list of integers.\n
@@ -80,7 +89,7 @@ Can also be an already instantiated Timestamps class from the videotimestamps li
 `None` will usually fallback to 24000/1001 but exact behavior might differ based on the target function.
 """
 
-TimeScaleT = Union[TimeScale, Fraction, int, None]
+TimeScaleT = TimeScale | Fraction | int | None
 """
 Unit of time (in seconds) in terms of which frame timestamps are represented.\n
 While you can pass an int, the needed type is always a Fraction and will be converted via `Fraction(your_int)`.\n
@@ -148,6 +157,25 @@ class ValidInputType(IntEnum):
         return ValidInputType.RF64
 
 
+class FileMixin:
+    file: Path
+    container_delay: int = 0
+    source: PathLike | None = None
+    tags: dict[str, str] | None = None
+
+    def __init__(
+        self,
+        file: Path,
+        container_delay: int = 0,
+        source: PathLike | None = None,
+        tags: dict[str, str] | None = None,
+    ):
+        self.file = file
+        self.container_delay = container_delay
+        self.source = source
+        self.tags = tags
+
+
 @dataclass
 class AudioFrame:
     """
@@ -199,10 +227,14 @@ class AudioStats:
 
 @dataclass
 class AudioInfo:
-    stats: AudioStats = None
+    stats: AudioStats | None = None
     frames: list[AudioFrame] | None = None
 
     def num_samples(self) -> int:
+        if not self.frames:
+            return 0
         for frame in self.frames:
             if frame.num_samples:
                 return frame.num_samples
+
+        return 0

@@ -59,7 +59,7 @@ class AudioFormat(Enum):
 
     def __eq__(self, value: Any) -> bool:
         if isinstance(value, streamType):
-            profile_matches = value.profile and self.profile and self.profile.casefold() == value.profile.casefold()
+            profile_matches = bool(value.profile and self.profile and self.profile.casefold() == value.profile.casefold())
             if self.profile and not profile_matches:
                 return False
 
@@ -67,15 +67,15 @@ class AudioFormat(Enum):
             if self.display_name == "PCM" and value.codec_name and self.codec_name and "pcm" in value.codec_name:
                 return bool(re.match(self.codec_name.replace("*", ".*"), value.codec_name, re.I))
             else:
-                codec_matches = value.codec_name and self.codec_name.casefold() == value.codec_name.casefold()
-                codec_long_matches = value.codec_long_name and self.codec_long_name.casefold() == value.codec_long_name.casefold()
+                codec_matches = bool(value.codec_name and self.codec_name.casefold() == value.codec_name.casefold())
+                codec_long_matches = bool(value.codec_long_name and self.codec_long_name.casefold() == value.codec_long_name.casefold())
 
                 if self.profile:
                     return profile_matches and (codec_matches or codec_long_matches)
                 else:
                     return codec_matches and codec_long_matches
         else:
-            return super.__eq__(self, value)
+            return super().__eq__(value)
 
     # Common lossy codecs
     AC3 = "AC-3", "ac3", "ATSC A/52A (AC-3)", True

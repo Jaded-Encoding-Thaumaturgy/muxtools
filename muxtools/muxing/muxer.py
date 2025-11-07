@@ -1,9 +1,8 @@
 from shlex import join as joincommand
 from shutil import rmtree
 from pathlib import Path
-from typing import Any
 import subprocess
-import wget
+import wget  # type: ignore[import-untyped]
 import re
 import os
 
@@ -27,7 +26,7 @@ __all__ = ["mux"]
 writing_lib_regex = re.compile(r"libebml.v(\d.\d.\d).+?libmatroska.v(\d.\d.\d)", re.I)
 
 
-def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True, print_cli: bool = False) -> PathLike:
+def mux(*tracks: _track, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True, print_cli: bool = False) -> Path:
     """
     Runs the mux.
 
@@ -38,11 +37,11 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
     :param print_cli:   Print the final muxing command before running it if True
     """
     check_mkvmerge_version()
-    tracks = list(tracks)
+    tracklist = list(tracks)
     out_dir = ensure_path(get_setup_attr("out_dir", "premux"), "Mux")
     args: list[str] = [get_executable("mkvmerge")]
 
-    filename, mkvtitle = output_names(tmdb, args, tracks)
+    filename, mkvtitle = output_names(tmdb, args, tracklist)
 
     if not outfile:
         outfile = Path(out_dir, f"{filename}.mkv")
@@ -51,7 +50,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
 
     args.extend(["-o", str(outfile)])
 
-    for track in tracks:
+    for track in tracklist:
         if isinstance(track, _track):
             args.extend(track.mkvmerge_args())
             continue
@@ -66,7 +65,7 @@ def mux(*tracks, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None
                 warn("Chapters are None or empty!", "Mux")
                 continue
 
-            args.extend(["--chapters", track.to_file()])
+            args.extend(["--chapters", str(track.to_file())])
             continue
         elif isinstance(track, Path) or isinstance(track, str) or isinstance(track, GlobSearch):
             # Failsave for if someone passes Chapters().to_file() or a txt/xml file
@@ -160,7 +159,7 @@ def clean_name(name: str) -> str:
     return stripped
 
 
-def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: list[Any] = []) -> tuple[str, str]:
+def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: list[_track] = []) -> tuple[str, str]:
     show_name = get_setup_attr("show_name", "Example")
     episode = get_setup_attr("episode", "01")
     filename = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
@@ -184,9 +183,9 @@ def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: l
         epmeta = tmdb.get_episode_meta(epint) if not tmdb.movie else None
         if tmdb.needs_xml():
             xml = tmdb.make_xml(mediameta, epmeta)
-            args.extend(["--global-tags", xml])
+            args.extend(["--global-tags", str(xml)])
 
-        if not tmdb.movie:
+        if not tmdb.movie and epmeta:
             if tmdb.write_cover and epmeta.thumb_url:
                 cover = Path(get_workdir(), f"cover_land{Path(epmeta.thumb_url).suffix}")
                 if wget.download(epmeta.thumb_url, str(cover), None):

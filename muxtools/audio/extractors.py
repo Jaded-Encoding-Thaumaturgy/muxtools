@@ -47,8 +47,9 @@ class Eac3to(Extractor):
     output: PathLike | None = None
     append: str = ""
 
-    def extract_audio(self, input: PathLike, quiet: bool = True) -> AudioFile:
+    def extract_audio(self, input: PathLike, quiet: bool = True, is_temp: bool = False, force_flac: bool = False) -> AudioFile:
         eac3to = get_executable("eac3to")
+        input = ensure_path_exists(input, self)
         parsed = ParsedFile.from_file(input, self)
         track = parsed.find_tracks(relative_id=self.track, type=TrackType.AUDIO, caller=self, error_if_empty=True)[0]
         form = track.get_audio_format()
@@ -196,10 +197,10 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 args_ffmpeg, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL if quiet else None, text=False
             )
             args_flac = [flac, "-0", "-o", str(temp_out), "-"]
-            if re.search(r"1\.[2|3|4]\.\d+?", version):
+            if not version or re.search(r"1\.[2|3|4]\.\d+?", version):
                 warn("Using outdated FLAC encoder that does not support threading!", self)
             else:
-                args_flac.append(f"--threads={min(os.cpu_count(), 8)}")
+                args_flac.append(f"--threads={min(os.cpu_count() or 1, 8)}")
 
             flac_returncode = run_commandline(args_flac, quiet, stdin=ffmpeg_process.stdout)
             if flac_returncode:
@@ -292,20 +293,20 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     arg += f" -to {format_timedelta(timedelta(milliseconds=millis))}"
             return arg
 
-        def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
-            if not isinstance(input, AudioFile):
-                input = AudioFile.from_file(input, self)
+        def trim_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True) -> AudioFile:
+            if not isinstance(fileIn, AudioFile):
+                fileIn = AudioFile.from_file(fileIn, self)
             self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
             self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, caller=self)
 
-            parsed = ParsedFile.from_file(input.file, self)
+            parsed = ParsedFile.from_file(fileIn.file, self)
             track = parsed.find_tracks(relative_id=0, type=TrackType.AUDIO, caller=self, error_if_empty=True)[0]
             form = track.get_audio_format()
             if not form:
                 raise error(f"Unrecognized format: {track.codec_name}", self)
 
             lossy = form.is_lossy
-            args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(input.file.resolve()), "-map", "0:a:0"]
+            args = [get_executable("ffmpeg"), "-hide_banner", "-i", str(fileIn.file.resolve()), "-map", "0:a:0"]
             if form.should_not_transcode():
                 args.extend(["-c:a", "copy"])
                 extension = form.extension
@@ -313,11 +314,11 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 args.extend(["-c:a", "flac", "-compression_level", "0"])
                 extension = "flac"
 
-            out = make_output(input.file, extension, "trimmed", self.output)
-            ainfo = parse_audioinfo(input.file, is_thd=True, caller=self)
+            out = make_output(fileIn.file, extension, "trimmed", self.output)
+            ainfo = parse_audioinfo(fileIn.file, is_thd=True, caller=self)
 
             if len(self.trim) == 1:
-                info(f"Trimming '{input.file.stem}' with ffmpeg...", self)
+                info(f"Trimming '{fileIn.file.stem}' with ffmpeg...", self)
                 tr = self.trim[0]
                 if lossy:
                     args[2:1] = splitcommand(self._targs(tr))
@@ -330,16 +331,16 @@ class FFMpeg(HasExtractor, HasTrimmer):
                         cont_delay = self._calc_delay(ms, ainfo.num_samples(), track.raw_ffprobe.sample_rate or 48000)
                         debug(f"Additional delay of {cont_delay} ms will be applied to fix remaining sync", self)
                         if self.preserve_delay:
-                            cont_delay += input.container_delay
+                            cont_delay += fileIn.container_delay
                     else:
-                        cont_delay = input.container_delay if self.preserve_delay else 0
+                        cont_delay = fileIn.container_delay if self.preserve_delay else 0
 
                     debug("Done", self)
-                    return AudioFile(out, cont_delay, input.source)
+                    return AudioFile(out, cont_delay, fileIn.source)
                 else:
                     raise error("Failed to trim audio using FFMPEG!", self)
             else:
-                info(f"Generating trimmed tracks for '{input.file.stem}'...", self)
+                info(f"Generating trimmed tracks for '{fileIn.file.stem}'...", self)
                 concat: list = []
                 first = True
                 for i, tr in enumerate(self.trim):
@@ -355,9 +356,9 @@ class FFMpeg(HasExtractor, HasTrimmer):
                     else:
                         nArgs.extend(splitcommand(self._targs(tr)))
                         if first:
-                            cont_delay = input.container_delay if self.preserve_delay else 0
+                            cont_delay = fileIn.container_delay if self.preserve_delay else 0
                             first = False
-                    nout = os.path.join(get_temp_workdir(), f"{input.file.stem}_part{i}.{extension}")
+                    nout = os.path.join(get_temp_workdir(), f"{fileIn.file.stem}_part{i}.{extension}")
                     nArgs.append(nout)
                     if not run_commandline(nArgs, quiet):
                         concat.append(nout)
@@ -375,7 +376,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
                 if not run_commandline(args, quiet):
                     debug("Done", self)
                     clean_temp_files()
-                    return AudioFile(out, cont_delay, input.source)
+                    return AudioFile(out, cont_delay, fileIn.source)
                 else:
                     clean_temp_files()
                     raise error("Failed to trim audio using FFMPEG!", self)
@@ -407,8 +408,8 @@ class FFMpeg(HasExtractor, HasTrimmer):
             info(f"Concatenating {len(audio_files)} audio tracks...", self)
 
             concat_file = get_temp_workdir() / "concat.txt"
-            with open(concat_file, "w", encoding="utf-8") as f:
-                f.writelines([f"file {_escape_name(str(af.file.resolve()))}\n" for af in audio_files])
+            with open(concat_file, "w", encoding="utf-8") as fout:
+                fout.writelines([f"file {_escape_name(str(af.file.resolve()))}\n" for af in audio_files])
 
             first_format = audio_files[0].get_trackinfo().get_audio_format()
             if not first_format:
@@ -473,30 +474,31 @@ class Sox(Trimmer):
         else:
             return self.resolved_ts.frame_to_time(abs(val), TimeType.EXACT).__float__()
 
-    def trim_audio(self, input: AudioFile, quiet: bool = True) -> AudioFile:
-        import sox
+    def trim_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True) -> AudioFile:
+        import sox  # type: ignore[import-untyped]
 
-        if not isinstance(input, AudioFile):
-            input = AudioFile.from_file(input, self)
-        out = make_output(input.file, "flac", "trimmed", self.output)
+        if not isinstance(fileIn, AudioFile):
+            fileIn = AudioFile.from_file(fileIn, self)
+        out = make_output(fileIn.file, "flac", "trimmed", self.output)
         self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
-        self.trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
-        source = ensure_valid_in(input, caller=self, supports_pipe=False)
+        trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
+        source = ensure_valid_in(fileIn, caller=self, supports_pipe=False)
 
-        if len(self.trim) > 1:
+        if len(trim) > 1:
             files_to_concat = []
             first = True
-            info(f"Generating trimmed tracks for '{input.file.stem}'...", self)
-            for i, t in enumerate(self.trim):
+            info(f"Generating trimmed tracks for '{fileIn.file.stem}'...", self)
+            for i, t in enumerate(trim):
                 soxr = sox.Transformer()
                 soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
-                if t[0] < 0 and first:
+                trim_start = t[0] or 0
+                if trim_start < 0 and first:
                     soxr.trim(0, self._conv(t[1]))
-                    soxr.pad(self._conv(t[0]))
+                    soxr.pad(self._conv(trim_start))
                 else:
-                    soxr.trim(self._conv(t[0]), self._conv(t[1]))
+                    soxr.trim(self._conv(trim_start), self._conv(t[1]))
                 first = False
-                tout = os.path.join(get_temp_workdir(), f"{input.file.stem}_trimmed_part{i}.wav")
+                tout = os.path.join(get_temp_workdir(), f"{fileIn.file.stem}_trimmed_part{i}.wav")
                 soxr.build(str(source.file.resolve()), tout)
                 files_to_concat.append(tout)
 
@@ -510,15 +512,16 @@ class Sox(Trimmer):
         else:
             soxr = sox.Transformer()
             soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
-            info(f"Applying trim to '{input.file.stem}'", self)
-            t = self.trim[0]
-            if t[0] < 0:
+            info(f"Applying trim to '{fileIn.file.stem}'", self)
+            t = trim[0]
+            trim_start = t[0] or 0
+            if trim_start < 0:
                 soxr.trim(0, self._conv(t[1]))
-                soxr.pad(self._conv(t[0]))
+                soxr.pad(self._conv(trim_start))
             else:
-                soxr.trim(self._conv(t[0]), self._conv(t[1]))
+                soxr.trim(self._conv(trim_start), self._conv(t[1]))
             soxr.build(str(source.file), str(out.resolve()))
             debug("Done", self)
 
         clean_temp_files()
-        return AudioFile(out.resolve(), input.container_delay if self.preserve_delay else 0, input.source)
+        return AudioFile(out.resolve(), fileIn.container_delay if self.preserve_delay else 0, fileIn.source)
