@@ -32,6 +32,20 @@ DEFAULT_DIALOGUE_STYLES = ["default", "main", "alt", "overlap", "flashback", "to
 SRT_REGEX = r"\d+[\r\n](?:(?P<start>\d+:\d+:\d+,\d+) --> (?P<end>\d+:\d+:\d+,\d+))[\r\n](?P<text>(?:.+\r?\n)+(?=(\r?\n)?))"
 LINES = list[_Line]
 
+CCC_REPLACEMENTS = dict(
+    TopLeft=R"\an7", TopRight=R"\an9", CenterLeft=R"\an4", CenterCenter=R"\an5", CenterRight=R"\an6", BottomLeft=R"\an1", BottomRight=R"\an3"
+)
+
+CCC_REPLACEMENTS_REDUCED_MARGINS = dict(
+    TopLeft=(R"\an7", 25, 25),
+    TopRight=(R"\an9", 25, 25),
+    CenterLeft=(R"\an4", 25, 25),
+    CenterCenter=(R"\an5", 25, 25),
+    CenterRight=(R"\an6", 25, 25),
+    BottomLeft=(R"\an1", 25, 25),
+    BottomRight=(R"\an3", 25, 25),
+)
+
 
 class FontFile(MuxingFile):
     def to_track(self, *args) -> Attachment:
@@ -303,14 +317,16 @@ class SubFile(BaseSubFile):
         self,
         default_style: str = "Default",
         keep_flashback: bool = True,
-        dialogue_styles: list[str] | None = ["main", "default", "narrator", "narration"],
+        dialogue_styles: list[str] | None = ["main", "default", "narrator", "narration", "bottomcenter"],
         top_styles: list[str] | None = ["top"],
         italics_styles: list[str] | None = ["italics", "internal"],
         alt_style: str = "Alt",
         alt_styles: list[str] | None = None,
+        exact_names: bool = False,
+        custom_replacements: dict[str, str] | dict[str, tuple[str, int, int]] = CCC_REPLACEMENTS_REDUCED_MARGINS,
     ) -> Self:
         """
-        Removes any top and italics styles and replaces them with tags.
+        Removes any top/positional and italics styles and replaces them with tags.
 
         Style names are case-insensitive and use substring matching.
         i.e. if `top_styles=["top"]`, `"MainTop"` or `"main_top"` would both be considered top styles.
@@ -322,14 +338,27 @@ class SubFile(BaseSubFile):
         :param italics_styles:      Styles that will be set to default_style and i1 added to tags
         :param alt_style:           The default alt/overlap style that lines will be set to
         :param alt_styles:          Possible identifiers for styles that should be set to the alt_style
+        :param exact_names:         Match style names in full instead of substring matching as mentioned above. (still case-insensitive)
+
+        :param custom_replacements: Other styles to replace with Default and where custom tags might want to be prepended.\n
+                                    If any of these get matched then the other operations will be skipped.\n
+                                    Defaults to the positional Styles (with custom margins) that the annoying CCC subs from Crunchyroll have.\n
+                                    Keep in mind that the margins of the restyle presets might not look great for these positional styles.\n
+                                    The tuple value option stands for (TagsToPrepend, MarginL, MarginR).
         """
+
+        def name_matches(name: str, other: str) -> bool:
+            if exact_names:
+                return name.casefold() == other.casefold()
+            else:
+                return name.casefold() in other.casefold()
 
         def get_default(line: _Line, allow_default: bool = True) -> str:
             placeholder = default_style
             is_default = True
             if alt_styles:
                 for s in alt_styles:
-                    if s.casefold() in line.style.casefold():
+                    if name_matches(s, line.style):
                         placeholder = alt_style
                         is_default = False
             if "flashback" in line.style.lower():
@@ -342,8 +371,21 @@ class SubFile(BaseSubFile):
 
         def _func(lines: LINES):
             for line in lines:
-                add_italics_tag = italics_styles and bool([s for s in italics_styles if s.casefold() in line.style.casefold()])
-                add_top_tag = top_styles and bool([s for s in top_styles if s.casefold() in line.style.casefold()])
+                custom_match = False
+                if custom_replacements and bool(match := next(filter(lambda x: name_matches(x, line.style), custom_replacements.keys()), None)):
+                    custom_match = True
+                    line.style = get_default(line)
+                    value = custom_replacements[match]  # type: ignore # fuck off mypy
+                    line.text = f"{{{value if isinstance(value, str) else value[0]}}}{line.text}"
+                    if not isinstance(value, str):
+                        line.margin_l = value[1]
+                        line.margin_r = value[2]
+
+                if custom_match:
+                    continue
+
+                add_italics_tag = italics_styles and bool([s for s in italics_styles if name_matches(s, line.style)])
+                add_top_tag = top_styles and bool([s for s in top_styles if name_matches(s, line.style)])
 
                 if any([add_italics_tag, add_top_tag]):
                     line.style = get_default(line)
