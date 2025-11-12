@@ -568,6 +568,8 @@ class SubFile(BaseSubFile):
         collect_draw_fonts: bool = True,
         error_missing: bool = False,
         use_ntfs_compliant_names: bool | None = None,
+        subset_fonts: bool = False,
+        subset_default_to_latin: bool = False,
     ) -> list[FontFile]:
         """
         Collects fonts for current subtitle.
@@ -583,6 +585,10 @@ class SubFile(BaseSubFile):
                                             Please use `error_on_danger` in the Setup.
         :param use_ntfs_compliant_names:    Ensure that filenames will work on a NTFS (Windows) filesystem.
                                             The `None` default means it'll use them but only if you're running the script on windows.
+        :param subset_fonts:                Whether or not to subset the fonts to only include the characters used in the subtitle.
+                                            This can greatly reduce the size of the final mux.
+        :param subset_default_to_latin:     If subsetting is enabled and a font has no characters used in the subtitle,
+                                            it will default to a basic latin subset instead of skipping subsetting.
 
         :return:                        A list of FontFile objects
         """
@@ -616,7 +622,7 @@ class SubFile(BaseSubFile):
         if use_ntfs_compliant_names is None:
             use_ntfs_compliant_names = os.name == "nt"
 
-        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing, use_ntfs_compliant_names)
+        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing, use_ntfs_compliant_names, subset_fonts, subset_default_to_latin)
 
     def restyle(self, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True) -> Self:
         """
