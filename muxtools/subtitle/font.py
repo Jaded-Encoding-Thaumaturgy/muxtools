@@ -181,6 +181,8 @@ def collect_fonts(
                         new_size = os.path.getsize(new_path)
                         info(f"Subsetted font '{fontname}' ({len(characters)} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", collect_fonts)
 
+                        outpath = new_path
+
             
             found_fonts.append(MTFontFile(outpath))
 
