@@ -1,12 +1,16 @@
+import os
 import re
 import shutil
 import logging
 from pathlib import Path
 from font_collector import ABCFontFace, VariableFontFace
+from fontTools.subset import Subsetter
+from fontTools import ttLib
 
 from .sub import SubFile, FontFile as MTFontFile
+from ..utils.convert import sizeof_fmt
 from ..utils.env import get_workdir
-from ..utils.log import warn, error, info, danger
+from ..utils.log import warn, error, info, danger, log_escape
 
 
 def _weight_to_name(weight: int) -> str | int:
@@ -75,6 +79,8 @@ def collect_fonts(
     collect_draw_fonts: bool = True,
     error_missing: bool = False,
     use_ntfs_compliant_names: bool = False,
+    subset_fonts: bool = False,
+    subset_default_to_latin: bool = False,
 ) -> list[MTFontFile]:
     def clean_name(fontname: str) -> str:
         removed_slash = fontname.replace("/", "_")
@@ -143,8 +149,43 @@ def collect_fonts(
 
             if not outpath.exists():
                 shutil.copy(fontpath, outpath)
+            
+            if subset_fonts:
+                characters = "".join(sorted(list(usage_data.characters_used)))
 
-    for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
-        for f in get_workdir().glob(r):
-            found_fonts.append(MTFontFile(f))
+                if subset_default_to_latin and not characters:
+                    warn(f"No characters used in font '{fontname}'. Defaulting to basic Latin subset.", collect_fonts)
+                    characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,;:!?'-()[]{}<>@#$%^&*~`\"\\/|+=_"
+
+                if not characters:
+                    warn(f"No characters used in font '{fontname}'. Skipping subsetting...", collect_fonts)
+                
+                else:
+                    new_path = outpath.with_name(f"{outpath.stem}_subset{outpath.suffix}")
+
+                    try:
+                        font = ttLib.TTFont(outpath)
+
+                        subsetter = Subsetter()
+                        subsetter.populate(text=characters)
+                        subsetter.subset(font)
+
+                        font.save(new_path)
+                        font.close()
+                    
+                    except Exception as e:
+                        danger(f"Failed to subset font '{fontname}' (possibly corrupt/invalid font): {log_escape(str(e))}", collect_fonts)
+                    
+                    else:
+                        old_size = os.path.getsize(outpath)
+                        new_size = os.path.getsize(new_path)
+                        info(f"Subsetted font '{fontname}' ({len(characters)} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", collect_fonts)
+
+            
+            found_fonts.append(MTFontFile(outpath))
+
+    #for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
+    #    for f in get_workdir().glob(r):
+    #        found_fonts.append(MTFontFile(f))
+
     return found_fonts
