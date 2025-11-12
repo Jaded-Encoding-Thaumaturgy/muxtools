@@ -16,7 +16,8 @@ dependencies = [
     "videotimestamps>=0.2.1",
     "typed-ffmpeg-compatible~=3.7.1",
     "mkvinfo~=0.0.3",
-    "typing-extensions>=4.12.0"
+    "typing-extensions>=4.12.0",
+    "fonttools>=4.55.0",
 ]
 classifiers = [
     "Natural Language :: English",
