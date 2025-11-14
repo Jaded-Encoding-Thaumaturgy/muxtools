@@ -569,28 +569,38 @@ class SubFile(BaseSubFile):
         error_missing: bool = False,
         use_ntfs_compliant_names: bool | None = None,
         subset_fonts: bool = False,
-        subset_default_to_latin: bool = False,
+        subset_aggressive: bool = False,
+        subset_ignore_fonts_with_no_usage: bool = True,
+        subset_additional_glyphs: list[str] = [],
+        subset_additional_subfiles: list[SubFile] = [],
     ) -> list[FontFile]:
         """
         Collects fonts for current subtitle.
         Note that this places all fonts into the workdir for the episode/Setup and all fonts in it.
 
-        :param use_system_fonts:            Parses and checks against all installed fonts
-        :param search_current_dir:          Recursively checks the current work directory for fonts
-        :param additional_fonts:            Can be a directory or a path to a file directly (or a list of either)
-        :param collect_draw_fonts:          Whether or not to include fonts used for drawing (usually Arial)
-                                            See https://github.com/libass/libass/issues/617 for details.
-        :param error_missing:               Raise an error instead of just warnings when a font is missing.\n
-                                            This is **deprecated** and will be removed at some point in the future.
-                                            Please use `error_on_danger` in the Setup.
-        :param use_ntfs_compliant_names:    Ensure that filenames will work on a NTFS (Windows) filesystem.
-                                            The `None` default means it'll use them but only if you're running the script on windows.
-        :param subset_fonts:                Whether or not to subset the fonts to only include the characters used in the subtitle.
-                                            This can greatly reduce the size of the final mux.
-        :param subset_default_to_latin:     If subsetting is enabled and a font has no characters used in the subtitle,
-                                            it will default to a basic latin subset instead of skipping subsetting.
+        :param use_system_fonts:                    Parses and checks against all installed fonts
+        :param search_current_dir:                  Recursively checks the current work directory for fonts
+        :param additional_fonts:                    Can be a directory or a path to a file directly (or a list of either)
+        :param collect_draw_fonts:                  Whether or not to include fonts used for drawing (usually Arial)
+                                                    See https://github.com/libass/libass/issues/617 for details.
+        :param error_missing:                       Raise an error instead of just warnings when a font is missing.\n
+                                                    This is **deprecated** and will be removed at some point in the future.
+                                                    Please use `error_on_danger` in the Setup.
+        :param use_ntfs_compliant_names:            Ensure that filenames will work on a NTFS (Windows) filesystem.
+                                                    The `None` default means it'll use them but only if you're running the script on windows.
+        :param subset_fonts:                        Whether or not to subset the fonts to only include common glyphs and the characters used in the subtitle.
+                                                    This can greatly reduce the size of the final mux.
+        :param subset_aggressive:                   If subsetting is enabled, this will only include the characters used in the subtitle and any additional glyphs specified.
+                                                    Note: This may harm the re-usability of the font for others editing your subtitle.
+        :param subset_ignore_fonts_with_no_usage:   If subsetting is enabled and no glyphs are used, having this option `True` will skip subsetting for that font.
+                                                    Otherwise, it will use a common glyph subset.
+        :param subset_additional_glyphs:            If you have any additional glyphs that need to be included in the subsetted fonts.
+                                                    You can use the format "U+XXXX" for unicode characters or "U+XXXX-YYYY" for unicode ranges.
+                                                    https://unicode-explorer.com/blocks can help you find the characters/ranges you need.
+        :param subset_additional_subfiles:          If you have other subfiles that need to have font names changed too.
+                                                    Note: Only font names will be edited, no new fonts from these files will be collected.
 
-        :return:                        A list of FontFile objects
+        :return:                                    A list of FontFile objects
         """
 
         if not isinstance(additional_fonts, list):
@@ -622,7 +632,19 @@ class SubFile(BaseSubFile):
         if use_ntfs_compliant_names is None:
             use_ntfs_compliant_names = os.name == "nt"
 
-        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing, use_ntfs_compliant_names, subset_fonts, subset_default_to_latin)
+        return collect(
+            self,
+            use_system_fonts,
+            resolved_paths,
+            collect_draw_fonts,
+            error_missing,
+            use_ntfs_compliant_names,
+            subset_fonts,
+            subset_aggressive,
+            subset_ignore_fonts_with_no_usage,
+            subset_additional_glyphs,
+            subset_additional_subfiles
+        )
 
     def restyle(self, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True) -> Self:
         """
