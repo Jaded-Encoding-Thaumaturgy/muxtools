@@ -18,15 +18,10 @@ from ..utils.log import warn, error, info, danger, log_escape
 # For ranges, use 'U+XXXX-YYYY'
 UNFORMATTED_COMMON_UNICODE_CHARS = [
     'U+0000-00FF',  # Basic Latin + Latin-1 Supplement
-    'U+0100-017F',  # Latin Extended-A
+    'U+0100-024F',  # Latin Extended-A + Latin Extended-B
+    'U+1E00-1EFF',  # Latin Extended Additional
     'U+2000-206F',  # General Punctuation
     'U+20A0-20CF',  # Currency Symbols
-
-    # Accent exceptions
-    'U+0150', # O Double acute accent
-    'U+0151', # o Double acute accent
-    'U+0170', # U Double acute accent
-    'U+0171', # u Double acute accent
 ]
 
 def _parse_unicode_chars(char_list: list[str]) -> list[str]:
