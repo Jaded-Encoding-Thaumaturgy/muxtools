@@ -218,6 +218,8 @@ def collect_fonts(
                 else:
                     new_path = outpath.with_name(f"{outpath.stem}_subset{outpath.suffix}")
 
+                    old_font_family_name = ''
+                    new_font_family_name = ''
                     old_font_name = ''
                     new_font_name = ''
 
@@ -234,11 +236,13 @@ def collect_fonts(
                             # Font names can only be 31 characters long
 
                             if record.nameID == 1:  # Font Family name
+                                old_font_family_name = record.toUnicode().strip()
+                                new_font_family_name = record.toUnicode().replace(' ', '')[:25] + "Subset"
+                                record.string = new_font_family_name
+                            elif record.nameID == 4:  # Full name
                                 old_font_name = record.toUnicode().strip()
                                 new_font_name = record.toUnicode().replace(' ', '')[:25] + "Subset"
                                 record.string = new_font_name
-                            elif record.nameID == 4:  # Full name
-                                record.string = record.toUnicode().replace(' ', '')[:25] + "Subset"
                             elif record.nameID == 6:  # PostScript name
                                 record.string = record.toUnicode().replace(' ', '')[:25] + "Subset"
                         
@@ -252,7 +256,24 @@ def collect_fonts(
                         danger(f"Failed to subset font '{fontname}' (possibly corrupt/invalid font): {log_escape(str(e))}", collect_fonts)
                     
                     else:
-                        fonts_to_be_replaced[old_font_name] = new_font_name
+                        # It's important that the family name and font name are both replaced.
+                        # Usually, the family name is used in styles, but sometimes the full font name is used.
+                        
+                        # Insertion order is important as well, to avoid partial replacements.
+                        # For example:
+                        # - old_family_name = "Arial"
+                        # - old_font_name = "Arial Bold"
+                        # If we replaced "Arial" first, then "Arial Bold":
+                        # - \fnArial Bold -> \fnArialSubset Bold
+                        # which would not match the new name.
+                        # We need to replace the one which is longer first.
+                        
+                        if len(old_font_name) > len(old_font_family_name):
+                            fonts_to_be_replaced[old_font_name] = new_font_name
+                            fonts_to_be_replaced[old_font_family_name] = new_font_family_name
+                        else:
+                            fonts_to_be_replaced[old_font_family_name] = new_font_family_name
+                            fonts_to_be_replaced[old_font_name] = new_font_name
 
                         old_size = os.path.getsize(outpath)
                         new_size = os.path.getsize(new_path)
