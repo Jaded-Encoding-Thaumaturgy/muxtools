@@ -181,17 +181,17 @@ def timedelta_from_formatted(formatted: str) -> timedelta:
     return timedelta(seconds=seconds.__float__())
 
 
-def sizeof_fmt(num, suffix="B"):
+def sizeof_fmt(num, unit="B"):
     """
     Human readable file size.
 
     :param num:        File size in bytes/bits
-    :param suffix:     Suffix to use (change to "b" for bits)
+    :param unit:       Unit to use (change to "b" for bits)
 
-    :return:            Formatted size
+    :return:           Formatted size
     """
-    for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
+    for prefix in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi", "Yi", "Ri"):
         if abs(num) < 1024.0:
-            return f"{num:3.1f}{unit}{suffix}"
+            return f"{num:3.1f} {prefix}{unit}"
         num /= 1024.0
-    return f"{num:.1f}Yi{suffix}"
+    return f"{num:.1f}Qi{unit}"
