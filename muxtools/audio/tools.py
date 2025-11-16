@@ -39,6 +39,11 @@ class LosslessEncoder(Encoder):
     lossless = True
 
 
+class AutoExtractor(Extractor):
+    def extract_audio(self, fileIn, quiet=True, is_temp=False, force_flac=False):
+        raise RuntimeError("AutoExtractor is not a class to be used directly and acts as a special type to be replaced.")
+
+
 class AutoTrimmer(Trimmer):
     def trim_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True) -> AudioFile:
         raise RuntimeError("AutoTrimmer is not a class to be used directly and acts as a special type to be replaced.")

@@ -8,7 +8,7 @@ from .audio.encoders import Opus
 from .utils.types import PathLike, Trim
 from .audio.extractors import FFMpeg, Sox
 from .utils.files import ensure_path, ensure_path_exists
-from .audio.tools import AutoEncoder, AutoTrimmer, Encoder, Trimmer, Extractor, LosslessEncoder
+from .audio.tools import AutoEncoder, AutoTrimmer, AutoExtractor, Encoder, Trimmer, Extractor, LosslessEncoder
 from .utils.convert import format_timedelta
 
 __all__ = ["do_audio"]
@@ -21,7 +21,7 @@ def do_audio(
     timesource: TimeSourceT = Fraction(24000, 1001),
     timescale: TimeScaleT = TimeScale.MKV,
     num_frames: int = 0,
-    extractor: Extractor | None = FFMpeg.Extractor(),
+    extractor: Extractor | None = AutoExtractor(),
     trimmer: Trimmer | None = AutoTrimmer(),
     encoder: Encoder | None = AutoEncoder(),
     quiet: bool = True,
@@ -37,7 +37,7 @@ def do_audio(
     :param timescale:       Unit of time (in seconds) in terms of which frame timestamps are represented.\n
                             For details check the docstring on the type.
     :param num_frames:      Total number of frames, used for negative numbers in trims
-    :param extractor:       Tool used to extract the audio
+    :param extractor:       Tool used to extract the audio (always defaults to ffmpeg)
     :param trimmer:         Tool used to trim the audio
                             AutoTrimmer means it will choose ffmpeg for lossy and Sox for lossless
 
@@ -50,6 +50,9 @@ def do_audio(
     """
     if isinstance(fileIn, list) and (not extractor or not isinstance(extractor, FFMpeg.Extractor)):
         raise error("When passing a list of files you have to use the FFMpeg extractor!", do_audio)
+
+    if isinstance(extractor, AutoExtractor):
+        extractor = FFMpeg.Extractor()
 
     if extractor:
         setattr(extractor, "track", track)
