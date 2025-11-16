@@ -8,7 +8,7 @@ from .audio.encoders import Opus
 from .utils.types import PathLike, Trim
 from .audio.extractors import FFMpeg, Sox
 from .utils.files import ensure_path, ensure_path_exists
-from .audio.tools import AutoEncoder, AutoTrimmer, Encoder, Trimmer, Extractor
+from .audio.tools import AutoEncoder, AutoTrimmer, Encoder, Trimmer, Extractor, LosslessEncoder
 from .utils.convert import format_timedelta
 
 __all__ = ["do_audio"]
@@ -53,6 +53,8 @@ def do_audio(
 
     if extractor:
         setattr(extractor, "track", track)
+        if encoder and not isinstance(encoder, LosslessEncoder):
+            setattr(extractor, "skip_analysis", True)
         if not trimmer and not encoder:
             setattr(extractor, "output", output)
         if isinstance(fileIn, list):

@@ -1,4 +1,4 @@
-from muxtools import ensure_path, Setup, get_workdir, do_audio, get_executable, Opus, Sox, FFMpeg, VideoMeta
+from muxtools import ensure_path, Setup, get_workdir, do_audio, get_executable, Opus, Sox, FFMpeg, VideoMeta, FLAC
 from muxtools.utils.env import communicate_stdout
 from time import sleep
 from shutil import rmtree
@@ -69,12 +69,12 @@ def test_flac_ffmpeg_trim():
 
 
 def test_depth_detection(caplog):
-    out = do_audio(sample_file_thd_fake24)
+    out = do_audio(sample_file_thd_fake24, encoder=FLAC(threads=1))
 
     assert len([record for record in caplog.get_records("call") if "padded 24" in record.message]) == 1
     assert len([record for record in caplog.get_records("call") if "truncated to 16" in record.message]) == 1
 
-    assert get_md5_for_stream(out.file) == "9e7e648cba6cd1b046712adf11da9248"
+    assert get_md5_for_stream(out.file) == "52219678c3ac04dcd34e15d8a55e35df"
 
 
 def test_opus_no_extractor(caplog):
