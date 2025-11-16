@@ -82,7 +82,7 @@ class AudioFile(MuxingFile):
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> AudioTrack:
-        return AudioTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags)
+        return AudioTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags or self.tags)
 
     def get_containerinfo(self) -> ContainerInfo:
         if not self.container:

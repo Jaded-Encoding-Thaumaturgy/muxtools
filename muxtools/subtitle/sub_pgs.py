@@ -54,7 +54,7 @@ class SubFilePGS(MuxingFile):
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> SubTrack:
-        return SubTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags)
+        return SubTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags or self.tags)
 
     def shift(self, shift: int, shift_is_ms: bool = False, timesource: TimeSourceT = None, timescale: TimeScaleT = None, quiet: bool = True) -> Self:
         """
