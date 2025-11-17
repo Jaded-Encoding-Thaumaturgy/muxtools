@@ -145,7 +145,7 @@ def subset_fonts(
                 fonts[query.font_face]["usage"].update(usage_data.characters_used)
                 
                 for name in query.font_face.exact_names + query.font_face.family_names + [style.fontname]:
-                    value = name.value if hasattr(name, "value") else name
+                    value = name if isinstance(name, str) else name.value  
 
                     if fonts[query.font_face]["names"].get(value) is None:
                         fonts[query.font_face]["names"][value] = _hash_font_name(value, run_time)
@@ -210,14 +210,19 @@ def subset_fonts(
         subsetter.populate(text="".join(characters))
         subsetter.subset(ttLib_font)
 
-        new_font_path = font_face.font_file.filename.with_name(f"{font_face.font_file.filename.stem}_subset{font_face.font_file.filename.suffix}")
+        new_font_path = font_face.font_file.filename.with_stem(f"{font_face.font_file.filename.stem}_subset")
         ttLib_font.save(new_font_path)
         ttLib_font.close()
 
         new_size = os.path.getsize(new_font_path)
         total_new_size += new_size
 
-        os.remove(font_face.font_file.filename)
+        try:
+            os.remove(font_face.font_file.filename)
+        except FileNotFoundError:
+            pass # If the file is already missing, we can ignore this, bit weird though
+        except PermissionError:
+            error(f"Could not remove original font file '{font_face.font_file.filename}' due to permission error. Is it open in another program?", subset_fonts)
         
         for old_name, new_name in data["names"].items():
             font_replacements[old_name] = new_name
@@ -226,8 +231,11 @@ def subset_fonts(
     
 
     if font_replacements:
+
         for sub in subs:
             doc = sub._read_doc()
+
+            modified = False
 
             for event in doc.events:
                 line_data = parse_line(event.text)
@@ -235,24 +243,23 @@ def subset_fonts(
                     if isinstance(data, AssValidTagFontName):
                         safe_font_name = re.escape(data.name)
 
-                        for old_font_name, new_font_name in font_replacements.items():
-                            if data.name == old_font_name:
-                                event.text = re.sub(
-                                    R'(\\fn.*)(' + safe_font_name + R')(.*)',
-                                    lambda m: m.group(1) + new_font_name + m.group(3),
-                                    event.text
-                                )
-                                break
+                        if data.name in font_replacements:
+                            event.text = re.sub(
+                                R'(\\fn.*)(' + safe_font_name + R')(.*)',
+                                lambda m: m.group(1) + font_replacements[data.name] + m.group(3),
+                                event.text
+                            )
+                            modified = True
             
             for style in doc.styles:
-                for old_font_name, new_font_name in font_replacements.items():
-                    if style.fontname == old_font_name:
-                        style.fontname = new_font_name
-                        break
-                
-            sub._update_doc(doc)
+                if style.fontname in font_replacements:  
+                    style.fontname = font_replacements[style.fontname]
+                    modified = True
+            
+            if modified:
+                sub._update_doc(doc)
 
-            info(f"Updated font names in subfile '{sub.file.name}'", collect_fonts)
+            info(f"Updated font names in subfile '{sub.file.name}'", subset_fonts)
     
     if print_final_stats and total_old_size > 0:
         info(f'Subsetting has saved {(total_old_size - total_new_size) / total_old_size * 100:.2f}% ({sizeof_fmt(total_old_size)} -> {sizeof_fmt(total_new_size)})')
