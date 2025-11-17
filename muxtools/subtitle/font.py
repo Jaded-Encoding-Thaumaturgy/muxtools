@@ -174,16 +174,22 @@ def subset_fonts(
                 old_name = record.toUnicode().strip()
                 if old_name in data["names"]:
                     record.string = data["names"][old_name]
+                else:
+                    raise Exception(f"Font family name '{old_name}' not found in names mapping for font '{font_name}'!")
             
             elif record.nameID == 4:  # Full name
                 old_name = record.toUnicode().strip()
                 if old_name in data["names"]:
                     record.string = data["names"][old_name]
+                else:
+                    raise Exception(f"Font full name '{old_name}' not found in names mapping for font '{font_name}'!")
             
             elif record.nameID == 6:  # PostScript name
                 old_name = record.toUnicode().strip()
                 if old_name in data["names"]:
                     record.string = data["names"][old_name]
+                else:
+                    raise Exception(f"Font PostScript name '{old_name}' not found in names mapping for font '{font_name}'!")
         
         characters = data["usage"].copy()
         characters.update(subset_additional_glyphs_parsed)
