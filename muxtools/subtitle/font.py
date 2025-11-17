@@ -59,17 +59,13 @@ COMMON_UNICODE_CHARS = _parse_unicode_chars(UNFORMATTED_COMMON_UNICODE_CHARS)
 def _hash_font_name(font_name: str, run_time: str) -> str:
     font_name = font_name.replace(" ", "").strip()
 
-    # Font names should be at most 31 characters long to work with GDI
-
     hash = base64.urlsafe_b64encode(
         hashlib.sha256(f"{font_name}_Subset_{run_time}".encode('utf-8')).digest()
     ).decode('utf-8').replace("=", "")
 
-    # Maximise the hash we can use, whilst keeping the total length <= 31 and a decent size hash (6 chars at least)
-    if len(font_name) > 24:
-        return f"{font_name[:24]}_{hash[:6]}"
-    else:
-        return f"{font_name}_{hash[:(31 - len(font_name) - 1)]}"
+    # Font names should be at most 31 characters long to work with GDI
+    # GDI doesnt distinguish after 31 characters, so hash should go at the beginning
+    return f"{hash[:16]}_{font_name}"
 
 
 def subset_fonts(
@@ -175,21 +171,21 @@ def subset_fonts(
                 if old_name in data["names"]:
                     record.string = data["names"][old_name]
                 else:
-                    raise Exception(f"Font family name '{old_name}' not found in names mapping for font '{font_name}'!")
+                    raise error(f"Font family name '{old_name}' not found in names mapping for font '{font_name}'!", subset_fonts)
             
             elif record.nameID == 4:  # Full name
                 old_name = record.toUnicode().strip()
                 if old_name in data["names"]:
                     record.string = data["names"][old_name]
                 else:
-                    raise Exception(f"Font full name '{old_name}' not found in names mapping for font '{font_name}'!")
+                    raise error(f"Font full name '{old_name}' not found in names mapping for font '{font_name}'!")
             
             elif record.nameID == 6:  # PostScript name
                 old_name = record.toUnicode().strip()
                 if old_name in data["names"]:
                     record.string = data["names"][old_name]
                 else:
-                    raise Exception(f"Font PostScript name '{old_name}' not found in names mapping for font '{font_name}'!")
+                    raise error(f"Font PostScript name '{old_name}' not found in names mapping for font '{font_name}'!")
         
         characters = data["usage"].copy()
         characters.update(subset_additional_glyphs_parsed)
