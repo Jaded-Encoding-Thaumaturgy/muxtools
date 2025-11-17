@@ -57,9 +57,19 @@ COMMON_UNICODE_CHARS = _parse_unicode_chars(UNFORMATTED_COMMON_UNICODE_CHARS)
 
 
 def _hash_font_name(font_name: str, run_time: str) -> str:
-    return base64.urlsafe_b64encode(
+    font_name = font_name.replace(" ", "").strip()
+
+    # Font names should be at most 31 characters long to work with GDI
+
+    hash = base64.urlsafe_b64encode(
         hashlib.sha256(f"{font_name}_Subset_{run_time}".encode('utf-8')).digest()
-    ).decode('utf-8').replace("=", "")[:31]
+    ).decode('utf-8').replace("=", "")
+
+    # Maximise the hash we can use, whilst keeping the total length <= 31 and a decent size hash (6 chars at least)
+    if len(font_name) > 24:
+        return f"{font_name[:24]}_{hash[:6]}"
+    else:
+        return f"{font_name}_{hash[:(31 - len(font_name) - 1)]}"
 
 
 def subset_fonts(
