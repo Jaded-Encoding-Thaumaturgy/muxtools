@@ -241,9 +241,10 @@ def subset_fonts(
 
                         if data.name in font_replacements:
                             event.text = re.sub(
-                                R'(\\fn.*)(' + safe_font_name + R')(.*)',
-                                lambda m: m.group(1) + font_replacements[data.name] + m.group(3),
-                                event.text
+                                R'(\\fn[^\\}]*)' + safe_font_name,
+                                lambda m: m.group(1) + font_replacements[data.name],
+                                event.text,
+                                count=1
                             )
                             modified = True
             
