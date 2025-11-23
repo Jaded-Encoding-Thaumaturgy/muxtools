@@ -6,6 +6,7 @@ from ..misc import Chapters
 from ..utils import PathLike, ensure_path_exists, make_output, ensure_path, get_executable, run_commandline, clean_temp_files, ParsedFile, TrackType
 from ..utils.files import create_tags_xml
 from ..utils.log import error
+from ..utils.language_util import standardize_tag
 
 __all__ = ["MKVPropEdit"]
 
@@ -76,6 +77,8 @@ class MKVPropEdit:
             if not value:
                 return ["-d", name]
             else:
+                if name == "language":
+                    return ["-s", f"language={standardize_tag(value)[1]}"]
                 return ["-s", f"{name}={value}"]
 
     def _edit_track(

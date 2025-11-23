@@ -47,6 +47,12 @@ def test_find_by_language(parsed_file):
     assert found[1].type == TrackType.AUDIO
     assert found[1].get_audio_format() == AudioFormat.OPUS
 
+    found = parsed_file.find_tracks(lang="ja", reverse_lang=True)
+
+    assert len(found) == 2
+    assert found[0].type == TrackType.AUDIO
+    assert found[1].type == TrackType.AUDIO
+
 
 def test_find_custom_condition(parsed_file):
     found = parsed_file.find_tracks(custom_condition=lambda track: track.get_audio_format() == AudioFormat.OPUS)

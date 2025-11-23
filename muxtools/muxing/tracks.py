@@ -6,6 +6,7 @@ from ..utils.glob import GlobSearch
 from ..utils.types import PathLike, TrackType, FileMixin
 from ..utils.files import ensure_path_exists, ensure_path
 from ..utils.probe import ParsedFile
+from ..utils.language_util import standardize_tag
 
 # fmt: off
 __all__ = [
@@ -91,7 +92,7 @@ class _track:
             args.extend(["--tags", f"0:{str(tags_file)}"])
 
         if self.lang:
-            args.extend(["--language", f"0:{self.lang}"])
+            args.extend(["--language", f"0:{standardize_tag(self.lang)[1]}"])
         if self.delay:
             args.extend(["--sync", f"0:{self.delay}"])
         args.extend(

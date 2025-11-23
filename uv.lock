@@ -616,6 +616,7 @@ source = { editable = "." }
 dependencies = [
     { name = "ass" },
     { name = "fontcollector" },
+    { name = "langcodes" },
     { name = "mkvinfo" },
     { name = "psutil" },
     { name = "pydantic" },
@@ -646,6 +647,7 @@ dev = [
 requires-dist = [
     { name = "ass", specifier = ">=0.5.3" },
     { name = "fontcollector", specifier = ">=3.1.2" },
+    { name = "langcodes", specifier = ">=3.5.0" },
     { name = "mkvinfo", specifier = "~=0.0.3" },
     { name = "psutil", specifier = ">=5.6.4" },
     { name = "pydantic", specifier = ">=2.5.0" },

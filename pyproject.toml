@@ -7,6 +7,7 @@ authors = [{ name = "Vodes", email = "vodes.imp@gmail.com" }]
 dependencies = [
     "requests>=2.31.0",
     "fontcollector>=3.1.2",
+    "langcodes>=3.5.0",
     "ass>=0.5.3",
     "wget>=3.2",
     "rich>=13.1.0",
