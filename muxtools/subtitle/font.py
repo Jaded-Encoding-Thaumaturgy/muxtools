@@ -152,7 +152,7 @@ def subset_fonts(
     total_old_size = 0
     total_new_size = 0
 
-    for font_face, data in fonts.items():
+    for font_face in fonts.keys():
         assert font_face.font_file is not None, "Font file is missing!"
 
         # Old size is calculated before skipping subsetting if necessary
@@ -166,28 +166,14 @@ def subset_fonts(
         name_table = ttLib_font["name"]
 
         for record in name_table.names:
-            if record.nameID == 1:  # Font Family name
+            if record.nameID in [1, 4, 6]:  # Font Family name, Full name, PostScript name
                 old_name = record.toUnicode().strip()
-                if old_name in data["names"]:
-                    record.string = data["names"][old_name]
-                else:
-                    raise error(f"Font family name '{old_name}' not found in names mapping for font '{font_name}'!", subset_fonts)
-            
-            elif record.nameID == 4:  # Full name
-                old_name = record.toUnicode().strip()
-                if old_name in data["names"]:
-                    record.string = data["names"][old_name]
-                else:
-                    raise error(f"Font full name '{old_name}' not found in names mapping for font '{font_name}'!")
-            
-            elif record.nameID == 6:  # PostScript name
-                old_name = record.toUnicode().strip()
-                if old_name in data["names"]:
-                    record.string = data["names"][old_name]
-                else:
-                    raise error(f"Font PostScript name '{old_name}' not found in names mapping for font '{font_name}'!")
+                if old_name not in fonts[font_face]["names"]: # If the name wasn't collected, hash it now
+                    fonts[font_face]["names"][old_name] = _hash_font_name(old_name, run_time)
+                
+                record.string = fonts[font_face]["names"][old_name]
         
-        characters = data["usage"].copy()
+        characters = fonts[font_face]["usage"].copy()
         characters.update(subset_additional_glyphs_parsed)
 
         if not aggressive:
@@ -220,7 +206,7 @@ def subset_fonts(
         except PermissionError:
             error(f"Could not remove original font file '{font_face.font_file.filename}' due to permission error. Is it open in another program?", subset_fonts)
         
-        for old_name, new_name in data["names"].items():
+        for old_name, new_name in fonts[font_face]["names"].items():
             font_replacements[old_name] = new_name
 
         info(f"Subsetted font '{font_name}' ({len(characters)} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", collect_fonts)
