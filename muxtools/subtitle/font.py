@@ -56,11 +56,11 @@ def _parse_unicode_chars(char_list: list[str]) -> list[str]:
 COMMON_UNICODE_CHARS = _parse_unicode_chars(UNFORMATTED_COMMON_UNICODE_CHARS)
 
 
-def _hash_font_name(font_name: str, run_time: str) -> str:
+def _hash_font_name(font_name: str, characters: str) -> str:
     font_name = font_name.replace(" ", "").strip()
 
     hash = base64.urlsafe_b64encode(
-        hashlib.sha256(f"{font_name}_Subset_{run_time}".encode('utf-8')).digest()
+        hashlib.sha256(f"{font_name}_Subset_{characters}".encode('utf-8')).digest()
     ).decode('utf-8').replace("=", "")
 
     # Font names should be at most 31 characters long to work with GDI
@@ -94,8 +94,6 @@ def subset_fonts(
     :return:                            A list of FontFile objects
     """
 
-    run_time = str(int(time.time())) # Use this to create unique hashes
-
     info("Subsetting fonts...", subset_fonts)
 
     from font_collector import set_loglevel
@@ -119,7 +117,8 @@ def subset_fonts(
     fonts: dict[ABCFontFace, dict] = {}
     # Font:
     # - usage: set()
-    # - names: dict[str, str]  # old name -> new name
+    # - names: set()  # old name
+    # - names_hashed: dict[str, str]  # old name -> new name
 
     for sub in subs:
         doc = AssDocument(sub._read_doc())
@@ -135,16 +134,16 @@ def subset_fonts(
                 if fonts.get(query.font_face) is None:
                     fonts[query.font_face] = {
                         "usage": set(),
-                        "names": {},
+                        "names": set(),
+                        "names_hashed": {},
                     }
                 
                 fonts[query.font_face]["usage"].update(usage_data.characters_used)
                 
                 for name in query.font_face.exact_names + query.font_face.family_names + [style.fontname]:
                     value = name if isinstance(name, str) else name.value  
-
-                    if fonts[query.font_face]["names"].get(value) is None:
-                        fonts[query.font_face]["names"][value] = _hash_font_name(value, run_time)
+                    
+                    fonts[query.font_face]["names"].add(value)           
 
 
     font_replacements: dict[str, str] = {}
@@ -155,24 +154,13 @@ def subset_fonts(
     for font_face in fonts.keys():
         assert font_face.font_file is not None, "Font file is missing!"
 
+        font_name = _get_fontname(font_face)
+
         # Old size is calculated before skipping subsetting if necessary
         old_size = os.path.getsize(font_face.font_file.filename)
         total_old_size += old_size
 
-        font_name = _get_fontname(font_face)
-
-        ttLib_font = ttLib.TTFont(font_face.font_file.filename)
-
-        name_table = ttLib_font["name"]
-
-        for record in name_table.names:
-            if record.nameID in [1, 4, 6]:  # Font Family name, Full name, PostScript name
-                old_name = record.toUnicode().strip()
-                if old_name not in fonts[font_face]["names"]: # If the name wasn't collected, hash it now
-                    fonts[font_face]["names"][old_name] = _hash_font_name(old_name, run_time)
-                
-                record.string = fonts[font_face]["names"][old_name]
-        
+        # Determine which characters to include based on params and usage
         characters = fonts[font_face]["usage"].copy()
         characters.update(subset_additional_glyphs_parsed)
 
@@ -187,6 +175,22 @@ def subset_fonts(
             else:
                 warn(f"No characters used in font '{font_name}'. Defaulting to common subset.", subset_fonts)
                 characters.update(COMMON_UNICODE_CHARS)
+        
+        chars_sorted = "".join(sorted(characters))
+        for old_name in fonts[font_face]["names"]:
+            fonts[font_face]["names_hashed"][old_name] = _hash_font_name(old_name, chars_sorted)
+
+        ttLib_font = ttLib.TTFont(font_face.font_file.filename)
+
+        name_table = ttLib_font["name"]
+
+        for record in name_table.names:
+            if record.nameID in [1, 4, 6]:  # Font Family name, Full name, PostScript name
+                old_name = record.toUnicode().strip()
+                if old_name not in fonts[font_face]["names_hashed"]: # If the name wasn't collected, hash it now
+                    fonts[font_face]["names_hashed"][old_name] = _hash_font_name(old_name, chars_sorted)
+                
+                record.string = fonts[font_face]["names_hashed"][old_name]
         
         subsetter = Subsetter()
         subsetter.populate(text="".join(characters))
@@ -206,7 +210,7 @@ def subset_fonts(
         except PermissionError:
             error(f"Could not remove original font file '{font_face.font_file.filename}' due to permission error. Is it open in another program?", subset_fonts)
         
-        for old_name, new_name in fonts[font_face]["names"].items():
+        for old_name, new_name in fonts[font_face]["names_hashed"].items():
             font_replacements[old_name] = new_name
 
         info(f"Subsetted font '{font_name}' ({len(characters)} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", collect_fonts)
