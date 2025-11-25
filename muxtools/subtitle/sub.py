@@ -923,7 +923,7 @@ class SubFile(BaseSubFile):
         out = file.with_suffix(".ass")
         with open(out, "w", encoding="utf_8_sig") as writer:
             doc.dump_file(writer)
-        out = cls(out, 0, file)
+        out = cls(file=out, container_delay=0, source=file)
         return out.restyle(GJM_GANDHI_PRESET)
 
     @classmethod
@@ -960,4 +960,4 @@ class SubFile(BaseSubFile):
             out.unlink(True)
             return subfile
 
-        return cls(out, delay, file)
+        return cls(file=out, container_delay=delay, source=file)
