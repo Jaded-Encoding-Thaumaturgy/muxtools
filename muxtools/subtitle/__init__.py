@@ -9,3 +9,4 @@ from .sub_pgs import *
 from .styles import *
 from .subutils import *
 from .basesub import *
+from .font import *
