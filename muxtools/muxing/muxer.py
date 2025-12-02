@@ -9,6 +9,7 @@ import os
 
 from .tmdb import TmdbConfig
 from .muxfiles import MuxingFile
+from .token_handling import apply_dynamic_tokens, replace_with_temp_tokens
 from ..utils.types import PathLike
 from ..subtitle.sub import FontFile
 from ..utils.glob import GlobSearch
@@ -114,6 +115,10 @@ def mux(*tracks: _track, tmdb: TmdbConfig | None = None, outfile: PathLike | Non
             print(e)
             danger("Failed to add muxtools information via mkvpropedit!", "Mux")
 
+    new_name = apply_dynamic_tokens(outfile.name, outfile, True, caller="Mux")
+    if outfile.name != new_name:
+        outfile = outfile.rename(outfile.parent / new_name)
+
     if "#crc32#" in outfile.stem:
         debug("Generating CRC32 for the muxed file...", "Mux")
         outfile = outfile.rename(outfile.with_stem(re.sub(re.escape("#crc32#"), get_crc32(outfile), outfile.stem)))
@@ -195,6 +200,8 @@ def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: l
             title = re.sub(re.escape(R"$title$"), epmeta.title, title)
             filename = re.sub(re.escape(R"$title_sanitized$"), epmeta.title_sanitized, filename)
             title = re.sub(re.escape(R"$title_sanitized$"), epmeta.title_sanitized, title)
+
+    filename = replace_with_temp_tokens(filename)
 
     for attribute in get_setup_dir():
         attr = get_setup_attr(attribute, None)

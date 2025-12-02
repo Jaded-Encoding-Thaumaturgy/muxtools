@@ -17,6 +17,8 @@ from .language_util import standardize_tag
 
 __all__ = ["ParsedFile", "TrackInfo", "ContainerInfo"]
 
+_YUV_FMT_REGEX = r"yuv(?:a|j)?4\d\dp(?P<bits>\d+)?"
+
 
 @dataclass
 class ContainerInfo:
@@ -67,6 +69,12 @@ class TrackInfo:
             else:
                 return None
         else:
+            if (
+                self.type == TrackType.VIDEO
+                and self.raw_ffprobe.pix_fmt
+                and (match := re.match(_YUV_FMT_REGEX, self.raw_ffprobe.pix_fmt, re.I)) is not None
+            ):
+                return int(match.groupdict()["bits"] or 8)
             return raw_bits if raw_bits else self.raw_ffprobe.bits_per_sample
 
     @property
@@ -228,8 +236,6 @@ class ParsedFile:
 
         if not name and not lang and not type and relative_id is None and custom_condition is None:
             return []
-        if relative_id is not None and type is None:
-            raise error("You can only search for a relative id with a specific track type!", caller or self.find_tracks)
 
         tracks = self.tracks
 

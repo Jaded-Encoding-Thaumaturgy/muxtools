@@ -7,6 +7,7 @@ from ..utils.types import PathLike, TrackType, FileMixin
 from ..utils.files import ensure_path_exists, ensure_path
 from ..utils.probe import ParsedFile
 from ..utils.language_util import standardize_tag
+from .token_handling import apply_dynamic_tokens
 
 # fmt: off
 __all__ = [
@@ -84,7 +85,8 @@ class _track:
         elif self.type == TrackType.CHAPTERS:
             return ["--chapters", filepath]
 
-        args = ["--no-global-tags", "--track-name", f"0:{self.name}"]
+        name = apply_dynamic_tokens(self.name, self.file, False, self.lang if self.lang else None)
+        args = ["--no-global-tags", "--track-name", f"0:{name}"]
 
         if self.tags and not all([not bool(v) for _, v in self.tags.items()]):
             tags_file = make_output(self.file, "xml", "_tags", temp=True)
