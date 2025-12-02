@@ -51,7 +51,7 @@ def parse_xml(file: Path) -> list[Chapter]:
 
 def _parse_chapters(file: Path, reg: str, flags: int = 0) -> list[Chapter]:
     chapters: list[Chapter] = []
-    with file.open("r", encoding="utf-8") as f:
+    with file.open("r", encoding="utf_8_sig") as f:
         for match in re.finditer(re.compile(reg, flags), f.read()):
             chapters.append((timedelta_from_formatted(match.group("time")), match.group("name")))
 
