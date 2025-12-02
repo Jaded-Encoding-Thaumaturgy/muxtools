@@ -6,14 +6,18 @@ from typed_ffmpeg import probe_obj
 from typed_ffmpeg.ffprobe.schema import streamType, ffprobeType, tagsType, formatType
 from mkvinfo import MKVInfo, Track as MkvInfoTrack, Container as MkvInfoContainer
 from itertools import groupby
+from langcodes import Language
 
 from .log import error, warn
 from .types import PathLike, TrackType
 from .files import ensure_path_exists, GlobSearch
 from .download import get_executable
 from .formats import AudioFormat
+from .language_util import standardize_tag
 
 __all__ = ["ParsedFile", "TrackInfo", "ContainerInfo"]
+
+_YUV_FMT_REGEX = r"yuv(?:a|j)?4\d\dp(?P<bits>\d+)?"
 
 
 @dataclass
@@ -65,7 +69,24 @@ class TrackInfo:
             else:
                 return None
         else:
+            if (
+                self.type == TrackType.VIDEO
+                and self.raw_ffprobe.pix_fmt
+                and (match := re.match(_YUV_FMT_REGEX, self.raw_ffprobe.pix_fmt, re.I)) is not None
+            ):
+                return int(match.groupdict()["bits"] or 8)
             return raw_bits if raw_bits else self.raw_ffprobe.bits_per_sample
+
+    @property
+    def sanitized_lang(self) -> Language:
+        if self.raw_mkvmerge and (bool(self.raw_mkvmerge.properties.language_ietf) or bool(self.raw_mkvmerge.properties.language)):
+            if self.raw_mkvmerge.properties.language_ietf:
+                return Language.get(self.raw_mkvmerge.properties.language_ietf)
+            else:
+                assert self.raw_mkvmerge.properties.language
+                return Language.get(self.raw_mkvmerge.properties.language)
+        else:
+            return Language.get(self.language or "und")
 
 
 def tags_to_dict(tags: tagsType | None) -> dict[str, str]:
@@ -215,8 +236,6 @@ class ParsedFile:
 
         if not name and not lang and not type and relative_id is None and custom_condition is None:
             return []
-        if relative_id is not None and type is None:
-            raise error("You can only search for a relative id with a specific track type!", caller or self.find_tracks)
 
         tracks = self.tracks
 
@@ -229,27 +248,31 @@ class ParsedFile:
                 return bool(re.match(name, title, re.I))
             return False
 
-        def get_languages(track: TrackInfo) -> list[str]:
-            languages = list[str | None]()
-            languages.append(track.language)
-            if track.raw_mkvmerge:
-                languages.append(track.raw_mkvmerge.properties.language)
-                languages.append(track.raw_mkvmerge.properties.language_ietf)
-            return [lang.casefold() for lang in languages if lang]
+        def language_matches(track: TrackInfo, language: Language) -> bool:
+            track_lang = track.sanitized_lang
 
-        if name:
-            tracks = [track for track in tracks if name_matches(track.title or "")]
+            if language == track_lang:
+                return True
 
-        if lang:
-            if reverse_lang:
-                tracks = [track for track in tracks if lang.casefold() not in get_languages(track)]
+            if len(language.to_tag()) < 4:
+                return track_lang.to_alpha3() == language.to_alpha3()
             else:
-                tracks = [track for track in tracks if lang.casefold() in get_languages(track)]
+                return False
 
         if type:
             if type not in (TrackType.VIDEO, TrackType.AUDIO, TrackType.SUB):
                 raise error("You can only search for video, audio and subtitle tracks!", caller or self.find_tracks)
             tracks = [track for track in tracks if track.type == type]
+
+        if name:
+            tracks = [track for track in tracks if name_matches(track.title or "")]
+
+        if lang:
+            language, _ = standardize_tag(lang, caller or self.find_tracks)
+            if reverse_lang:
+                tracks = [track for track in tracks if not language_matches(track, language)]
+            else:
+                tracks = [track for track in tracks if language_matches(track, language)]
 
         if relative_id is not None:
             if not isinstance(relative_id, list):
