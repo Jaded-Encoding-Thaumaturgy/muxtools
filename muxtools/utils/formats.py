@@ -103,7 +103,7 @@ class AudioFormat(Enum):
     """[Free Lossless Audio Codec](https://en.wikipedia.org/wiki/FLAC)"""
     TRUEHD = "TrueHD", "truehd", "TrueHD", False, "thd"
     """[TrueHD](https://en.wikipedia.org/wiki/Dolby_TrueHD)"""
-    TRUEHD_ATMOS = "TrueHD Atmos", "truehd", "TrueHD", False, None, "Dolby TrueHD + Dolby Atmos"
+    TRUEHD_ATMOS = "TrueHD Atmos", "truehd", "TrueHD", False, "thd", "Dolby TrueHD + Dolby Atmos"
     """[TrueHD](https://en.wikipedia.org/wiki/Dolby_TrueHD) with [Atmos](https://en.wikipedia.org/wiki/Dolby_Atmos) metadata."""
     PCM = "PCM", "pcm_*", "PCM *", False, "wav"
     """[Pulse-code modulation](https://en.wikipedia.org/wiki/Pulse-code_modulation)"""
