@@ -96,3 +96,30 @@ def test_mkvpropedit_crops():
     MKVPropEdit(f).video_track(crop=0).run()
     parsed = ParsedFile.from_file(f)
     assert not parsed.tracks[0].raw_ffprobe.side_data_list
+
+
+def test_mkvpropedit_with_tokens():
+    sample_file = test_dir / "test-data" / "sample-files" / "H265-Opus-EAC3-sample.mkv"
+    f = get_workdir() / "Test.mkv"
+
+    copy(sample_file, f)
+
+    (
+        MKVPropEdit(f)
+        .video_track("Test $format$ $bits$-bit", "de", True, False)
+        .audio_track("$language$ $format$ $ch$", "und")
+        .audio_track("$language$ $format$ $ch$")
+        .audio_track("$language$ $format$ $ch$")
+        .run()
+    )
+
+    original = ParsedFile.from_file(sample_file)
+    new = ParsedFile.from_file(f)
+
+    assert original.tracks[0].title != new.tracks[0].title
+    assert original.tracks[0].language != new.tracks[0].language
+
+    assert new.tracks[0].title == "Test HEVC 10-bit"
+    assert new.tracks[1].title == "Unknown language Opus 2.0"
+    assert new.tracks[2].title == "English EAC-3 2.0"
+    assert new.tracks[3].title == "German EAC-3 2.0"

@@ -3,6 +3,7 @@ from typing_extensions import Self
 from typing import Sequence
 
 from ..misc import Chapters
+from ..muxing.token_handling import _apply_tokens_via_track
 from ..utils import PathLike, ensure_path_exists, make_output, ensure_path, get_executable, run_commandline, clean_temp_files, ParsedFile, TrackType
 from ..utils.files import create_tags_xml
 from ..utils.log import error
@@ -212,6 +213,8 @@ class MKVPropEdit:
                 pixel_crop_right=str(normalized_crop[2]),
                 pixel_crop_bottom=str(normalized_crop[3]),
             )
+        track = self._parsed.find_tracks(type=TrackType.VIDEO, relative_id=self._video_index - 1, error_if_empty=True, caller=self)[0]
+        name = _apply_tokens_via_track(name, track, language, self) if name is not None else name
         self._edit_track("v", self._video_index, name, language, default, forced, tags, **kwargs)
         self._video_index += 1
         return self
@@ -242,6 +245,8 @@ class MKVPropEdit:
         :param kwargs:              Any other properties to set or remove.\n
                                     Check out the 'Track headers' section in `mkvpropedit -l` to see what's available.
         """
+        track = self._parsed.find_tracks(type=TrackType.AUDIO, relative_id=self._audio_index - 1, error_if_empty=True, caller=self)[0]
+        name = _apply_tokens_via_track(name, track, language, self) if name is not None else name
         self._edit_track("a", self._audio_index, name, language, default, forced, tags, **kwargs)
         self._audio_index += 1
         return self
@@ -272,6 +277,8 @@ class MKVPropEdit:
         :param kwargs:              Any other properties to set or remove.\n
                                     Check out the 'Track headers' section in `mkvpropedit -l` to see what's available.
         """
+        track = self._parsed.find_tracks(type=TrackType.SUB, relative_id=self._subtitle_index - 1, error_if_empty=True, caller=self)[0]
+        name = _apply_tokens_via_track(name, track, language, self) if name is not None else name
         self._edit_track("s", self._subtitle_index, name, language, default, forced, tags, **kwargs)
         self._subtitle_index += 1
         return self

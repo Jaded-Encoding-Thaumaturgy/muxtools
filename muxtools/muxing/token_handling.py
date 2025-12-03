@@ -96,6 +96,21 @@ def replace_with_temp_tokens(string: str) -> str:
     return new
 
 
+def _apply_tokens_via_track(string: str, token_source: TrackInfo, user_lang: str | None = None, caller: Any | None = None) -> str:
+    matches = list(re.finditer(TOKEN_REGEX, string))
+    if not matches:
+        return string
+
+    new = string
+
+    for match in matches:
+        groups = match.groupdict()
+        replacement = _get_prop(str(groups["prop"]), token_source, user_lang, match.group(0), caller)
+        new = new.replace(match.group(0), replacement)
+
+    return new
+
+
 def apply_dynamic_tokens(
     string: str, token_source: PathLike | ParsedFile, is_global: bool, user_lang: str | None = None, caller: Any | None = None
 ) -> str:
