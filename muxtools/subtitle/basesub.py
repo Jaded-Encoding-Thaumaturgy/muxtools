@@ -147,8 +147,8 @@ class BaseSubFile(ABC, MuxingFile):
         self,
         name: str = "",
         lang: str = "en",
-        default: bool | None = True,
-        forced: bool | None = False,
+        default: bool = True,
+        forced: bool = False,
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> SubTrack:

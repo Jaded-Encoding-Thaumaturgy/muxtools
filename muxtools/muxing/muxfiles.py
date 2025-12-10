@@ -77,12 +77,12 @@ class AudioFile(MuxingFile):
         self,
         name: str = "",
         lang: str = "ja",
-        default: bool | None = None,
-        forced: bool | None = None,
+        default: bool = True,
+        forced: bool = False,
         args: list[str] | None = None,
         tags: dict[str, str] | None = None,
     ) -> AudioTrack:
-        return AudioTrack(self.file, name, lang, default or True, forced or False, self.container_delay, args, tags or self.tags)
+        return AudioTrack(self.file, name, lang, default, forced, self.container_delay, args, tags or self.tags)
 
     def get_containerinfo(self) -> ContainerInfo:
         if not self.container:
