@@ -15,7 +15,7 @@ import pytest
 
 test_dir = ensure_path(__file__, None).parent.parent
 sample_file_h264 = test_dir / "test-data" / "sample-files" / "H264-PCM-sample.m2ts"
-sample_file_h265 = test_dir / "test-data" / "sample-files" / "H265-Opus-AAC-sample.mkv"
+sample_file_h265 = test_dir / "test-data" / "sample-files" / "H265-Opus-AAC-sample-18F78726.mkv"
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +23,7 @@ def setup_and_remove():
     Setup("Test", None)
 
     copy(sample_file_h264, get_workdir() / "Test_h264.m2ts")
-    copy(sample_file_h265, get_workdir() / "Test_h265.mkv")
+    copy(sample_file_h265, get_workdir() / sample_file_h265.name)
 
     yield
 
@@ -35,7 +35,7 @@ def test_nothing_ever_happens():
     with pytest.raises(Exception, match="avc"):
         apply_avc_bsf(get_workdir() / "Test_h264.m2ts")
     with pytest.raises(Exception, match="hevc"):
-        apply_hevc_bsf(get_workdir() / "Test_h265.mkv")
+        apply_hevc_bsf(get_workdir() / sample_file_h265.name)
 
 
 def test_apply_avc_bsf():
@@ -63,8 +63,8 @@ def test_apply_avc_bsf():
 
 
 def test_apply_hevc_bsf():
-    f = get_workdir() / "Test_h265.mkv"
-    apply_hevc_bsf(
+    f = get_workdir() / sample_file_h265.name
+    f = apply_hevc_bsf(
         f,
         sar=1,
         cloc_type=BSF_ChromaLocation.CENTER,
@@ -74,6 +74,8 @@ def test_apply_hevc_bsf():
         transfer=BSF_Transfer.BT601,
         matrix=BSF_Matrix.SMPTE170M,
     )
+
+    assert f.name != sample_file_h265.name
 
     original = ParsedFile.from_file(sample_file_h265).tracks[0].raw_ffprobe
     new = ParsedFile.from_file(f).tracks[0].raw_ffprobe
@@ -87,17 +89,17 @@ def test_apply_hevc_bsf():
 
 
 def test_chromalocs():
+    f = get_workdir() / sample_file_h265.name
     for cloc in BSF_ChromaLocation:
-        f = get_workdir() / "Test_h265.mkv"
-        apply_hevc_bsf(f, cloc_type=cloc)
+        f = apply_hevc_bsf(f, cloc_type=cloc)
 
         new = ParsedFile.from_file(f).tracks[0].raw_ffprobe
 
         assert new.chroma_location == cloc.name.lower().replace("_", "")
 
+    f = get_workdir() / "Test_h264.m2ts"
     for cloc in BSF_ChromaLocation:
-        f = get_workdir() / "Test_h264.m2ts"
-        apply_avc_bsf(f, cloc_type=cloc)
+        f = apply_avc_bsf(f, cloc_type=cloc)
 
         new = ParsedFile.from_file(f).tracks[0].raw_ffprobe
 
@@ -105,8 +107,8 @@ def test_chromalocs():
 
 
 def test_crops():
-    f = get_workdir() / "Test_h265.mkv"
-    apply_hevc_bsf(f, crop=2)
+    f = get_workdir() / sample_file_h265.name
+    f = apply_hevc_bsf(f, crop=2)
 
     new = ParsedFile.from_file(f).tracks[0].raw_ffprobe
     assert new.width == 1916

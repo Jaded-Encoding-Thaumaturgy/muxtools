@@ -17,12 +17,12 @@ def setup_and_remove():
 
 
 def test_mkvpropedit():
-    sample_file = test_dir / "test-data" / "sample-files" / "H265-Opus-AAC-sample.mkv"
-    f = get_workdir() / "Test.mkv"
+    sample_file = test_dir / "test-data" / "sample-files" / "H265-Opus-AAC-sample-18F78726.mkv"
+    f = get_workdir() / sample_file.name
 
     copy(sample_file, f)
 
-    (
+    f, _ = (
         MKVPropEdit(f, chapters="", tags=dict(TVDB="111111", TMDB=""))
         .video_track("Yapper Encode", "de", True, False)
         .audio_track("Yappernese", "und", False, True, tags=dict(ENCODER="not opus", ENCODER_SETTINGS=""))
@@ -30,6 +30,9 @@ def test_mkvpropedit():
         .audio_track("German 2.0 (edited)", "de")
         .run()
     )
+
+    assert f.name != sample_file.name
+    assert "3FB7881D" in f.name
 
     with pytest.raises(Exception):
         Chapters.from_mkv(f)

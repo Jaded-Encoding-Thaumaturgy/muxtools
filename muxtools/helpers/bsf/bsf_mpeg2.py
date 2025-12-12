@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import Path
 
 from ...utils import ensure_path_exists, PathLike, error
 from .bsf_generic import BSF_Matrix, BSF_Primaries, BSF_Transfer, BSF_Format, _apply_bsf
@@ -36,7 +37,7 @@ def apply_mpeg2_bsf(
     transfer: BSF_Transfer | int | None = None,
     matrix: BSF_Matrix | int | None = None,
     quiet: bool = True,
-):
+) -> Path:
     """
     A helper for the FFMpeg [mpeg2_metadata](https://ffmpeg.org/ffmpeg-bitstream-filters.html#mpeg2_005fmetadata) bitstream filter.
 
@@ -50,6 +51,7 @@ def apply_mpeg2_bsf(
     :param transfer:                    Set the transfer characteristics in the stream
     :param matrix:                      Set the matrix coefficients in the stream
     :param quiet:                       Suppresses the output of ffmpeg
+    :return:                            The output path which may be different if a CRC was detected and swapped.
     """
     f = ensure_path_exists(fileIn, apply_mpeg2_bsf)
     filter_options = list[str]()
@@ -84,4 +86,4 @@ def apply_mpeg2_bsf(
     if not filter_options:
         raise error("No changes to be made!", apply_mpeg2_bsf)
 
-    _apply_bsf(f, "mpeg2_metadata", filter_options, apply_mpeg2_bsf, quiet)
+    return _apply_bsf(f, "mpeg2_metadata", filter_options, apply_mpeg2_bsf, quiet)

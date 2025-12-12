@@ -1,4 +1,5 @@
 from typing import Any, Sequence
+from pathlib import Path
 
 from ...utils import ensure_path_exists, PathLike, error
 from .bsf_generic import BSF_Matrix, BSF_Primaries, BSF_Transfer, BSF_Format, BSF_ChromaLocation, _apply_bsf
@@ -28,7 +29,7 @@ def _apply_avc_hevc_bsf(
     quiet: bool = True,
     caller: Any = None,
     **kwargs: bool | str,
-):
+) -> Path:
     f = ensure_path_exists(fileIn, caller)
     filter_options = list[str]()
 
@@ -60,7 +61,7 @@ def _apply_avc_hevc_bsf(
     if not filter_options:
         raise error("No changes to be made!", caller)
 
-    _apply_bsf(f, filter_name, filter_options, caller, quiet)
+    return _apply_bsf(f, filter_name, filter_options, caller, quiet)
 
 
 def apply_avc_bsf(
@@ -75,7 +76,7 @@ def apply_avc_bsf(
     crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
     quiet: bool = True,
     **kwargs: bool | str,
-):
+) -> Path:
     """
     A helper for the FFMpeg [h264_metadata](https://ffmpeg.org/ffmpeg-bitstream-filters.html#h264_005fmetadata) bitstream filter.
 
@@ -93,9 +94,10 @@ def apply_avc_bsf(
     :param quiet:                       Suppresses the output of ffmpeg
     :param kwargs:                      Additional options for the filter.\n
                                         For other available options, check the hyperlink to the filter above.
+    :return:                            The output path which may be different if a CRC was detected and swapped.
     """
 
-    _apply_avc_hevc_bsf(
+    return _apply_avc_hevc_bsf(
         fileIn,
         "h264_metadata",
         sar=sar,
@@ -124,7 +126,7 @@ def apply_hevc_bsf(
     crop: int | tuple[int, int] | tuple[int, int, int, int] | None = None,
     quiet: bool = True,
     **kwargs: bool | str,
-):
+) -> Path:
     """
     A helper for the FFMpeg [hevc_metadata](https://ffmpeg.org/ffmpeg-bitstream-filters.html#hevc_005fmetadata) bitstream filter.
 
@@ -142,9 +144,10 @@ def apply_hevc_bsf(
     :param quiet:                       Suppresses the output of ffmpeg
     :param kwargs:                      Additional options for the filter.\n
                                         For available options, check the hyperlink to the filter above.
+    :return:                            The output path which may be different if a CRC was detected and swapped.
     """
 
-    _apply_avc_hevc_bsf(
+    return _apply_avc_hevc_bsf(
         fileIn,
         "hevc_metadata",
         sar=sar,

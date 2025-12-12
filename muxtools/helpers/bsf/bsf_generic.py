@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 from shutil import move
 
+from ..helper_util import replace_crc
 from ...utils import make_output, get_executable, run_commandline, clean_temp_files, error
 
 __all__ = ["BSF_Matrix", "BSF_Transfer", "BSF_Primaries", "BSF_Format", "BSF_ChromaLocation"]
@@ -126,7 +127,7 @@ def _apply_bsf(
     filter_options: list[str],
     caller: Any,
     quiet: bool = True,
-):
+) -> Path:
     out = make_output(fileIn, fileIn.suffix[1:], "bsf", temp=True)
     ffmpeg = get_executable("ffmpeg")
 
@@ -141,3 +142,4 @@ def _apply_bsf(
     fileIn.unlink()
     move(out, fileIn)
     clean_temp_files()
+    return replace_crc(fileIn, caller)

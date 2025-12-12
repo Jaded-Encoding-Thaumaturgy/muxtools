@@ -2,6 +2,7 @@ from pathlib import Path
 from typing_extensions import Self
 from typing import Sequence
 
+from .helper_util import replace_crc
 from ..misc import Chapters
 from ..muxing.token_handling import _apply_tokens_via_track
 from ..utils import PathLike, ensure_path_exists, make_output, ensure_path, get_executable, run_commandline, clean_temp_files, ParsedFile, TrackType
@@ -283,7 +284,7 @@ class MKVPropEdit:
         self._subtitle_index += 1
         return self
 
-    def run(self, quiet: bool = True, error_on_failure: bool = True) -> bool:
+    def run(self, quiet: bool = True, error_on_failure: bool = True) -> tuple[Path, bool]:
         """
         Run the mkvpropedit process.
 
@@ -292,6 +293,9 @@ class MKVPropEdit:
 
         :param error_on_failure:    Raise an exception on failure.\n
                                     Otherwise this function will return a bool indicating the success.
+
+        :return:                    Returns the path and a boolean indicating the success.\n
+                                    This may be a new path when a CRC32 was detected, swapped and the file renamed.
         """
         if not self._main_args and not self._track_args:
             raise error("No changes made to the file!", self)
@@ -301,4 +305,4 @@ class MKVPropEdit:
         if code > 1 and error_on_failure:
             raise error(f"Failed to edit properties for '{self._fileIn.name}'!")
 
-        return code < 2
+        return (replace_crc(self._fileIn, self), code < 2)
