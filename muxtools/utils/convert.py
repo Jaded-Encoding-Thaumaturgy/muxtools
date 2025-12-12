@@ -25,6 +25,47 @@ __all__: list[str] = [
 ]
 
 
+class ExtrapolatingVideoTimestamps(VideoTimestamps):
+    """
+    Simple class extending VideoTimestamps to add back extrapolation for frames past the video.\n
+    This works by getting the average framerate from the existing timestamps and assuming CFR from then on.
+    """
+
+    backing_fps_timestamps: FPSTimestamps
+
+    def __init__(
+        self,
+        pts_list: list[int],
+        time_scale: Fraction,
+        normalize: bool = True,
+        rounding_method: RoundingMethod = RoundingMethod.ROUND,
+    ):
+        super().__init__(pts_list, time_scale, normalize)
+
+        # https://github.com/TypesettingTools/Aegisub/blob/a63edfe8bbf146c89744a3441907541ba7d8ed25/libaegisub/common/vfr.cpp#L154
+        fps = Fraction((len(self.pts_list) - 1) * time_scale, self.pts_list[-1] - self.pts_list[0])
+        self.backing_fps_timestamps = FPSTimestamps(rounding_method, time_scale, fps, self.first_timestamps)
+
+    def _time_to_frame(
+        self,
+        time: Fraction,
+        time_type: TimeType,
+    ) -> int:
+        if time > self.timestamps[-1]:
+            return self.backing_fps_timestamps._time_to_frame(time, time_type)
+
+        return super()._time_to_frame(time, time_type)
+
+    def _frame_to_time(
+        self,
+        frame: int,
+    ) -> Fraction:
+        if frame > self.nbr_frames:
+            return self.backing_fps_timestamps._frame_to_time(frame)
+
+        return super()._frame_to_time(frame)
+
+
 def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = None, caller: Any | None = None) -> VideoMeta:
     """
     Parse timestamps from an existing video file using ffprobe.\n
@@ -109,7 +150,7 @@ def resolve_timesource_and_scale(
         return FPSTimestamps(rounding_method, timescale, Fraction(24000, 1001))
 
     if isinstance(timesource, VideoMeta):
-        return VideoTimestamps(timesource.pts, timesource.timescale, fps=timesource.fps, rounding_method=rounding_method)
+        return ExtrapolatingVideoTimestamps(timesource.pts, timesource.timescale, rounding_method=rounding_method)
 
     if isinstance(timesource, ABCTimestamps):
         return timesource
@@ -121,7 +162,7 @@ def resolve_timesource_and_scale(
 
             if parsed and parsed.is_video_file:
                 meta = get_timemeta_from_video(timesource, caller=caller)
-                return VideoTimestamps(meta.pts, meta.timescale, fps=meta.fps, rounding_method=rounding_method)
+                return ExtrapolatingVideoTimestamps(meta.pts, meta.timescale, rounding_method=rounding_method)
             else:
                 try:
                     meta = VideoMeta.from_json(timesource)
@@ -132,7 +173,7 @@ def resolve_timesource_and_scale(
 
     elif isinstance(timesource, list) and isinstance(timesource[0], int):
         timescale = check_timescale(timescale)
-        return VideoTimestamps(timesource, timescale, rounding_method=rounding_method)
+        return ExtrapolatingVideoTimestamps(timesource, timescale, rounding_method=rounding_method)
 
     if isinstance(timesource, float) or isinstance(timesource, str) or isinstance(timesource, Fraction):
         fps = Fraction(timesource)

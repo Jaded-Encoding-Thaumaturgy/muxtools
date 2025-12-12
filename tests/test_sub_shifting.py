@@ -59,3 +59,27 @@ def test_shift_by_24() -> None:
 
         _compare_times(presumed.start, correct.start, resolved, TimeType.START)
         _compare_times(presumed.end, correct.end, resolved, TimeType.END)
+
+
+def test_shift_by_7200() -> None:
+    """
+    Simple test for shifting subs by 7200 frames.
+
+    Mostly to check if more extrapolated lines match up with aegisub.
+    """
+    meta = VideoMeta.from_json(test_dir / "test-data" / "input" / "vigilantes_s01e01.json")
+    resolved = resolve_timesource_and_scale(meta)
+
+    sub = SubFile(test_dir / "test-data" / "input" / "vigilantes_s01e01_en.ass")
+    sub.shift(7200, resolved)
+    sub_doc = sub._read_doc()
+
+    sub_correct = SubFile(test_dir / "test-data" / "output" / "vigilantes_s01e01_en_shifted_7200.ass")
+    sub_correct_doc = sub_correct._read_doc()
+
+    for presumed, correct in zip(sub_doc.events, sub_correct_doc.events):
+        presumed = cast(_Line, presumed)
+        correct = cast(_Line, correct)
+
+        _compare_times(presumed.start, correct.start, resolved, TimeType.START)
+        _compare_times(presumed.end, correct.end, resolved, TimeType.END)
