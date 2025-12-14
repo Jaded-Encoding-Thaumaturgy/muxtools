@@ -1,7 +1,7 @@
 
 [project]
 name = "muxtools"
-version = "0.4.0"
+dynamic = ["version"]
 description = "A library for various muxing and automation tools for anything and everything fansubbing related"
 authors = [{ name = "Vodes", email = "vodes.imp@gmail.com" }]
 dependencies = [
@@ -38,7 +38,7 @@ readme = "README.md"
 license = "MPL-2.0"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27.0", "versioningit"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
@@ -59,6 +59,20 @@ dev = [
 
 [project.scripts]
 muxtools = "muxtools:entry_point"
+
+[tool.hatch.build]
+artifacts = ["muxtools/_version.py"]
+
+[tool.hatch.version]
+source = "versioningit"
+default-version = "0.0.0+unknown"
+next-version = "minor"
+write = { file = "muxtools/_version.py", template = "__version__ = \"{normalized_version}\"\n__version_tuple__ = {version_tuple}" }
+
+[tool.hatch.version.format]
+distance = "{next_version}.dev{distance}+{vcs}{rev}"
+dirty = "{next_version}+dirty"
+distance-dirty = "{next_version}.dev{distance}+{vcs}{rev}.dirty"
 
 [tool.ruff]
 line-length = 150

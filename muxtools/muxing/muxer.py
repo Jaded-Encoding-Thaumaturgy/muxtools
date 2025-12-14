@@ -91,8 +91,6 @@ def mux(*tracks: _track, tmdb: TmdbConfig | None = None, outfile: PathLike | Non
 
     if not get_setup_attr("skip_mux_branding", False):
         try:
-            from importlib.metadata import version
-
             parsed = ParsedFile.from_file(outfile, "Mux")
             tags = parsed.container_info.tags
             if not tags:
@@ -101,8 +99,10 @@ def mux(*tracks: _track, tmdb: TmdbConfig | None = None, outfile: PathLike | Non
             mkvpropedit = get_executable("mkvpropedit", False, False)
             if not mkvpropedit:
                 warn("Mkvpropedit could not be found!", "Mux", 0)
-            muxtools_version = version("muxtools")
-            version_tag = f" + muxtools v{muxtools_version}"
+
+            from muxtools import __version__
+
+            version_tag = f" + muxtools v{__version__}"
 
             muxing_application = tags.get("encoder", None)
 
