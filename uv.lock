@@ -18,14 +18,11 @@ wheels = [
 
 [[package]]
 name = "ass"
-version = "0.5.4"
+version = "1.0.3"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "setuptools" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/20/f40eb4e64989fdddae3330468e4555f64b7234338b4e02952f3e442f3790/ass-0.5.4.tar.gz", hash = "sha256:7b3db1929d975121a3e449f38ce7747bfaa88ea4aa1202cd84c14fa85d3ba5d0", size = 15223, upload-time = "2023-07-04T00:42:07.249Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/07/5c6a42e66414502df0aae1d8f752c4412f3845d953c45dbd705f7932de59/ass-1.0.3.tar.gz", hash = "sha256:1e48e181c8a6516d5a7a98de1e1be18ac6661526c3c37d92b6d16680650ef673", size = 12419, upload-time = "2025-10-22T21:11:04.82Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/2d/47532f60716fa4f76320358871f3edce28d6c2ce1ae1d1f31306270edf0e/ass-0.5.4-py3-none-any.whl", hash = "sha256:8da7d606bfed9f655a10611dc542936182b15438da5b9515205334990906e2c8", size = 14569, upload-time = "2023-07-04T00:42:03.282Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/3d/c51af75f531131d4f575cd8a8ffc8b101d21d80804626c25613f352ec85b/ass-1.0.3-py3-none-any.whl", hash = "sha256:8b46e481c5f866eec8be831d62697a0a580395e9ecc93239025cdd667cbe91b2", size = 15315, upload-time = "2025-10-22T21:11:03.996Z" },
 ]
 
 [[package]]
@@ -444,7 +441,7 @@ wheels = [
 
 [[package]]
 name = "fontcollector"
-version = "3.1.2"
+version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ass" },
@@ -454,9 +451,9 @@ dependencies = [
     { name = "freetype-py" },
     { name = "langcodes" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/43/62/3948bd12882a5e6c9bd625dcd5396a37788d096239eb065fce5429fe59f8/fontcollector-3.1.2.tar.gz", hash = "sha256:4c9a41b2923c2a65efe94415051a04a9fa52e641635e871745fdee54e838fd8c", size = 45427, upload-time = "2025-09-06T17:33:10.435Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/38/59d76260bd416b079d31a21ffe6e9857c385b910b354dc6e21d583cd4838/fontcollector-4.0.0.tar.gz", hash = "sha256:6ee779726873a057313aeff6a5ba9ea621652e7b4571ff43c72e4f20a207a7d1", size = 50383, upload-time = "2025-12-16T00:51:13.468Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/1f/c484bb43656381882336a84ce943544433d7e45d3d79a1db542dc723cfcf/fontcollector-3.1.2-py3-none-any.whl", hash = "sha256:3f7097555fcb8a8eec3262aa846975af215f395b7d565b1893a6808d8c9db904", size = 57435, upload-time = "2025-09-06T17:33:08.91Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/88/e094562f78355c38c03c6b1a63a90f828ecbd62203b03208cdd33d0fcd4b/fontcollector-4.0.0-py3-none-any.whl", hash = "sha256:407f12b95c56c3804a56ccb6748d385afc09a4fb289274464e299bdd678fb7ab", size = 66615, upload-time = "2025-12-16T00:51:12.007Z" },
 ]
 
 [[package]]
@@ -780,7 +777,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ass", specifier = ">=0.5.3" },
-    { name = "fontcollector", specifier = ">=3.1.2" },
+    { name = "fontcollector", specifier = ">=4.0.0" },
     { name = "langcodes", specifier = ">=3.5.0" },
     { name = "language-data", specifier = ">=1.0.1" },
     { name = "mkvinfo", specifier = "~=0.0.3" },
@@ -1558,15 +1555,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/08/91/1700d2a1a9f64f19bb019a547e510b99a6af1fef49641a0bce86bc85fb8e/scipy_stubs-1.16.3.3.tar.gz", hash = "sha256:af47578875d5557567225a16ec1b9b38a48c4c4377d92396413ebd65406c44ee", size = 361468, upload-time = "2025-12-08T13:45:38.37Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/e2/3b8826f281f59301e3284989b19cfc56fdccf799134c1befedd38482a23a/scipy_stubs-1.16.3.3-py3-none-any.whl", hash = "sha256:f6316b36cd0fb272c994ae5b10c4a73c644a7e156ed8d32bcd9c35303d0e1b7e", size = 561750, upload-time = "2025-12-08T13:45:36.568Z" },
-]
-
-[[package]]
-name = "setuptools"
-version = "80.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887f014ea83c24ae194cfcd12b9e0fda66b957c69d1fca/setuptools-80.9.0.tar.gz", hash = "sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c", size = 1319958, upload-time = "2025-05-27T00:56:51.443Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922", size = 1201486, upload-time = "2025-05-27T00:56:49.664Z" },
 ]
 
 [[package]]
