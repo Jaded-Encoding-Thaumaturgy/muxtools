@@ -43,12 +43,12 @@ def test_lossy_input(caplog):
     # Prints a danger log for reencoding lossy audio
     assert len([record for record in caplog.get_records("call") if record.levelname == "DANGER"]) == 1
 
-    assert get_md5_for_stream(out.file) == "63b86479c6ef00f8065cf53ea16e5b35"
+    assert get_md5_for_stream(out.file) == "f5c4b6e88bb590ff94e15836ebfbd5f7"
 
 
 def test_flac_input():
     out = do_audio(sample_file_flac, encoder=Opus())
-    assert get_md5_for_stream(out.file) == "3b71027670bdf582de0158e938405077"
+    assert get_md5_for_stream(out.file) == "f2dac56cf04fce1d411d84ebb9cc9b9f"
 
 
 def test_flac_sox_trim():
@@ -65,7 +65,7 @@ def test_flac_ffmpeg_trim():
     meta = VideoMeta.from_json(test_dir / "test-data" / "input" / "vigilantes_s01e01.json")
 
     out = do_audio(sample_file_flac, trims=(24, None), timesource=meta, trimmer=FFMpeg.Trimmer(), encoder=Opus())
-    assert get_md5_for_stream(out.file) == "09c1bab3cae39460a8c1fccac884efa5"
+    assert get_md5_for_stream(out.file) == "3866b432a30580b87d8ce4369d1ddcce"
 
 
 def test_depth_detection(caplog):

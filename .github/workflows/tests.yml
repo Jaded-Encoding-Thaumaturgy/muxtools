@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       MKVTOOLNIX_VERSION: "94.0"
-      OPUS_VER: "opus-tools-0.2-libopus-1.5.2"
+      OPUS_VER: "opus-tools-0.2-libopus-1.6"
       FLAC_VER: "flac-1.5.0"
       FFMPEG_VER: "ffmpeg-2025-08-05"
     strategy:
