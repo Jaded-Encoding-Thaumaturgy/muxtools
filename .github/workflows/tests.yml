@@ -1,6 +1,7 @@
 name: Run tests
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -72,7 +73,7 @@ jobs:
         run: uv run --python ${{ matrix.python-version }} pytest tests
 
       - name: Post webhook for failure
-        if: failure()
+        if: failure() && github.event_name != 'pull_request'
         uses: tsickert/discord-webhook@b217a69502f52803de774ded2b1ab7c282e99645 # v7.0.0
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
