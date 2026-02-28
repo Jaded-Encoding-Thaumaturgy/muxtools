@@ -27,7 +27,7 @@ __all__ = ["mux"]
 writing_lib_regex = re.compile(r"libebml.v(\d.\d.\d).+?libmatroska.v(\d.\d.\d)", re.I)
 
 
-def mux(*tracks: _track, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True, print_cli: bool = False) -> Path:
+def mux(*tracks: _track | MuxingFile | Chapters | PathLike | GlobSearch | None, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True, print_cli: bool = False) -> Path:
     """
     Runs the mux.
 
