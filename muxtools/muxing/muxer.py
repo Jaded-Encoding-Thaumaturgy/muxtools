@@ -27,7 +27,13 @@ __all__ = ["mux"]
 writing_lib_regex = re.compile(r"libebml.v(\d.\d.\d).+?libmatroska.v(\d.\d.\d)", re.I)
 
 
-def mux(*tracks: _track | MuxingFile | Chapters | PathLike | GlobSearch | None, tmdb: TmdbConfig | None = None, outfile: PathLike | None = None, quiet: bool = True, print_cli: bool = False) -> Path:
+def mux(
+    *tracks: _track | MuxingFile | Chapters | PathLike | GlobSearch | None,
+    tmdb: TmdbConfig | None = None,
+    outfile: PathLike | None = None,
+    quiet: bool = True,
+    print_cli: bool = False,
+) -> Path:
     """
     Runs the mux.
 
@@ -164,7 +170,9 @@ def clean_name(name: str) -> str:
     return stripped
 
 
-def output_names(tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: list[_track] = []) -> tuple[str, str]:
+def output_names(
+    tmdb: TmdbConfig | None = None, args: list[str] = [], tracks: list[_track | MuxingFile | Chapters | PathLike | GlobSearch | None] = []
+) -> tuple[str, str]:
     show_name = get_setup_attr("show_name", "Example")
     episode = get_setup_attr("episode", "01")
     filename = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
