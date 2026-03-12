@@ -22,6 +22,7 @@ __all__: list[str] = [
     "TimeType",
     "ABCTimestamps",
     "RoundingMethod",
+    "sizeof_fmt",
 ]
 
 
@@ -219,3 +220,19 @@ def timedelta_from_formatted(formatted: str) -> timedelta:
     seconds = seconds + (Decimal(split[1]) * Decimal(60))
     seconds = seconds + (Decimal(split[2]))
     return timedelta(seconds=seconds.__float__())
+
+
+def sizeof_fmt(num, unit="B"):
+    """
+    Human readable file size.
+
+    :param num:        File size in bytes/bits
+    :param unit:       Unit to use (change to "b" for bits)
+
+    :return:           Formatted size
+    """
+    for prefix in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi", "Yi", "Ri"):
+        if abs(num) < 1024.0:
+            return f"{num:3.1f} {prefix}{unit}"
+        num /= 1024.0
+    return f"{num:.1f}Qi{unit}"
