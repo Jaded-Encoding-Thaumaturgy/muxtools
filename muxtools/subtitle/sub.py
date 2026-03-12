@@ -16,7 +16,7 @@ from .styles import GJM_GANDHI_PRESET, resize_preset
 from .subutils import create_document, dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
-from ..utils.types import PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScale
+from ..utils.types import FileMixin, PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScale
 from ..utils.log import debug, error, info, warn, log_escape
 from ..utils.convert import resolve_timesource_and_scale
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
@@ -432,7 +432,7 @@ class SubFile(BaseSubFile):
 
     def merge(
         self,
-        file: PathLike | GlobSearch,
+        file: PathLike | GlobSearch | FileMixin,
         sync: None | int | str = None,
         sync2: None | str = None,
         timesource: TimeSourceT = None,
