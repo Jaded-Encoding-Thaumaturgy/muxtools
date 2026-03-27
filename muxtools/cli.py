@@ -236,4 +236,4 @@ def generate_videometa(file: str | None = None, output: str | None = None):
     else:
         out_path = ensure_path(output, None)
 
-    get_timemeta_from_video(in_path, out_path, None)
+    get_timemeta_from_video(in_path, 0, out_path, parsed, None)

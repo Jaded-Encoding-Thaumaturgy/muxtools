@@ -7,7 +7,7 @@ from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_DOWN
 from video_timestamps import FPSTimestamps, RoundingMethod, TextFileTimestamps, VideoTimestamps, ABCTimestamps, TimeType
 
-from ..utils.types import PathLike, TimeScale, VideoMeta, TimeSourceT, TimeScaleT
+from ..utils.types import PathLike, TimeScale, VideoMeta, TimeSourceT, TimeScaleT, TrackType
 from ..utils.log import info, warn, crit, debug, error
 from ..utils.files import ensure_path_exists, get_workdir, ensure_path
 from ..utils.env import get_setup_attr
@@ -66,7 +66,9 @@ class ExtrapolatingVideoTimestamps(VideoTimestamps):
         return super()._frame_to_time(frame)
 
 
-def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = None, caller: Any | None = None) -> VideoMeta:
+def get_timemeta_from_video(
+    video_file: PathLike, index: int = 0, out_file: PathLike | None = None, metadata: ParsedFile | None = None, caller: Any | None = None
+) -> VideoMeta:
     """
     Parse timestamps from an existing video file using ffprobe.\n
     They're saved as a custom meta file in the current workdir and named based on the input.
@@ -74,6 +76,7 @@ def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = No
     Also automatically reused (with a debug log) if already exists.
 
     :param video_file:      Input video. Path or String.
+    :param index:           Relative video track index.
     :param out_file:        Output file. If None given, the above behavior applies.
     :param caller:          Caller used for the logging
 
@@ -81,13 +84,18 @@ def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = No
     """
     video_file = ensure_path_exists(video_file, get_timemeta_from_video)
     assert get_executable("ffprobe")
+
     if not out_file:
-        out_file = get_workdir() / f"{video_file.stem}_meta.json"
+        out_file = get_workdir() / f"{video_file.stem}_{index}_meta.json"
+
+    if not metadata:
+        metadata = ParsedFile.from_file(video_file, caller, False)
 
     out_file = ensure_path(out_file, get_timemeta_from_video)
     if not out_file.exists() or out_file.stat().st_size < 1:
-        info(f"Generating timestamps for '{video_file.name}'...", caller)
-        timestamps = VideoTimestamps.from_video_file(video_file)
+        info(f"Generating timestamps for track {index} in '{video_file.name}'...", caller)
+        video_tracks = metadata.find_tracks(type=TrackType.VIDEO, relative_id=index, error_if_empty=True, caller=caller or get_timemeta_from_video)
+        timestamps = VideoTimestamps.from_video_file(video_file, video_tracks[0].index)
         meta = VideoMeta(timestamps.pts_list, timestamps.fps, timestamps.time_scale, str(video_file.resolve()))
         with open(out_file, "w", encoding="utf-8") as f:
             f.write(meta.to_json())
@@ -98,7 +106,7 @@ def get_timemeta_from_video(video_file: PathLike, out_file: PathLike | None = No
 
 
 def resolve_timesource_and_scale(
-    timesource: PathLike | Fraction | float | list[int] | VideoMeta | ABCTimestamps | None = None,
+    timesource: PathLike | Fraction | float | list[int] | VideoMeta | ABCTimestamps | tuple[Path | str, int] | None = None,
     timescale: TimeScale | Fraction | int | None = None,
     rounding_method: RoundingMethod = RoundingMethod.ROUND,
     allow_warn: bool = True,
@@ -155,13 +163,15 @@ def resolve_timesource_and_scale(
     if isinstance(timesource, ABCTimestamps):
         return timesource
 
-    if isinstance(timesource, Path) or isinstance(timesource, str):
-        if isinstance(timesource, Path) or os.path.isfile(timesource):
-            timesource = ensure_path(timesource, caller)
+    if isinstance(timesource, Path) or isinstance(timesource, str) or (isinstance(timesource, tuple) and isinstance(timesource[1], int)):
+        timesource_path = timesource if not isinstance(timesource, tuple) else timesource[0]
+        timesource_index = 0 if not isinstance(timesource, tuple) else timesource[1]
+        if isinstance(timesource_path, Path) or os.path.isfile(timesource_path):
+            timesource = ensure_path(timesource_path, caller)
             parsed = ParsedFile.from_file(timesource, caller, False)
 
             if parsed and parsed.is_video_file:
-                meta = get_timemeta_from_video(timesource, caller=caller)
+                meta = get_timemeta_from_video(timesource, timesource_index, metadata=parsed, caller=caller)
                 return ExtrapolatingVideoTimestamps(meta.pts, meta.timescale, rounding_method=rounding_method)
             else:
                 try:

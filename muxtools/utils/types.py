@@ -79,10 +79,11 @@ class TimeScale(IntEnum):
     """Typical m2ts timescale"""
 
 
-TimeSourceT = PathLike | Fraction | float | list | VideoMeta | ABCTimestamps
+TimeSourceT = PathLike | Fraction | float | list | VideoMeta | ABCTimestamps | tuple[Path | str, int]
 """
 The source of timestamps/timecodes.\n
 For actual timestamps, this can be a timestamps (v1/v2/v4) file, a video file or a list of integers.\n
+You can also pass a tuple of some form of path to a video file and a relative video track index.\n
 For FPS based timestamps, this can be a Fraction object, a float or even a string representing a fraction.\n
 Like `'24000/1001'`.\n
 Can also be an already instantiated Timestamps class from the videotimestamps library.\n
