@@ -7,7 +7,6 @@ from pathlib import Path
 from font_collector import ABCFontFace, VariableFontFace
 from fontTools.subset import Subsetter
 from fontTools import ttLib
-import time
 import hashlib
 import base64
 
