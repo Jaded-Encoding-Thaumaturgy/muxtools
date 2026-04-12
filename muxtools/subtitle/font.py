@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import logging
+from collections import defaultdict
 from pathlib import Path
 from font_collector import ABCFontFace, VariableFontFace
 from fontTools.subset import Subsetter
@@ -13,7 +14,7 @@ import base64
 from .sub import SubFile, FontFile as MTFontFile
 from ..utils.convert import sizeof_fmt
 from ..utils.env import get_workdir
-from ..utils.log import warn, error, info, danger
+from ..utils.log import warn, error, info, danger, debug
 
 
 __all__ = [
@@ -114,7 +115,7 @@ def subset_fonts(
 
     subset_additional_glyphs_parsed = _parse_unicode_chars(additional_glyphs)
 
-    fonts: dict[ABCFontFace, dict] = {}
+    fonts: dict[ABCFontFace, dict[str, set[str] | dict[str, str]]] = {}
     # Font:
     # - usage: set()
     # - names: set()  # old name
@@ -151,73 +152,96 @@ def subset_fonts(
     total_old_size = 0
     total_new_size = 0
 
+    # Group font faces by source file so TTC collections are handled atomically
+    faces_by_file: dict[Path, list[ABCFontFace]] = defaultdict(list)
     for font_face in fonts.keys():
         assert font_face.font_file is not None, "Font file is missing!"
+        faces_by_file[Path(font_face.font_file.filename)].append(font_face)
 
-        font_name = _get_fontname(font_face)
+    for source_file, face_list in faces_by_file.items():
+        # (font_face, loaded TTFont, character count) for faces we will save
+        faces_to_save: list[tuple[ABCFontFace, ttLib.TTFont, int]] = []
 
-        # Old size is calculated before skipping subsetting if necessary
-        old_size = os.path.getsize(font_face.font_file.filename)
+        for font_face in face_list:
+            font_name = _get_fontname(font_face)
+
+            characters = fonts[font_face]["usage"].copy()
+            characters.update(subset_additional_glyphs_parsed)
+
+            if not aggressive:
+                characters.update(COMMON_UNICODE_CHARS)
+
+            if not characters:
+                if ignore_fonts_with_no_usage:
+                    warn(f"No characters used in font '{font_name}'. Skipping subsetting.", subset_fonts)
+                    continue
+                else:
+                    warn(f"No characters used in font '{font_name}'. Defaulting to common subset.", subset_fonts)
+                    characters.update(COMMON_UNICODE_CHARS)
+
+            chars_sorted = "".join(sorted(characters))
+            for old_name in fonts[font_face]["names"]:
+                fonts[font_face]["names_hashed"][old_name] = _hash_font_name(old_name, chars_sorted)
+
+            debug(f"Subsetting font '{source_file}' (index {font_face.font_index})...", subset_fonts)
+
+            ttLib_font = ttLib.TTFont(source_file, fontNumber=font_face.font_index)
+
+            name_table = ttLib_font["name"]
+            for record in name_table.names:
+                if record.nameID in [1, 4, 6]:  # Font Family name, Full name, PostScript name
+                    old_name = record.toUnicode().strip()
+                    if old_name not in fonts[font_face]["names_hashed"]:
+                        fonts[font_face]["names_hashed"][old_name] = _hash_font_name(old_name, chars_sorted)
+                    record.string = fonts[font_face]["names_hashed"][old_name]
+
+            subsetter = Subsetter()
+            subsetter.populate(text="".join(characters))
+            subsetter.subset(ttLib_font)
+
+            faces_to_save.append((font_face, ttLib_font, len(characters)))
+
+            for old_name, new_name in fonts[font_face]["names_hashed"].items():
+                font_replacements[old_name] = new_name
+
+        if not faces_to_save:
+            continue
+
+        old_size = os.path.getsize(source_file)
         total_old_size += old_size
 
-        # Determine which characters to include based on params and usage
-        characters = fonts[font_face]["usage"].copy()
-        characters.update(subset_additional_glyphs_parsed)
+        new_font_path = source_file.with_stem(f"{source_file.stem}_subset")
 
-        if not aggressive:
-            # We also want to add a general subset of common characters to avoid issues when reusing fonts, if we aren't doing aggressive subsetting
-            characters.update(COMMON_UNICODE_CHARS)
-
-        if not characters:
-            if ignore_fonts_with_no_usage:
-                warn(f"No characters used in font '{font_name}'. Skipping subsetting.", subset_fonts)
-                continue
-            else:
-                warn(f"No characters used in font '{font_name}'. Defaulting to common subset.", subset_fonts)
-                characters.update(COMMON_UNICODE_CHARS)
-        
-        chars_sorted = "".join(sorted(characters))
-        for old_name in fonts[font_face]["names"]:
-            fonts[font_face]["names_hashed"][old_name] = _hash_font_name(old_name, chars_sorted)
-
-        ttLib_font = ttLib.TTFont(font_face.font_file.filename)
-
-        name_table = ttLib_font["name"]
-
-        for record in name_table.names:
-            if record.nameID in [1, 4, 6]:  # Font Family name, Full name, PostScript name
-                old_name = record.toUnicode().strip()
-                if old_name not in fonts[font_face]["names_hashed"]: # If the name wasn't collected, hash it now
-                    fonts[font_face]["names_hashed"][old_name] = _hash_font_name(old_name, chars_sorted)
-                
-                record.string = fonts[font_face]["names_hashed"][old_name]
-        
-        subsetter = Subsetter()
-        subsetter.populate(text="".join(characters))
-        subsetter.subset(ttLib_font)
-
-        new_font_path = font_face.font_file.filename.with_stem(f"{font_face.font_file.filename.stem}_subset")
-        ttLib_font.save(new_font_path)
-        ttLib_font.close()
+        is_collection = len(faces_to_save) > 1 or source_file.suffix.lower() in ('.ttc', '.otc')
+        if is_collection:
+            from fontTools.ttLib.ttCollection import TTCollection
+            ttc = TTCollection()
+            for _, f, _ in faces_to_save:
+                ttc.fonts.append(f)
+            ttc.save(str(new_font_path))
+            for _, f, _ in faces_to_save:
+                f.close()
+        else:
+            _, ttLib_font, _ = faces_to_save[0]
+            ttLib_font.save(new_font_path)
+            ttLib_font.close()
 
         new_size = os.path.getsize(new_font_path)
         total_new_size += new_size
 
         try:
-            os.remove(font_face.font_file.filename)
+            os.remove(source_file)
         except FileNotFoundError:
-            pass # If the file is already missing, we can ignore this, bit weird though
+            pass
         except PermissionError:
-            error(f"Could not remove original font file '{font_face.font_file.filename}' due to permission error. Is it open in another program?", subset_fonts)
-        
-        for old_name, new_name in fonts[font_face]["names_hashed"].items():
-            font_replacements[old_name] = new_name
+            error(f"Could not remove original font file '{source_file}' due to permission error. Is it open in another program?", subset_fonts)
 
-        info(f"Subsetted font '{font_name}' ({len(characters)} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", collect_fonts)
+        for font_face, _, char_count in faces_to_save:
+            font_name = _get_fontname(font_face)
+            info(f"Subsetted font '{font_name}' ({char_count} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", collect_fonts)
     
 
     if font_replacements:
-
         for sub in subs:
             doc = sub._read_doc()
 
