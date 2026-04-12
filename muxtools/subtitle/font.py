@@ -240,7 +240,7 @@ def subset_fonts(
 
         for font_face, _, char_count in faces_to_save:
             font_name = _get_fontname(font_face)
-            info(f"Subsetted font '{font_name}' ({char_count} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", collect_fonts)
+            info(f"Subsetted font '{font_name}' ({char_count} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", subset_fonts)
     
 
     if font_replacements:
@@ -275,7 +275,7 @@ def subset_fonts(
             info(f"Updated font names in subfile '{sub.file.name}'", subset_fonts)
     
     if print_final_stats and total_old_size > 0:
-        info(f'Subsetting has saved {(total_old_size - total_new_size) / total_old_size * 100:.2f}% ({sizeof_fmt(total_old_size)} -> {sizeof_fmt(total_new_size)})')
+        info(f'Subsetting has saved {sizeof_fmt(total_old_size - total_new_size)} ({(total_old_size - total_new_size) / total_old_size * 100:.2f}%, {sizeof_fmt(total_old_size)} -> {sizeof_fmt(total_new_size)})', subset_fonts)
     
     found_fonts = list[MTFontFile]()
     for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
