@@ -4,7 +4,7 @@ import shutil
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 from font_collector import ABCFontFace, VariableFontFace  # type: ignore[import-untyped]
 from fontTools.subset import Subsetter  # type: ignore[import-untyped]
 from fontTools import ttLib  # type: ignore[import-untyped]
@@ -258,7 +258,7 @@ def subset_fonts(
                         if data.name in font_replacements:
                             event.text = re.sub(
                                 R'(\\fn[^\\}]*)' + safe_font_name,
-                                lambda m: m.group(1) + font_replacements[data.name],
+                                lambda m: cast(str, m.group(1)) + font_replacements[data.name],
                                 event.text,
                                 count=1
                             )
