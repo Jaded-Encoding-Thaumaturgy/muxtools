@@ -348,6 +348,8 @@ def collect_fonts(
 
     found_fonts = list[MTFontFile]()
     collected_faces = set[ABCFontFace]()
+    # Track source path -> workdir copy so TTC files aren't duplicated per-face
+    copied_sources: dict[Path, Path] = {}
 
     for style, usage_data in styles.items():
         query = font_collection.get_used_font_by_style(style, load_strategy)
@@ -375,6 +377,16 @@ def collect_fonts(
                 if query.font_face in collected_faces:
                     continue
 
+                # If this source file was already copied (e.g. another face from the
+                # same TTC), reuse the existing copy instead of creating a duplicate.
+                if fontpath in copied_sources:
+                    outpath = copied_sources[fontpath]
+                elif not outpath.exists():
+                    shutil.copy(fontpath, outpath)
+                    copied_sources[fontpath] = outpath
+                else:
+                    copied_sources[fontpath] = outpath
+
             if query.font_face not in collected_faces:
                 info(f"Found font '{fontname}'.", collect_fonts)
                 collected_faces.add(query.font_face)
@@ -391,8 +403,6 @@ def collect_fonts(
             if len(missing_glyphs) != 0:
                 danger(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts, 3)
 
-            if not outpath.exists():
-                shutil.copy(fontpath, outpath)
 
     for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
         for f in get_workdir().glob(r):
