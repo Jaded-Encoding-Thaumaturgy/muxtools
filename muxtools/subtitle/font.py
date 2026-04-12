@@ -4,9 +4,11 @@ import shutil
 import logging
 from collections import defaultdict
 from pathlib import Path
-from font_collector import ABCFontFace, VariableFontFace
-from fontTools.subset import Subsetter
-from fontTools import ttLib
+from typing import TypedDict
+from font_collector import ABCFontFace, VariableFontFace  # type: ignore[import-untyped]
+from fontTools.subset import Subsetter  # type: ignore[import-untyped]
+from fontTools import ttLib  # type: ignore[import-untyped]
+from fontTools.ttLib.ttCollection import TTCollection  # type: ignore[import-untyped]
 import hashlib
 import base64
 
@@ -19,6 +21,12 @@ from ..utils.log import warn, error, info, danger, debug
 __all__ = [
     "subset_fonts",
 ]
+
+
+class _FontData(TypedDict):
+    usage: set[str]
+    names: set[str]
+    names_hashed: dict[str, str]
 
 # A selection of common unicode characters to always include when subsetting fonts
 # Follows the format: 'U+XXXX'
@@ -102,7 +110,7 @@ def subset_fonts(
 
     from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass, ABCFontFace
 
-    from ass_tag_analyzer import parse_line, AssValidTagFontName
+    from ass_tag_analyzer import parse_line, AssValidTagFontName  # type: ignore[import-untyped]
 
     font_collection = FontCollection(
         use_system_font=False,
@@ -114,11 +122,7 @@ def subset_fonts(
 
     subset_additional_glyphs_parsed = _parse_unicode_chars(additional_glyphs)
 
-    fonts: dict[ABCFontFace, dict[str, set[str] | dict[str, str]]] = {}
-    # Font:
-    # - usage: set()
-    # - names: set()  # old name
-    # - names_hashed: dict[str, str]  # old name -> new name
+    fonts: dict[ABCFontFace, _FontData] = {}
 
     for sub in subs:
         doc = AssDocument(sub._read_doc())
@@ -213,7 +217,6 @@ def subset_fonts(
 
         is_collection = len(faces_to_save) > 1 or source_file.suffix.lower() in ('.ttc', '.otc')
         if is_collection:
-            from fontTools.ttLib.ttCollection import TTCollection
             ttc = TTCollection()
             for _, f, _ in faces_to_save:
                 ttc.fonts.append(f)
