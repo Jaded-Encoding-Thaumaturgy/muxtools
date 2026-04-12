@@ -198,6 +198,10 @@ def subset_fonts(
                         fonts[font_face]["names_hashed"][old_name] = _hash_font_name(old_name, chars_sorted)
                     record.string = fonts[font_face]["names_hashed"][old_name]
 
+            # Mark as a muxtools subset via name ID 3 (unique font identifier).
+            # This lets font databases identify and group/skip subset fonts.
+            name_table.setName(f"muxtools-subset;{font_name};{_hash_font_name(font_name, chars_sorted)}", 3, 3, 1, 0x0409)
+
             subsetter = Subsetter()
             subsetter.populate(text="".join(characters))
             subsetter.subset(ttLib_font)
