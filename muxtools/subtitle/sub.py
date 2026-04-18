@@ -46,6 +46,13 @@ CCC_REPLACEMENTS_REDUCED_MARGINS = dict(
     BottomRight=(R"\an3", 25, 25),
 )
 
+def name_matches_style(style: str, style_names: list[str], exact_match: bool) -> bool:
+    style_names = [style.casefold() for style in style_names]
+    if exact_match:
+        return style.casefold() in style_names
+    else:
+        return bool(next((style_name for style_name in style_names if style_name in style.casefold()), None))
+
 
 class FontFile(MuxingFile):
     def to_track(self, *args) -> Attachment:
@@ -196,6 +203,7 @@ class SubFile(BaseSubFile):
         inline_marker: str = "*",
         line_marker: str = "***",
         inline_tag_markers: str | None = None,
+        exact_names: bool = True,
     ) -> Self:
         r"""
         autoswapper allows replacing text in the script with a different text.
@@ -230,6 +238,7 @@ class SubFile(BaseSubFile):
         :param line_marker:             Marker to use for full-line swaps. Default `***`
         :param inline_tag_markers:      Two characters that will be replaced with `{}` respectively in the inline swaps.
                                         Defaults to `None`, which will just remove the `{}` from the swapped text.
+        :param exact_names:             Match style names in full instead of substring matching as mentioned above. (still case-insensitive)
 
         :return:                        This SubTrack
         """
@@ -256,7 +265,7 @@ class SubFile(BaseSubFile):
 
         def _do_autoswap(lines: LINES):
             for i, line in enumerate(lines):
-                if not allowed_styles or str(line.style).casefold() in {style.casefold() for style in allowed_styles}:
+                if not allowed_styles or name_matches_style(str(line.style), allowed_styles, exact_names):
                     to_swap: dict = {}
                     # {*}This will be replaced{*With this}
                     for match in re.finditer(ab_swap_regex, line.text):
@@ -708,7 +717,12 @@ class SubFile(BaseSubFile):
         return self
 
     def separate_signs(
-        self, styles: list[str] = DEFAULT_DIALOGUE_STYLES, inverse: bool = False, heuristics: bool = False, print_heuristics: bool = True
+        self,
+        styles: list[str] = DEFAULT_DIALOGUE_STYLES,
+        inverse: bool = False,
+        heuristics: bool = False,
+        print_heuristics: bool = True,
+        exact_names: bool = True,
     ) -> Self:
         """
         Basically deletes lines that have any of the passed styles.
@@ -716,12 +730,13 @@ class SubFile(BaseSubFile):
         :param styles:      List of style names to get rid of (case-insensitive)
         :param inverse:     Treat the list as the opposite. Will remove lines that *don't* have any of those styles.
         :param heuristics:  Also use heuristics for detecting signs.
+        :param exact_names: Match style names in full instead of substring matching as mentioned above. (still case-insensitive)
         """
 
         def _is_sign(line: _Line) -> bool:
             confidence = 0
             style_check = False
-            if styles and (line.style.casefold() not in [str(style).casefold() for style in styles]):
+            if styles and not name_matches_style(str(line.style), styles, exact_names):
                 style_check = True
                 confidence += 2
 
