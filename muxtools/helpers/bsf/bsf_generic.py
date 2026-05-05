@@ -123,12 +123,19 @@ class BSF_Format(IntEnum):
 
 def _apply_bsf(
     fileIn: Path,
+    fileOut: Path | None,
     filter_name: str,
     filter_options: list[str],
     caller: Any,
     quiet: bool = True,
 ) -> Path:
-    out = make_output(fileIn, fileIn.suffix[1:], "bsf", temp=True)
+    custom_path = fileOut is not None and fileIn != fileOut
+
+    suffix, temp = "bsf", True
+    if custom_path:
+        suffix, temp = "", False
+
+    out = make_output(fileIn, fileIn.suffix[1:], suffix, fileOut, temp)
     ffmpeg = get_executable("ffmpeg")
 
     options = ":".join(filter_options)
@@ -139,7 +146,9 @@ def _apply_bsf(
         clean_temp_files()
         raise error(f"Failed to apply {filter_name.split('_')[0]} bitstream filter!", caller)
 
-    fileIn.unlink()
-    move(out, fileIn)
-    clean_temp_files()
-    return replace_crc(fileIn, caller)
+    if not custom_path:
+        fileIn.unlink()
+        move(out, fileIn)
+        clean_temp_files()
+
+    return replace_crc(out if custom_path else fileIn, caller)

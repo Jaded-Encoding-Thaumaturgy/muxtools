@@ -17,6 +17,7 @@ def _resolve_crop(crop: int | Sequence[int]) -> list[str]:
 
 def _apply_avc_hevc_bsf(
     fileIn: PathLike,
+    fileOut: Path | None,
     filter_name: str,
     sar: int | None = None,
     cloc_type: BSF_ChromaLocation | int | None = None,
@@ -61,11 +62,12 @@ def _apply_avc_hevc_bsf(
     if not filter_options:
         raise error("No changes to be made!", caller)
 
-    return _apply_bsf(f, filter_name, filter_options, caller, quiet)
+    return _apply_bsf(f, fileOut, filter_name, filter_options, caller, quiet)
 
 
 def apply_avc_bsf(
     fileIn: PathLike,
+    fileOut: Path | None = None,
     sar: int | None = None,
     cloc_type: BSF_ChromaLocation | int | None = None,
     full_range: bool | int | None = None,
@@ -83,6 +85,7 @@ def apply_avc_bsf(
     `None` values will do nothing to the respective metadata flags.
 
     :param fileIn:                      The file to modify
+    :param fileOut                      Optional output path override
     :param sar:                         Set the sample aspect ratio in the stream
     :param cloc_type:                   Set the chroma sample location in the stream
     :param full_range:                  Set the full range flag in the stream
@@ -99,6 +102,7 @@ def apply_avc_bsf(
 
     return _apply_avc_hevc_bsf(
         fileIn,
+        fileOut,
         "h264_metadata",
         sar=sar,
         cloc_type=cloc_type,
@@ -116,6 +120,7 @@ def apply_avc_bsf(
 
 def apply_hevc_bsf(
     fileIn: PathLike,
+    fileOut: Path | None = None,
     sar: int | None = None,
     cloc_type: BSF_ChromaLocation | int | None = None,
     full_range: bool | int | None = None,
@@ -133,6 +138,7 @@ def apply_hevc_bsf(
     `None` values will do nothing to the respective metadata flags.
 
     :param fileIn:                      The file to modify
+    :param fileOut                      Optional output path override
     :param sar:                         Set the sample aspect ratio in the stream
     :param cloc_type:                   Set the chroma sample location in the stream
     :param full_range:                  Set the full range flag in the stream
@@ -149,6 +155,7 @@ def apply_hevc_bsf(
 
     return _apply_avc_hevc_bsf(
         fileIn,
+        fileOut,
         "hevc_metadata",
         sar=sar,
         cloc_type=cloc_type,

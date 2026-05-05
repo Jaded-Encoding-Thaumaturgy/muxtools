@@ -30,6 +30,7 @@ class MPEG2_FPS(Enum):
 
 def apply_mpeg2_bsf(
     fileIn: PathLike,
+    fileOut: Path | None = None,
     dar: MPEG2_DAR | str | None = None,
     fps: MPEG2_FPS | str | None = None,
     format: BSF_Format | int | None = None,
@@ -44,6 +45,7 @@ def apply_mpeg2_bsf(
     `None` values will do nothing to the respective metadata flags.
 
     :param fileIn:                      The file to modify
+    :param fileOut                      Optional output path override
     :param dar:                         Set the display aspect ratio in the stream
     :param fps:                         Set the frame rate in the stream
     :param format:                      Set the video format in the stream
@@ -86,4 +88,4 @@ def apply_mpeg2_bsf(
     if not filter_options:
         raise error("No changes to be made!", apply_mpeg2_bsf)
 
-    return _apply_bsf(f, "mpeg2_metadata", filter_options, apply_mpeg2_bsf, quiet)
+    return _apply_bsf(f, fileOut, "mpeg2_metadata", filter_options, apply_mpeg2_bsf, quiet)
