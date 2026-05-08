@@ -67,7 +67,7 @@ def download_allowed() -> bool:
 def communicate_stdout(command: str | list[str], shell: bool = False, **kwargs) -> tuple[int, str]:
     if os.name != "nt" and isinstance(command, str):
         shell = True
-    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, shell=shell, **kwargs)
+    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, shell=shell, encoding="utf-8", **kwargs)
     out, err = p.communicate()
     returncode = p.returncode
     stdout = (out or "") + (err or "")
