@@ -166,7 +166,7 @@ def subset_fonts(
     for source_file, face_list in faces_by_file.items():
         file_size = os.path.getsize(source_file)
         if file_size < min_file_size_to_subset:
-            debug(f"Skipping subsetting for '{source_file}' ({sizeof_fmt(file_size)} < {sizeof_fmt(min_file_size_to_subset)})", subset_fonts)
+            info(f"Skipping subsetting for '{source_file}' ({sizeof_fmt(file_size)} < {sizeof_fmt(min_file_size_to_subset)})", subset_fonts)
             total_old_size += file_size
             total_new_size += file_size
             continue
