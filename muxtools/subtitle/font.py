@@ -81,6 +81,7 @@ def subset_fonts(
     aggressive: bool = False,
     ignore_fonts_with_no_usage: bool = True,
     additional_glyphs: list[str] = [],
+    min_file_size_to_subset: int = 400 * 1024,
     print_final_stats: bool = True,
 ) -> list[MTFontFile]:
     """
@@ -97,6 +98,7 @@ def subset_fonts(
     :param additional_glyphs:           If you have any additional glyphs that need to be included in the subsetted fonts.
                                         You can use the format "U+XXXX" for unicode characters or "U+XXXX-YYYY" for unicode ranges.
                                         https://unicode-explorer.com/blocks can help you find the characters/ranges you need.
+    :param min_file_size_to_subset:     Only subset fonts whose file size is at least this many bytes. Smaller fonts are left as-is. Set to 0 to subset all fonts regardless of size.
     :param print_final_stats:           If enabled, will print out statistics about space saved.
 
     :return:                            A list of FontFile objects
@@ -162,6 +164,13 @@ def subset_fonts(
         faces_by_file[Path(font_face.font_file.filename)].append(font_face)
 
     for source_file, face_list in faces_by_file.items():
+        file_size = os.path.getsize(source_file)
+        if file_size < min_file_size_to_subset:
+            debug(f"Skipping subsetting for '{source_file}' ({sizeof_fmt(file_size)} < {sizeof_fmt(min_file_size_to_subset)})", subset_fonts)
+            total_old_size += file_size
+            total_new_size += file_size
+            continue
+
         # (font_face, loaded TTFont, character count) for faces we will save
         faces_to_save: list[tuple[ABCFontFace, ttLib.TTFont, int]] = []
 
