@@ -12,7 +12,7 @@ import json
 import re
 import os
 
-from .styles import GJM_GANDHI_PRESET, resize_preset
+from .styles import GJM_GANDHI_PRESET, edit_style, gandhi_default, resize_preset
 from .subutils import create_document, dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
@@ -45,6 +45,7 @@ CCC_REPLACEMENTS_REDUCED_MARGINS = dict(
     BottomLeft=(R"\an1", 25, 25),
     BottomRight=(R"\an3", 25, 25),
 )
+
 
 def name_matches_style(style: str, style_names: list[str], exact_match: bool) -> bool:
     style_names = [style.casefold() for style in style_names]
@@ -939,7 +940,7 @@ class SubFile(BaseSubFile):
         with open(out, "w", encoding="utf_8_sig") as writer:
             doc.dump_file(writer)
         out = cls(file=out, container_delay=0, source=file)
-        return out.restyle(GJM_GANDHI_PRESET)
+        return out.restyle(GJM_GANDHI_PRESET).restyle(edit_style(gandhi_default, "Sign"))
 
     @classmethod
     def from_mkv(cls: type[Self], file: PathLike, track: int = 0, preserve_delay: bool = False, quiet: bool = True, **kwargs: Any) -> Self:
