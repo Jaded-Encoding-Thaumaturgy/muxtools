@@ -32,11 +32,13 @@ def edit_style(style: Style, name: str, **kwargs) -> Style:
 def get_complimenting_styles(style: Style) -> list[Style]:
     """
     Generates colored Alt/Overlap and Flashback styles for a given style.
+    Also adds a basic sign style so they can be styled separately.
     """
     return [
         edit_style(style, "Overlap", outline_color=Color(r=0x15, g=0x3E, b=0x74, a=0x00)),
         edit_style(style, "Alt", outline_color=Color(r=0x15, g=0x3E, b=0x74, a=0x00)),
         edit_style(style, "Flashback", outline_color=Color(r=0x12, g=0x3E, b=0x01, a=0x00)),
+        edit_style(style, "Sign"),
     ]
 
 
