@@ -105,6 +105,50 @@ def get_timemeta_from_video(
     return meta
 
 
+def _check_timescale(timescale: TimeScale | Fraction | int | None = None, allow_warn: bool = True, caller: Any = None) -> Fraction:
+    if not timescale:
+        if allow_warn:
+            warn("No timescale was given, defaulting to Matroska scaling.", caller)
+        timescale = Fraction(1000)
+    return Fraction(timescale)
+
+
+def _handle_file_timesource(
+    source: Path | str,
+    index: int = 0,
+    timescale: TimeScale | Fraction | int | None = None,
+    rounding_method: RoundingMethod = RoundingMethod.ROUND,
+    allow_warn: bool = True,
+    fetch_from_setup: bool = False,
+    caller: Any | None = None,
+) -> ABCTimestamps:
+    timesource = ensure_path(source, caller)
+    parsed = None
+    failed_ffprobe = None
+
+    try:
+        parsed = ParsedFile.from_file(timesource, caller, False)
+    except Exception as ex:
+        failed_ffprobe = ex
+
+    if parsed and parsed.is_video_file:
+        meta = get_timemeta_from_video(timesource, index, metadata=parsed, caller=caller)
+        return ExtrapolatingVideoTimestamps(meta.pts, meta.timescale, rounding_method=rounding_method)
+
+    try:
+        meta = VideoMeta.from_json(timesource)
+        return resolve_timesource_and_scale(meta, timescale, rounding_method, allow_warn, fetch_from_setup, caller)
+    except:
+        pass
+
+    try:
+        timescale = _check_timescale(timescale)
+        return TextFileTimestamps(timesource, timescale, rounding_method=rounding_method)
+    except:
+        er = error("Couldn't parse file input for timesource as either a video, videometa.json or regular timestamps file!")
+        raise er if not failed_ffprobe else failed_ffprobe
+
+
 def resolve_timesource_and_scale(
     timesource: PathLike | Fraction | float | list[int] | VideoMeta | ABCTimestamps | tuple[Path | str, int] | None = None,
     timescale: TimeScale | Fraction | int | None = None,
@@ -144,17 +188,10 @@ def resolve_timesource_and_scale(
             debug("Using default timescale from setup.", caller)
             timescale = setup_timescale
 
-    def check_timescale(timescale) -> Fraction:
-        if not timescale:
-            if allow_warn:
-                warn("No timescale was given, defaulting to Matroska scaling.", caller)
-            timescale = Fraction(1000)
-        return Fraction(timescale)
-
     if timesource is None:
         if allow_warn:
             warn("No timesource was given, generating timestamps for FPS (24000/1001).", caller)
-        timescale = check_timescale(timescale)
+        timescale = _check_timescale(timescale)
         return FPSTimestamps(rounding_method, timescale, Fraction(24000, 1001))
 
     if isinstance(timesource, VideoMeta):
@@ -168,26 +205,15 @@ def resolve_timesource_and_scale(
         timesource_index = 0 if not isinstance(timesource, tuple) else timesource[1]
         if isinstance(timesource_path, Path) or os.path.isfile(timesource_path):
             timesource = ensure_path(timesource_path, caller)
-            parsed = ParsedFile.from_file(timesource, caller, False)
-
-            if parsed and parsed.is_video_file:
-                meta = get_timemeta_from_video(timesource, timesource_index, metadata=parsed, caller=caller)
-                return ExtrapolatingVideoTimestamps(meta.pts, meta.timescale, rounding_method=rounding_method)
-            else:
-                try:
-                    meta = VideoMeta.from_json(timesource)
-                    return resolve_timesource_and_scale(meta, timescale, rounding_method, allow_warn, fetch_from_setup, caller)
-                except:
-                    timescale = check_timescale(timescale)
-                    return TextFileTimestamps(timesource, timescale, rounding_method=rounding_method)
+            return _handle_file_timesource(timesource, timesource_index, timescale, rounding_method, allow_warn, fetch_from_setup, caller)
 
     elif isinstance(timesource, list) and isinstance(timesource[0], int):
-        timescale = check_timescale(timescale)
+        timescale = _check_timescale(timescale)
         return ExtrapolatingVideoTimestamps(timesource, timescale, rounding_method=rounding_method)
 
     if isinstance(timesource, float) or isinstance(timesource, str) or isinstance(timesource, Fraction):
         fps = Fraction(timesource)
-        timescale = check_timescale(timescale)
+        timescale = _check_timescale(timescale)
         return FPSTimestamps(rounding_method, timescale, fps)
 
     raise crit("Invalid timesource passed!", caller)
