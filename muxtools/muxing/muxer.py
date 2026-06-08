@@ -51,10 +51,7 @@ def mux(
     filename, mkvtitle = output_names(tmdb, args, tracklist)
 
     if not outfile:
-        if filename.lower().endswith(".mkv"):
-            outfile = Path(out_dir, filename)
-        else:
-            outfile = Path(out_dir, f"{filename}.mkv")
+        outfile = Path(out_dir, filename).with_suffix(".mkv")
 
     outfile = ensure_path(outfile, "Mux")
 
