@@ -28,31 +28,33 @@ class _FontData(TypedDict):
     names: set[str]
     names_hashed: dict[str, str]
 
+
 # A selection of common unicode characters to always include when subsetting fonts
 # Follows the format: 'U+XXXX'
 # For ranges, use 'U+XXXX-YYYY'
 UNFORMATTED_COMMON_UNICODE_CHARS = [
-    'U+0000-00FF',  # Basic Latin + Latin-1 Supplement
-    'U+0100-024F',  # Latin Extended-A + Latin Extended-B
-    'U+1E00-1EFF',  # Latin Extended Additional
-    'U+2000-206F',  # General Punctuation
-    'U+20A0-20CF',  # Currency Symbols
+    "U+0000-00FF",  # Basic Latin + Latin-1 Supplement
+    "U+0100-024F",  # Latin Extended-A + Latin Extended-B
+    "U+1E00-1EFF",  # Latin Extended Additional
+    "U+2000-206F",  # General Punctuation
+    "U+20A0-20CF",  # Currency Symbols
 ]
+
 
 def _parse_unicode_chars(char_list: list[str]) -> list[str]:
     """Parse unicode character definitions including ranges."""
     result = []
     for item in char_list:
-        if item.startswith('U+'):
-            if '-' in item:
+        if item.startswith("U+"):
+            if "-" in item:
                 # Handle range
-                parts = item.replace('U+', '').split('-')
+                parts = item.replace("U+", "").split("-")
                 start = int(parts[0], 16)
                 end = int(parts[1], 16)
                 result.extend([chr(i) for i in range(start, end + 1)])
             else:
                 # Single character
-                result.append(chr(int(item.replace('U+', ''), 16)))
+                result.append(chr(int(item.replace("U+", ""), 16)))
         else:
             if len(item) == 1:
                 result.append(item)
@@ -61,15 +63,14 @@ def _parse_unicode_chars(char_list: list[str]) -> list[str]:
 
     return result
 
+
 COMMON_UNICODE_CHARS = _parse_unicode_chars(UNFORMATTED_COMMON_UNICODE_CHARS)
 
 
 def _hash_font_name(font_name: str, characters: str) -> str:
     font_name = font_name.replace(" ", "").strip()
 
-    hash = base64.urlsafe_b64encode(
-        hashlib.sha256(f"{font_name}_Subset_{characters}".encode('utf-8')).digest()
-    ).decode('utf-8').replace("=", "")
+    hash = base64.urlsafe_b64encode(hashlib.sha256(f"{font_name}_Subset_{characters}".encode("utf-8")).digest()).decode("utf-8").replace("=", "")
 
     # Font names should be at most 31 characters long to work with GDI
     # GDI doesnt distinguish after 31 characters, so hash should go at the beginning
@@ -135,7 +136,7 @@ def subset_fonts(
 
             if not query:
                 danger(f"Font '{style.fontname}' was not found! Did you run collect_fonts?", subset_fonts)
-            
+
             else:
                 if fonts.get(query.font_face) is None:
                     fonts[query.font_face] = {
@@ -143,14 +144,13 @@ def subset_fonts(
                         "names": set(),
                         "names_hashed": {},
                     }
-                
-                fonts[query.font_face]["usage"].update(usage_data.characters_used)
-                
-                for name in query.font_face.exact_names + query.font_face.family_names + [style.fontname]:
-                    value = name if isinstance(name, str) else name.value  
-                    
-                    fonts[query.font_face]["names"].add(value)           
 
+                fonts[query.font_face]["usage"].update(usage_data.characters_used)
+
+                for name in query.font_face.exact_names + query.font_face.family_names + [style.fontname]:
+                    value = name if isinstance(name, str) else name.value
+
+                    fonts[query.font_face]["names"].add(value)
 
     font_replacements: dict[str, str] = {}
 
@@ -228,7 +228,7 @@ def subset_fonts(
 
         new_font_path = source_file.with_stem(f"{source_file.stem}_subset")
 
-        is_collection = len(faces_to_save) > 1 or source_file.suffix.lower() in ('.ttc', '.otc')
+        is_collection = len(faces_to_save) > 1 or source_file.suffix.lower() in (".ttc", ".otc")
         if is_collection:
             ttc = TTCollection()
             for _, f, _ in faces_to_save:
@@ -254,7 +254,6 @@ def subset_fonts(
         for font_face, _, char_count in faces_to_save:
             font_name = _get_fontname(font_face)
             info(f"Subsetted font '{font_name}' ({char_count} glyphs, {sizeof_fmt(old_size)} -> {sizeof_fmt(new_size)})", subset_fonts)
-    
 
     if font_replacements:
         for sub in subs:
@@ -270,26 +269,26 @@ def subset_fonts(
 
                         if data.name in font_replacements:
                             event.text = re.sub(
-                                R'(\\fn[^\\}]*)' + safe_font_name,
-                                lambda m: cast(str, m.group(1)) + font_replacements[data.name],
-                                event.text,
-                                count=1
+                                R"(\\fn[^\\}]*)" + safe_font_name, lambda m: cast(str, m.group(1)) + font_replacements[data.name], event.text, count=1
                             )
                             modified = True
-            
+
             for style in doc.styles:
-                if style.fontname in font_replacements:  
+                if style.fontname in font_replacements:
                     style.fontname = font_replacements[style.fontname]
                     modified = True
-            
+
             if modified:
                 sub._update_doc(doc)
 
             info(f"Updated font names in subfile '{sub.file.name}'", subset_fonts)
-    
+
     if print_final_stats and total_old_size > 0:
-        info(f'Subsetting has saved {sizeof_fmt(total_old_size - total_new_size)} ({(total_old_size - total_new_size) / total_old_size * 100:.2f}%, {sizeof_fmt(total_old_size)} -> {sizeof_fmt(total_new_size)})', subset_fonts)
-    
+        info(
+            f"Subsetting has saved {sizeof_fmt(total_old_size - total_new_size)} ({(total_old_size - total_new_size) / total_old_size * 100:.2f}%, {sizeof_fmt(total_old_size)} -> {sizeof_fmt(total_new_size)})",
+            subset_fonts,
+        )
+
     found_fonts = list[MTFontFile]()
     for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
         for f in get_workdir().glob(r):
@@ -441,7 +440,6 @@ def collect_fonts(
             missing_glyphs = query.font_face.get_missing_glyphs(usage_data.characters_used)
             if len(missing_glyphs) != 0:
                 danger(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts, 3)
-
 
     for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
         for f in get_workdir().glob(r):
