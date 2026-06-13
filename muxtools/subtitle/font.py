@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import TypedDict, cast
-from font_collector import ABCFontFace, VariableFontFace  # type: ignore[import-untyped]
+from font_collector import ABCFontFace, VariableFontFace
 from fontTools.subset import Subsetter  # type: ignore[import-untyped]
 from fontTools import ttLib  # type: ignore[import-untyped]
 from fontTools.ttLib.ttCollection import TTCollection  # type: ignore[import-untyped]
