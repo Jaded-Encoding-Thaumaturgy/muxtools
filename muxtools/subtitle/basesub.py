@@ -242,19 +242,31 @@ class BaseSubFile(ABC, MuxingFile):
         return ShiftResult(new_line, outofbounds)
 
     def _shift_line_by_frames(
-        self, line: _Line, offset: int, timestamps: ABCTimestamps, oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR
+        self,
+        line: _Line,
+        offset: int,
+        timestamps: ABCTimestamps,
+        oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR,
+        before: int | None = None,
+        after: int | None = None,
     ) -> ShiftResult:
         outofbounds = False
         start_frame = timestamps.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
-        new_start_frame = start_frame + offset
 
         end_ms = int(line.end.total_seconds() * 1000)
         if end_ms <= timestamps.first_timestamps:
-            end_frame = new_start_frame
+            end_frame = start_frame
         else:
             end_frame = timestamps.time_to_frame(end_ms, TimeType.END, 3)
 
-        new_end_frame = end_frame + offset
+        shift_all = before is None and after is None
+
+        shift_start = shift_all or (before is not None and start_frame <= before) or (after is not None and start_frame >= after)
+
+        shift_end = shift_all or (before is not None and end_frame <= before) or (after is not None and end_frame >= after)
+
+        new_start_frame = start_frame + offset if shift_start else start_frame
+        new_end_frame = end_frame + offset if shift_end else end_frame
 
         if new_start_frame < 0 or new_end_frame < 0:
             outofbounds = True

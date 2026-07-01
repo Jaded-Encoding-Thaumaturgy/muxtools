@@ -826,22 +826,26 @@ class SubFile(BaseSubFile):
         timesource: TimeSourceT = None,
         timescale: TimeScaleT = None,
         oob_mode: OutOfBoundsMode = OutOfBoundsMode.ERROR,
+        before: int | None = None,
+        after: int | None = None,
     ) -> Self:
         """
         Shifts all lines by any frame number.
 
-        :param frames:              Number of frames to shift by
+        :param frames:              Number of frames to shift by.
         :param timesource:          The source of timestamps/timecodes. For details check the docstring on the type.
         :param timescale:           Unit of time (in seconds) in terms of which frame timestamps are represented.\n
                                     For details check the docstring on the type.
         :param oob_mode:            What to do with lines that are out of bounds after shifting.
+        :param before:              Only shift timestamps before or equal to this frame number.
+        :param after:               Only timestamps after or equal to this frame number.
         """
         resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
         def shift_lines(lines: LINES):
             new_list = list[_Line]()
             for line in lines:
-                line_result = self._shift_line_by_frames(line, frames, resolved_ts, oob_mode)
+                line_result = self._shift_line_by_frames(line, frames, resolved_ts, oob_mode, before, after)
 
                 if line_result.was_out_of_bounds:
                     warn(f"Line is out of bounds: {line.start} - {line.end}:\n\t{line.text}", self)
