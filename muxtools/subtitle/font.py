@@ -84,6 +84,7 @@ def subset_fonts(
     additional_glyphs: list[str] = [],
     min_file_size_to_subset: int = 400 * 1024,
     print_final_stats: bool = True,
+    keep_untracked_fonts: bool = False,
 ) -> list[MTFontFile]:
     """
     Subset fonts previously collected with `collect_fonts`. This can greatly reduce the size of the final mux.
@@ -101,6 +102,7 @@ def subset_fonts(
                                         https://unicode-explorer.com/blocks can help you find the characters/ranges you need.
     :param min_file_size_to_subset:     Only subset fonts whose file size is at least this many bytes. Smaller fonts are left as-is. Set to 0 to subset all fonts regardless of size.
     :param print_final_stats:           If enabled, will print out statistics about space saved.
+    :param keep_untracked_fonts:        If enabled, fonts in the work directory that aren't used by the provided subtitles will be kept instead of being deleted.
 
     :return:                            A list of FontFile objects
     """
@@ -306,6 +308,9 @@ def subset_fonts(
     for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
         for f in get_workdir().glob(r):
             if f.resolve() in known_files:
+                found_fonts.append(MTFontFile(f))
+            elif keep_untracked_fonts:
+                debug(f"Keeping untracked font file '{f.name}'.", subset_fonts)
                 found_fonts.append(MTFontFile(f))
             else:
                 # Orphaned duplicate never matched by any style (its faces were
