@@ -83,8 +83,10 @@ def subset_fonts(
     ignore_fonts_with_no_usage: bool = True,
     additional_glyphs: list[str] = [],
     min_file_size_to_subset: int = 400 * 1024,
+    target_fonts: list[str] | None = None,
+    skip_fonts: list[str] | None = None,
+    keep_dupe_fonts: bool = False,
     print_final_stats: bool = True,
-    keep_untracked_fonts: bool = False,
 ) -> list[MTFontFile]:
     """
     Subset fonts previously collected with `collect_fonts`. This can greatly reduce the size of the final mux.
@@ -101,8 +103,10 @@ def subset_fonts(
                                         You can use the format "U+XXXX" for unicode characters or "U+XXXX-YYYY" for unicode ranges.
                                         https://unicode-explorer.com/blocks can help you find the characters/ranges you need.
     :param min_file_size_to_subset:     Only subset fonts whose file size is at least this many bytes. Smaller fonts are left as-is. Set to 0 to subset all fonts regardless of size.
+    :param target_fonts:                List of font names to subset. If passed, all other fonts will be left as-is.
+    :param skip_fonts:                  List of font names to not subset.
+    :param keep_dupe_fonts:             If enabled, any font files that aren't referenced in the provided subs or that were redundantly copied by `collect_fonts` will be kept instead of being deleted.
     :param print_final_stats:           If enabled, will print out statistics about space saved.
-    :param keep_untracked_fonts:        If enabled, fonts in the work directory that aren't used by the provided subtitles will be kept instead of being deleted.
 
     :return:                            A list of FontFile objects
     """
@@ -171,8 +175,17 @@ def subset_fonts(
 
     for source_file, face_list in faces_by_file.items():
         file_size = os.path.getsize(source_file)
-        if file_size < min_file_size_to_subset:
-            info(f"Skipping subsetting for '{source_file}' ({sizeof_fmt(file_size)} < {sizeof_fmt(min_file_size_to_subset)})", subset_fonts)
+        font_names = {_get_fontname(face) for face in face_list}
+        has_skipped_font = skip_fonts is not None and any(name in skip_fonts for name in font_names)
+        has_non_target_font = target_fonts is not None and not all(name in target_fonts for name in font_names)
+
+        if file_size < min_file_size_to_subset or has_skipped_font or has_non_target_font:
+            if has_skipped_font:
+                info(f"Skipping subsetting for '{source_file}' (in skip_fonts)", subset_fonts)
+            elif has_non_target_font:
+                info(f"Skipping subsetting for '{source_file}' (not in target_fonts)", subset_fonts)
+            elif file_size < min_file_size_to_subset:
+                info(f"Skipping subsetting for '{source_file}' ({sizeof_fmt(file_size)} < {sizeof_fmt(min_file_size_to_subset)})", subset_fonts)
             total_old_size += file_size
             total_new_size += file_size
             output_files.add(source_file)
@@ -296,12 +309,6 @@ def subset_fonts(
 
             info(f"Updated font names in subfile '{sub.file.name}'", subset_fonts)
 
-    if print_final_stats and total_old_size > 0:
-        info(
-            f"Subsetting has saved {sizeof_fmt(total_old_size - total_new_size)} ({(total_old_size - total_new_size) / total_old_size * 100:.2f}%, {sizeof_fmt(total_old_size)} -> {sizeof_fmt(total_new_size)})",
-            subset_fonts,
-        )
-
     known_files = {p.resolve() for p in output_files}
 
     found_fonts = list[MTFontFile]()
@@ -309,8 +316,11 @@ def subset_fonts(
         for f in get_workdir().glob(r):
             if f.resolve() in known_files:
                 found_fonts.append(MTFontFile(f))
-            elif keep_untracked_fonts:
-                debug(f"Keeping untracked font file '{f.name}'.", subset_fonts)
+            elif keep_dupe_fonts:
+                debug(f"Keeping duplicate/unreferenced font file '{f.name}'", subset_fonts)
+                file_size = os.path.getsize(f)
+                total_old_size += file_size
+                total_new_size += file_size
                 found_fonts.append(MTFontFile(f))
             else:
                 # Orphaned duplicate never matched by any style (its faces were
@@ -320,6 +330,12 @@ def subset_fonts(
                     os.remove(f)
                 except OSError:
                     debug(f"Failed to remove orphaned duplicate font file '{f.name}'.", subset_fonts)
+
+    if print_final_stats and total_old_size > 0:
+        info(
+            f"Subsetting has saved {sizeof_fmt(total_old_size - total_new_size)} ({(total_old_size - total_new_size) / total_old_size * 100:.2f}%, {sizeof_fmt(total_old_size)} -> {sizeof_fmt(total_new_size)})",
+            subset_fonts,
+        )
 
     return found_fonts
 
