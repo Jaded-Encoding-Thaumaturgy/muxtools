@@ -163,12 +163,17 @@ def subset_fonts(
         assert font_face.font_file is not None, "Font file is missing!"
         faces_by_file[Path(font_face.font_file.filename)].append(font_face)
 
+    # Font files we intentionally produce or keep. Any other font file left in the
+    # workdir is an orphaned duplicate and is removed
+    output_files: set[Path] = set()
+
     for source_file, face_list in faces_by_file.items():
         file_size = os.path.getsize(source_file)
         if file_size < min_file_size_to_subset:
             info(f"Skipping subsetting for '{source_file}' ({sizeof_fmt(file_size)} < {sizeof_fmt(min_file_size_to_subset)})", subset_fonts)
             total_old_size += file_size
             total_new_size += file_size
+            output_files.add(source_file)
             continue
 
         # (font_face, loaded TTFont, character count) for faces we will save
@@ -221,6 +226,10 @@ def subset_fonts(
                 font_replacements[old_name] = new_name
 
         if not faces_to_save:
+            # All faces skipped (no usage), leave the original untouched
+            # (was collected but not found again? Unlikely) and keep it
+            debug(f"All faces in '{source_file}' skipped (no usage?). Leaving original file untouched.", subset_fonts)
+            output_files.add(source_file)
             continue
 
         old_size = os.path.getsize(source_file)
@@ -240,6 +249,8 @@ def subset_fonts(
             _, ttLib_font, _ = faces_to_save[0]
             ttLib_font.save(new_font_path)
             ttLib_font.close()
+
+        output_files.add(new_font_path)
 
         new_size = os.path.getsize(new_font_path)
         total_new_size += new_size
@@ -289,10 +300,21 @@ def subset_fonts(
             subset_fonts,
         )
 
+    known_files = {p.resolve() for p in output_files}
+
     found_fonts = list[MTFontFile]()
     for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
         for f in get_workdir().glob(r):
-            found_fonts.append(MTFontFile(f))
+            if f.resolve() in known_files:
+                found_fonts.append(MTFontFile(f))
+            else:
+                # Orphaned duplicate never matched by any style (its faces were
+                # from an identical file). Remove it so it isn't muxed.
+                debug(f"Removing orphaned duplicate font file '{f.name}'.", subset_fonts)
+                try:
+                    os.remove(f)
+                except OSError:
+                    debug(f"Failed to remove orphaned duplicate font file '{f.name}'.", subset_fonts)
 
     return found_fonts
 
