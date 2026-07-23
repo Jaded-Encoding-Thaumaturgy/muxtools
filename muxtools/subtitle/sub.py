@@ -915,15 +915,16 @@ class SubFile(BaseSubFile):
         def convert_tags(text: str) -> tuple[str, bool]:
             text = text.strip().replace("\n", "\\N")
             is_sign = False
-            if an8_all_caps and text.upper() == text and len(text) > 7:
-                text = R"{\an8}" + text
-                is_sign = True
             text = re.sub(r"[\<|{]i[\>|}]", R"{\\i1}", text)
             text = re.sub(r"[\<|{]\/i[\>|}]", R"{\\i}", text)
             text = re.sub(r"[\<|{]b[\>|}]", R"{\\b1}", text)
             text = re.sub(r"[\<|{]\/b[\>|}]", R"{\\b}", text)
             text = re.sub(r"[\<|{]u[\>|}]", R"{\\u1}", text)
             text = re.sub(r"[\<|{]\/u[\>|}]", R"{\\u}", text)
+            stripped_text = re.sub(r"\{.*?\}", "", text)
+            if an8_all_caps and stripped_text.upper() == stripped_text and len(text) > 7:
+                text = R"{\an8}" + text
+                is_sign = True
             return text, is_sign
 
         doc = create_document()
