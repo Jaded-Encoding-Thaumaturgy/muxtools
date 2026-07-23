@@ -922,8 +922,9 @@ class SubFile(BaseSubFile):
             text = re.sub(r"[\<|{]u[\>|}]", R"{\\u1}", text)
             text = re.sub(r"[\<|{]\/u[\>|}]", R"{\\u}", text)
             stripped_text = re.sub(r"\{.*?\}", "", text)
-            if an8_all_caps and stripped_text.upper() == stripped_text and r"\an" not in text.casefold() and len(text) > 7:
-                text = R"{\an8}" + text
+            if stripped_text.upper() == stripped_text and len(text) > 7:
+                if an8_all_caps and r"\an" not in text.casefold():
+                    text = R"{\an8}" + text
                 is_sign = True
             return text, is_sign
 
