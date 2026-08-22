@@ -235,6 +235,7 @@ class Premux(_track):
         audio: int | list[int] | None = -1,
         subtitles: int | list[int] | None = -1,
         keep_attachments: bool = True,
+        keep_chapters: bool = True,
         mkvmerge_args: str | list[str] = "--no-global-tags",
         assume_absolute: bool = False,
     ) -> None:
@@ -249,6 +250,7 @@ class Premux(_track):
         :param audio:               Audio Track(s) to choose
         :param subtitles:           Subtitle Track(s) to choose
         :param keep_attachments:    Whether to keep attachments from the file. Fonts for example.
+        :param keep_chapters:       Whether or not you want to keep existing chapters in the file.
         :param mkvmerge_args:       Any other args you may want to pass.
         :param assume_absolute:     Assume that the track numbers passed were already absolute to begin with.
                                     If False it will simply get absolute numbers derived from the relative ones.
@@ -290,6 +292,9 @@ class Premux(_track):
 
         if not keep_attachments:
             args += " -M"
+
+        if not keep_chapters:
+            args += " --no-chapters"
 
         args = split_args(args.strip())
         mkvmerge_args = split_args(mkvmerge_args.strip()) if isinstance(mkvmerge_args, str) else mkvmerge_args
