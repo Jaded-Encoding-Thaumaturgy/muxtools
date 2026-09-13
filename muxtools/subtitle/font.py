@@ -4,13 +4,12 @@ import shutil
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import TypedDict, cast
-from font_collector import ABCFontFace, VariableFontFace
-from fontTools.subset import Subsetter  # type: ignore[import-untyped]
-from fontTools import ttLib  # type: ignore[import-untyped]
-from fontTools.ttLib.ttCollection import TTCollection  # type: ignore[import-untyped]
+from typing import TYPE_CHECKING, TypedDict, cast
 import hashlib
 import base64
+
+if TYPE_CHECKING:
+    from font_collector import ABCFontFace
 
 from .sub import SubFile, FontFile as MTFontFile
 from ..utils.convert import sizeof_fmt
@@ -117,6 +116,9 @@ def subset_fonts(
 
     set_loglevel(logging.CRITICAL)
 
+    from fontTools.subset import Subsetter  # type: ignore[import-untyped]
+    from fontTools import ttLib  # type: ignore[import-untyped]
+    from fontTools.ttLib.ttCollection import TTCollection  # type: ignore[import-untyped]
     from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass, ABCFontFace
 
     from ass_tag_analyzer import parse_line, AssValidTagFontName  # type: ignore[import-untyped]
@@ -372,6 +374,8 @@ def _weight_to_name(weight: int) -> str | int:
 
 
 def _get_fontname(font: ABCFontFace) -> str:
+    from font_collector import VariableFontFace
+
     filename_fallback = False
     try:
         found = font.get_family_name_from_lang("en")
@@ -424,7 +428,7 @@ def collect_fonts(
 
     set_loglevel(logging.CRITICAL)
 
-    from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass, ABCFontFace
+    from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass, ABCFontFace, VariableFontFace
 
     font_collection = FontCollection(
         use_system_fonts, additional_fonts=FontLoader.load_additional_fonts(additional_fonts, scan_subdirs=True) if additional_fonts else []

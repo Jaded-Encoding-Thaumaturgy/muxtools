@@ -1,12 +1,13 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Callable
-from typed_ffmpeg import probe_obj
-from typed_ffmpeg.ffprobe.schema import streamType, ffprobeType, tagsType, formatType
+from typing import TYPE_CHECKING, Any, Optional, Callable
 from mkvinfo import MKVInfo, Track as MkvInfoTrack, Container as MkvInfoContainer
 from itertools import groupby
-from langcodes import Language
+
+if TYPE_CHECKING:
+    from typed_ffmpeg.ffprobe.schema import streamType, ffprobeType, tagsType, formatType
+    from langcodes import Language
 
 from .log import error, warn
 from .types import PathLike, TrackType
@@ -79,6 +80,8 @@ class TrackInfo:
 
     @property
     def sanitized_lang(self) -> Language:
+        from langcodes import Language
+
         if self.raw_mkvmerge and (bool(self.raw_mkvmerge.properties.language_ietf) or bool(self.raw_mkvmerge.properties.language)):
             if self.raw_mkvmerge.properties.language_ietf:
                 return Language.get(self.raw_mkvmerge.properties.language_ietf)
@@ -120,6 +123,8 @@ class ParsedFile:
         :param allow_mkvmerge_warning:  If the warning for a missing mkvmerge install should actually be printed.\n
                                         Again, for internal use.
         """
+        from typed_ffmpeg import probe_obj
+
         path = ensure_path_exists(path, caller)
         ffprobe_exe = get_executable("ffprobe")
         try:

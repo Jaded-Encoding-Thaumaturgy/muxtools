@@ -17,7 +17,7 @@ from .subutils import create_document, dummy_video, has_arch_resampler
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
 from ..utils.types import FileMixin, PathLike, TrackType, TimeSourceT, TimeScaleT, TimeScale
-from ..utils.log import debug, error, info, warn, log_escape
+from ..utils.log import debug, error, info, warn
 from ..utils.convert import resolve_timesource_and_scale
 from ..utils.env import get_temp_workdir, get_workdir, run_commandline
 from ..utils.files import ensure_path_exists, make_output, clean_temp_files, uniquify_path, ensure_path
@@ -265,6 +265,8 @@ class SubFile(BaseSubFile):
         backslash = "\\"  # This is to ensure support for previous python versions that don't allow backslashes in f-strings.
 
         def _do_autoswap(lines: LINES):
+            from rich.markup import escape as log_escape
+
             for i, line in enumerate(lines):
                 if not allowed_styles or name_matches_style(str(line.style), allowed_styles, exact_names):
                     to_swap: dict = {}

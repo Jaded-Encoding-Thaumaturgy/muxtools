@@ -4,7 +4,6 @@ from .log import crit, error, info
 from .files import ensure_path_exists
 
 import os
-import wget  # type: ignore[import-untyped]
 import shutil as sh
 from pathlib import Path
 from dataclasses import dataclass
@@ -105,6 +104,8 @@ def _append_exe_to_path(file: PathLike) -> None:
 
 
 def download_binary(type: str) -> str:
+    import wget  # type: ignore[import-untyped]
+
     if os.name != "nt":
         raise EnvironmentError("Of course only Windows is supported for downloading of binaries!")
 

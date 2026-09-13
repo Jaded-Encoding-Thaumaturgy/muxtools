@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
 from typing import cast
-import requests
 import logging
 
 from ..utils.log import debug, error, info
@@ -111,6 +110,8 @@ class TmdbConfig:
         return self.write_ids or self.write_date or self.write_title or self.write_summary or self.write_synopsis
 
     def get_media_meta(self) -> MediaMetadata:
+        import requests
+
         url = f"{BASE_URL}/{'movie' if self.movie else 'tv'}/{self.id}?language={self.language}"
         headers = {"accept": "application/json", "Authorization": f"Bearer {API_KEY}"}
         response = requests.get(url, headers=headers)
@@ -135,6 +136,8 @@ class TmdbConfig:
         )
 
     def get_episode_meta(self, num: int) -> EpisodeMetadata:
+        import requests
+
         if not hasattr(self, "episodes"):
             headers = {"accept": "application/json", "Authorization": f"Bearer {API_KEY}"}
             if self.order:

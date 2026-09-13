@@ -2,7 +2,6 @@ from shlex import join as joincommand
 from shutil import rmtree
 from pathlib import Path
 import subprocess
-import wget  # type: ignore[import-untyped]
 import re
 import os
 
@@ -194,6 +193,8 @@ def output_names(
             title = clean_name(re.sub(re.escape(R"$title$"), "", title))
 
     if tmdb:
+        import wget  # type: ignore[import-untyped]
+
         debug("Fetching tmdb metadata...", "Mux")
         mediameta = tmdb.get_media_meta()
         epmeta = tmdb.get_episode_meta(epint) if not tmdb.movie else None

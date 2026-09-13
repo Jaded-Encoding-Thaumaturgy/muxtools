@@ -1,5 +1,7 @@
-from langcodes import Language, standardize_tag as stdz_tag
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from langcodes import Language
 
 from .log import error
 
@@ -7,6 +9,8 @@ __all__ = ["standardize_tag"]
 
 
 def standardize_tag(lang: str, caller: Any | None = None) -> tuple[Language, str]:
+    from langcodes import Language, standardize_tag as stdz_tag
+
     standardized = stdz_tag(lang)
     language = Language.get(standardized)
 

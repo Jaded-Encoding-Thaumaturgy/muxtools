@@ -3,7 +3,6 @@ from math import ceil
 from datetime import timedelta
 from re import Pattern, compile
 from dataclasses import dataclass
-from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TimeElapsedColumn
 from shlex import split as splitcmd
 from subprocess import Popen, PIPE, STDOUT
 
@@ -25,6 +24,8 @@ class ProgressBarConfig:
 
 
 def run_cmd_pb(cmd: str | list[str], silent: bool = True, pbc: ProgressBarConfig = ProgressBarConfig(), **kwargs: Any) -> int:
+    from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn, TimeElapsedColumn
+
     args = splitcmd(cmd) if isinstance(cmd, str) else cmd
     process = Popen(args, stdout=PIPE, stderr=STDOUT, text=True, encoding="UTF-8", errors="ignore", bufsize=1, **kwargs)
     if not pbc.regex:
