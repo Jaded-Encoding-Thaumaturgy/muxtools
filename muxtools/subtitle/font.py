@@ -120,7 +120,7 @@ def subset_fonts(
     from fontTools.subset import Subsetter  # type: ignore[import-untyped]
     from fontTools import ttLib  # type: ignore[import-untyped]
     from fontTools.ttLib.ttCollection import TTCollection  # type: ignore[import-untyped]
-    from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass, ABCFontFace
+    from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass
 
     from ass_tag_analyzer import parse_line, AssValidTagFontName  # type: ignore[import-untyped]
 
