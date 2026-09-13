@@ -74,6 +74,8 @@ def test_flac_ffmpeg_trim():
 
 
 def test_depth_detection(caplog):
+    caplog.set_level(logging.DEBUG)
+
     out = do_audio(sample_file_thd_fake24, encoder=FLAC(threads=1))
 
     assert len([record for record in caplog.get_records("call") if "padded 24" in record.message]) == 1
@@ -83,6 +85,8 @@ def test_depth_detection(caplog):
 
 
 def test_opus_no_extractor(caplog):
+    caplog.set_level(logging.DEBUG)
+
     # Should encode file as is, 192 kbps default for stereo
     Opus().encode_audio(sample_file_wav)
     assert len([record for record in caplog.get_records("call") if "Encoding 'wav_source' to Opus (192 kbps)" in record.message]) == 1
