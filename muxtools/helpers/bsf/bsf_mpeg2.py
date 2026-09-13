@@ -57,9 +57,11 @@ def apply_mpeg2_bsf(
     """
     f = ensure_path_exists(fileIn, apply_mpeg2_bsf)
     filter_options = list[str]()
+    container_flags = list[str]()
 
     if dar is not None:
         filter_options.append(f"display_aspect_ratio={str(dar.value) if isinstance(dar, MPEG2_DAR) else str(dar)}")
+        container_flags.extend(["-aspect:v", (str(dar.value) if isinstance(dar, MPEG2_DAR) else str(dar)).replace("/", ":")])
 
     if fps is not None:
         filter_options.append(f"frame_rate={str(fps.value) if isinstance(fps, MPEG2_FPS) else str(fps)}")
@@ -72,20 +74,23 @@ def apply_mpeg2_bsf(
         if primaries.value not in range(1, 8):
             raise error(f"'{primaries}' is not a valid primaries value for MPEG2 streams!")
         filter_options.append(f"colour_primaries={str(primaries.value)}")
+        container_flags.extend(["-color_primaries:v", str(primaries.value)])
 
     if transfer is not None:
         transfer = BSF_Transfer(transfer)
         if transfer.value not in range(1, 9):
             raise error(f"'{transfer}' is not a valid transfer value for MPEG2 streams!")
         filter_options.append(f"transfer_characteristics={str(transfer.value)}")
+        container_flags.extend(["-color_trc:v", str(transfer.value)])
 
     if matrix is not None:
         matrix = BSF_Matrix(matrix)
         if matrix.value not in range(1, 8):
             raise error(f"'{matrix}' is not a valid matrix value for MPEG2 streams!")
         filter_options.append(f"matrix_coefficients={str(matrix.value)}")
+        container_flags.extend(["-colorspace:v", str(matrix.value)])
 
     if not filter_options:
         raise error("No changes to be made!", apply_mpeg2_bsf)
 
-    return _apply_bsf(f, fileOut, "mpeg2_metadata", filter_options, apply_mpeg2_bsf, quiet)
+    return _apply_bsf(f, fileOut, "mpeg2_metadata", filter_options, container_flags, apply_mpeg2_bsf, quiet)

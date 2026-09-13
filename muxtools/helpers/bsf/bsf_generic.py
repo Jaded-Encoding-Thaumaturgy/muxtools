@@ -126,6 +126,7 @@ def _apply_bsf(
     fileOut: Path | None,
     filter_name: str,
     filter_options: list[str],
+    container_flags: list[str],
     caller: Any,
     quiet: bool = True,
 ) -> Path:
@@ -139,7 +140,9 @@ def _apply_bsf(
     ffmpeg = get_executable("ffmpeg")
 
     options = ":".join(filter_options)
-    args = [ffmpeg, "-hide_banner", "-i", str(fileIn), "-map", "0", "-c", "copy", "-bsf:v", f"{filter_name}={options}", str(out)]
+    args = [ffmpeg, "-hide_banner", "-i", str(fileIn), "-map", "0", "-c", "copy", "-bsf:v", f"{filter_name}={options}"]
+    args.extend(container_flags)
+    args.append(str(out))
 
     result = run_commandline(args, quiet)
     if bool(result):
