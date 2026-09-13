@@ -14,17 +14,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: Fetch actions context
-        uses: qoomon/actions--context@e25d529a56d21d2c5ce53b09f20173b454c76cf2 # v4.0.3
-        id: context
-      - name: Determine branch name
-        id: branch-names
-        run: echo "current_branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
 
       - name: Run ruff check (Python ${{ matrix.python-version }})
         run: uv run --python ${{ matrix.python-version }} ruff check ./muxtools/
@@ -34,11 +28,6 @@ jobs:
 
       - name: Post webhook for failure
         if: failure() && github.event_name != 'pull_request'
-        uses: tsickert/discord-webhook@b217a69502f52803de774ded2b1ab7c282e99645 # v7.0.0
+        uses: Jaded-Encoding-Thaumaturgy/discord-failure-notifier@v1
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
-          embed-url: ${{ steps.context.outputs.job_log_url }}
-          embed-title: "[${{ github.event.repository.name }}] ${{ steps.context.outputs.job }} failed on ${{ steps.branch-names.outputs.current_branch }}"
-          username: "GitHub - ${{ github.repository }}"
-          avatar-url: https://github.githubassets.com/favicons/favicon.png
-      

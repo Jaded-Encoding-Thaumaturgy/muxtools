@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       MKVTOOLNIX_VERSION: "94.0"
-      OPUS_VER: "opus-tools-0.2-libopus-1.6"
-      FLAC_VER: "flac-1.5.0"
-      FFMPEG_VER: "ffmpeg-2025-08-05"
+      OPUS_VER: "opus-tools-0.2-libopus-1.6.1"
+      FLAC_VER: "flac-1.5.0.post1"
+      FFMPEG_VER: "ffmpeg-9.0.1-27-g9b0578816c-2026-09-07"
     strategy:
       fail-fast: false
       matrix:
@@ -19,24 +19,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: Fetch actions context
-        uses: qoomon/actions--context@e25d529a56d21d2c5ce53b09f20173b454c76cf2 # v4.0.3
-        id: context
-      - name: Determine branch name
-        id: branch-names
-        run: echo "current_branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
-      - name: Setup ffmpeg
-        uses: AnimMouse/setup-ffmpeg@27e66fd2fe1d643b73a7c5cb105f3b4116bfb8db # v1.2.1
-        with:
-          version: 7.1
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: Cache MKVToolNix
         id: cache-mkvtoolnix
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage
           key: mkvtoolnix-${{ env.MKVTOOLNIX_VERSION }}-appimage
@@ -59,10 +49,12 @@ jobs:
 
       - name: Download other binaries
         run: |
-          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.OPUS_VER }}/${{ env.OPUS_VER }}-linux-x86_64.zip && sudo unzip -o ${{ env.OPUS_VER }}-linux-x86_64.zip -d /usr/bin
-          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.FLAC_VER }}/${{ env.FLAC_VER }}-linux-x86_64.zip && sudo unzip -o ${{ env.FLAC_VER }}-linux-x86_64.zip -d /usr/bin
-          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.FFMPEG_VER }}/${{ env.FFMPEG_VER }}-linux-x86_64.zip && sudo unzip -o ${{ env.FFMPEG_VER }}-linux-x86_64.zip -d /usr/bin
-          sudo chmod 777 -R /usr/bin # Don't do this
+          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.OPUS_VER }}/${{ env.OPUS_VER }}-linux-x86_64.tar.zst && \
+            sudo tar --zstd -xf ${{ env.OPUS_VER }}-linux-x86_64.tar.zst -C /usr/bin
+          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.FLAC_VER }}/${{ env.FLAC_VER }}-linux-x86_64.tar.zst && \
+            sudo tar --zstd -xf ${{ env.FLAC_VER }}-linux-x86_64.tar.zst -C /usr/bin
+          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.FFMPEG_VER }}/${{ env.FFMPEG_VER }}-linux-x86_64.tar.zst && \
+            sudo tar --zstd -xf ${{ env.FFMPEG_VER }}-linux-x86_64.tar.zst -C /usr/bin
       - name: Check binaries
         run: |
           opusenc --version
@@ -74,11 +66,6 @@ jobs:
 
       - name: Post webhook for failure
         if: failure() && github.event_name != 'pull_request'
-        uses: tsickert/discord-webhook@b217a69502f52803de774ded2b1ab7c282e99645 # v7.0.0
+        uses: Jaded-Encoding-Thaumaturgy/discord-failure-notifier@v1
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
-          embed-url: ${{ steps.context.outputs.job_log_url }}
-          embed-title: "[${{ github.event.repository.name }}] ${{ steps.context.outputs.job }} failed on ${{ steps.branch-names.outputs.current_branch }}"
-          username: "GitHub - ${{ github.repository }}"
-          avatar-url: https://github.githubassets.com/favicons/favicon.png
-      
