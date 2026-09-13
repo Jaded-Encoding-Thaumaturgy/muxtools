@@ -773,6 +773,7 @@ source = { editable = "." }
 dependencies = [
     { name = "ass" },
     { name = "ass-tag-analyzer" },
+    { name = "backports-zstd", marker = "python_full_version < '3.14'" },
     { name = "fontcollector" },
     { name = "fonttools" },
     { name = "langcodes" },
@@ -808,6 +809,7 @@ dev = [
 requires-dist = [
     { name = "ass", specifier = ">=1.0.2" },
     { name = "ass-tag-analyzer", specifier = ">=0.0.4" },
+    { name = "backports-zstd", marker = "python_full_version < '3.14'", specifier = ">=1.6.0" },
     { name = "fontcollector", specifier = ">=4.0.0" },
     { name = "fonttools", specifier = ">=4.55.0" },
     { name = "langcodes", specifier = ">=3.5.0" },

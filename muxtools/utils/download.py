@@ -4,8 +4,10 @@ from .log import crit, error, info
 from .files import ensure_path_exists
 
 import os
+import sys
 import shutil as sh
 from pathlib import Path
+from itertools import chain
 from dataclasses import dataclass
 from typing import Literal, overload
 
@@ -28,15 +30,15 @@ class Tool:
 tools = [
     Tool("CUETools.FLACCL.cmd", "https://github.com/gchudov/cuetools.net/releases/download/v2.2.6/CUETools_2.2.6.zip", ["flaccl"]),
     # non-free builds for libfdk_aac if one so desires
-    Tool("ffmpeg", "https://github.com/Vodes/muxtools-binaries/releases/download/latest-ffmpeg/ffmpeg-latest-windows-amd64.zip", ["ffprobe"]),
-    Tool("mkvmerge", "https://github.com/Vodes/muxtools-binaries/releases/download/latest-mkvtoolnix/mkvtoolnix-latest-windows-amd64.zip", ['mkvextract', 'mkvinfo', 'mkvpropedit']), 
+    Tool("ffmpeg", "https://github.com/Vodes/muxtools-binaries/releases/download/ffmpeg-9.0.1-27-g9b0578816c-2026-09-07/ffmpeg-9.0.1-27-g9b0578816c-2026-09-07-windows-x86_64.tar.zst", ["ffprobe"]),
+    Tool("mkvmerge", "https://github.com/Vodes/muxtools-binaries/releases/download/mkvtoolnix-101.0/mkvtoolnix-101.0-windows-x86_64.tar.zst", ['mkvextract', 'mkvinfo', 'mkvpropedit']),
     Tool("eac3to", "https://files.catbox.moe/hn9oms.7z"), # Custom package because of removed sounds and updated libFlac
-    Tool("x264", "https://github.com/DJATOM/x264-aMod/releases/download/r3101+20/x264-aMod-x64-core164-r3101+20.7z"),
-    Tool("x265", "https://github.com/DJATOM/x265-aMod/releases/download/3.5+67/x265-x64-v3.5+67-aMod-gcc12.2.1+opt.7z"),
+    Tool("x264", "https://github.com/Vodes/muxtools-binaries/releases/download/x264-r3222-b35605a/x264-r3222-b35605a-windows-x86_64.tar.zst"),
+    Tool("x265", "https://github.com/Vodes/muxtools-binaries/releases/download/x265-4.2/x265-4.2-windows-x86_64.tar.zst"),
     Tool("qaac", "https://pomf2.lain.la/f/u8yyfyed.7z"), # 2.85 with flac, w64 and iTunes libraries included; Yes catbox frontend is down and I can't upload stuff there right now
-    Tool("opusenc", "https://github.com/Vodes/muxtools-binaries/releases/download/latest-opus-tools/opus-tools-latest-windows-amd64.zip"),
-    Tool("flac", "https://github.com/Vodes/muxtools-binaries/releases/download/latest-flac/flac-latest-windows-amd64.zip"),
-    Tool("wavpack", "https://github.com/dbry/WavPack/releases/download/5.8.1/wavpack-5.8.0-x64.zip")
+    Tool("opusenc", "https://github.com/Vodes/muxtools-binaries/releases/download/opus-tools-0.2-libopus-1.6.1/opus-tools-0.2-libopus-1.6.1-windows-x86_64.tar.zst"),
+    Tool("flac", "https://github.com/Vodes/muxtools-binaries/releases/download/flac-1.5.0.post1/flac-1.5.0.post1-windows-x86_64.tar.zst"),
+    Tool("wavpack", "https://github.com/Vodes/muxtools-binaries/releases/download/wavpack-5.9.0/wavpack-5.9.0-windows-x86_64.tar.zst")
 ]
 # fmt: on
 
@@ -144,8 +146,13 @@ def download_binary(type: str) -> str:
 def unpack_all(dir: Path | str):
     dir = Path(dir) if isinstance(dir, str) else dir
 
-    for file in dir.rglob("*.zip"):
-        out = Path(os.path.join(file.resolve(True).parent, file.stem))
+    if sys.version_info < (3, 14):
+        from backports.zstd import register_shutil
+
+        register_shutil()
+
+    for file in chain(dir.rglob("*.zip"), dir.rglob("*.tar.zst")):
+        out = Path(os.path.join(file.resolve(True).parent, file.stem.replace(".tar", "")))
         out.mkdir(exist_ok=True)
         sh.unpack_archive(file, out)
         os.remove(file)
