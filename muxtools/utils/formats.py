@@ -4,7 +4,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from typed_ffmpeg.ffprobe.schema import streamType
+    from .ffprobe_types import streamType
 
 __all__ = ["AudioFormat"]
 
@@ -61,7 +61,7 @@ class AudioFormat(Enum):
         return False
 
     def __eq__(self, value: Any) -> bool:
-        from typed_ffmpeg.ffprobe.schema import streamType
+        from .ffprobe_types import streamType
 
         if isinstance(value, streamType):
             profile_matches = bool(value.profile and self.profile and self.profile.casefold() == value.profile.casefold())

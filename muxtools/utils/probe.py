@@ -7,7 +7,7 @@ from mkvinfo import MKVInfo, Track as MkvInfoTrack, Container as MkvInfoContaine
 from itertools import groupby
 
 if TYPE_CHECKING:
-    from typed_ffmpeg.ffprobe.schema import streamType, ffprobeType, tagsType, formatType
+    from .ffprobe_types import streamType, ffprobeType, tagsType, formatType
     from langcodes import Language
 
 from .log import error, warn
