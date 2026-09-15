@@ -448,6 +448,15 @@ wheels = [
 ]
 
 [[package]]
+name = "ffmpeg-core"
+version = "4.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/cd/b5a97c86ea2691715a4a8aaceddadbb94df1138c36052564c8f945c2ff90/ffmpeg_core-4.5.tar.gz", hash = "sha256:ebac40f617dcacb210461c139ae7991b54aa5d5ff50160de5368aaae82271f27", size = 45193, upload-time = "2026-08-22T16:26:19.126Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/d2/47f176d4d5ccc29cce495aba0250939e72699b804ca1d7880450e6cf955d/ffmpeg_core-4.5-py3-none-any.whl", hash = "sha256:6f20c8f35cb69f47f37ab73d9801fbf0cf0f3b68314f270c375b5c190fb4c680", size = 54681, upload-time = "2026-08-22T16:26:18.124Z" },
+]
+
+[[package]]
 name = "findsystemfontsfilename"
 version = "0.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -820,7 +829,7 @@ requires-dist = [
     { name = "pyparsebluray", specifier = ">=0.1.4" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.1.0" },
-    { name = "typed-ffmpeg-compatible", specifier = "~=3.7.1" },
+    { name = "typed-ffmpeg-compatible", specifier = ">=3.7.1,<5.0.0" },
     { name = "typing-extensions", specifier = ">=4.12.0" },
     { name = "videotimestamps", specifier = ">=1.0.0" },
     { name = "wget", specifier = ">=3.2" },
@@ -1802,11 +1811,26 @@ wheels = [
 
 [[package]]
 name = "typed-ffmpeg-compatible"
-version = "3.7.1"
+version = "4.5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d5/6e/10ae1ea1ee255a48039ca6cce5db46b47dd00f4c09c32460b12041e1d7ec/typed_ffmpeg_compatible-3.7.1.tar.gz", hash = "sha256:717f1e7de132405440744eb099ce59518fec9ac5d161fd03d95c59ac600f53ab", size = 274354, upload-time = "2025-10-17T03:00:37.372Z" }
+dependencies = [
+    { name = "typed-ffmpeg-v9" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d4/9d/401153b266328a061068535cea88280ad6256fd28e56c1d6e94851c5a583/typed_ffmpeg_compatible-4.5.tar.gz", hash = "sha256:617838a8f2f2017dd001256c42bb5237e159af39931bfe43e1064ecfe29b7bd2", size = 1795, upload-time = "2026-08-22T16:28:53.791Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/bb/f093ba252fe4f8810e9370f0b18cbbb9caefad107673cd086564731934cd/typed_ffmpeg_compatible-3.7.1-py3-none-any.whl", hash = "sha256:fb798115eea4df89d611f5f9930cddc5668c4afc9c54d00e548ba46c19fe35e5", size = 292210, upload-time = "2025-10-17T03:00:35.956Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/8d/cf8b84482edec399d84e4fba95f662747dce7a518229dfca07bdeaaf6262/typed_ffmpeg_compatible-4.5-py3-none-any.whl", hash = "sha256:641c73a5ab40620710fabd8b0bad7bbe30abb7ad131a4f6bf918bde51ad7cfd8", size = 1861, upload-time = "2026-08-22T16:28:52.837Z" },
+]
+
+[[package]]
+name = "typed-ffmpeg-v9"
+version = "4.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ffmpeg-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/af/5b/5e48d0c4a5b71fa669f278e09622f28dec2a99521d2d2b9114905d34d5ed/typed_ffmpeg_v9-4.5.tar.gz", hash = "sha256:38e0a5af7b2fe0aebd0eeae3ddb1c8b16b89bf007ccfa4452ee0ea14aa31a5fa", size = 361094, upload-time = "2026-08-22T16:28:29.357Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a7/04/0fc4005fdfd5d0dab82b01ee92e1fae32b5cd254afe3dcbdb60b5a8e8fda/typed_ffmpeg_v9-4.5-py3-none-any.whl", hash = "sha256:02fac81100f88a0848bd603097e0da162854815cd68e5597afa9f48c08d06d4a", size = 382357, upload-time = "2026-08-22T16:28:27.717Z" },
 ]
 
 [[package]]
