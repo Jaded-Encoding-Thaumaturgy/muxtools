@@ -1,6 +1,5 @@
 from pathlib import Path
-from typing_extensions import Self
-from typing import Sequence
+from typing import Self, Sequence
 
 from .helper_util import replace_crc
 from ..misc import Chapters

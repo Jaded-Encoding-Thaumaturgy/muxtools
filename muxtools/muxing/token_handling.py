@@ -1,5 +1,5 @@
 import re
-from typing_extensions import Any
+from typing import Any
 
 from ..utils.language_util import standardize_tag
 from ..utils.types import PathLike, TrackType
