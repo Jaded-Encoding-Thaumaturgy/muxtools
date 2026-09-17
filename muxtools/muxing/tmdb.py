@@ -37,7 +37,7 @@ class TMDBOrder(IntEnum):
     """Story Arc order"""
     PRODUCTION = 6
     """
-    Production order, this is usually what contains the proper seasons now that 
+    Production order, this is usually what contains the proper seasons now that
     TMDB mods decided to be weird.
 
     See https://www.themoviedb.org/tv/95479/discuss/64a5672ada10f0011cb49f99
@@ -110,21 +110,21 @@ class TmdbConfig:
         return self.write_ids or self.write_date or self.write_title or self.write_summary or self.write_synopsis
 
     def get_media_meta(self) -> MediaMetadata:
-        import requests
+        import niquests
 
         url = f"{BASE_URL}/{'movie' if self.movie else 'tv'}/{self.id}?language={self.language}"
         headers = {"accept": "application/json", "Authorization": f"Bearer {API_KEY}"}
-        response = requests.get(url, headers=headers)
+        response = niquests.get(url, headers=headers)
 
-        if response.status_code > 202:
+        if response.status_code is not None and response.status_code > 202:
             ex = error(f"Media Metadata Request has failed! ({response.status_code})", self)
-            debug(response.text)
+            debug(response.text or "")
             raise ex
 
         mediajson = response.json()
 
         url = f"{BASE_URL}/{'movie' if self.movie else 'tv'}/{self.id}/external_ids"
-        response = requests.get(url, headers=headers)
+        response = niquests.get(url, headers=headers)
         other_ids = response.json()
 
         return MediaMetadata(
@@ -136,7 +136,7 @@ class TmdbConfig:
         )
 
     def get_episode_meta(self, num: int) -> EpisodeMetadata:
-        import requests
+        import niquests
 
         if not hasattr(self, "episodes"):
             headers = {"accept": "application/json", "Authorization": f"Bearer {API_KEY}"}
@@ -146,7 +146,7 @@ class TmdbConfig:
                         setattr(self, "order_id", self.order)
                     else:
                         orders_url = f"{BASE_URL}/tv/{self.id}/episode_groups"
-                        order_resp = requests.get(orders_url, headers=headers)
+                        order_resp = niquests.get(orders_url, headers=headers)
                         orders = order_resp.json()["results"]
                         if not orders:
                             raise error("Could not find any episode groups/orders for this show.", self)
@@ -162,11 +162,11 @@ class TmdbConfig:
             else:
                 url = f"{BASE_URL}/tv/{self.id}/season/{self.season}?language={self.language}"
 
-            meta_response = requests.get(url, headers=headers)
+            meta_response = niquests.get(url, headers=headers)
 
-            if meta_response.status_code > 202:
+            if meta_response.status_code is not None and meta_response.status_code > 202:
                 ex = error(f"Episode Metadata Request has failed! ({meta_response.status_code})", self)
-                debug(meta_response.text)
+                debug(meta_response.text or "")
                 raise ex
 
             json_resp: dict = meta_response.json()

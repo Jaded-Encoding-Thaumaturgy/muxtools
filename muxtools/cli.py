@@ -1,14 +1,13 @@
 import os
 import re
 import sys
-import wget  # type: ignore[import-untyped]
 import shlex
 import shutil
 import subprocess
 from pathlib import Path
 
 from .utils.log import info, warn, error
-from .utils.download import unpack_all
+from .utils.download import download_file, unpack_all
 from .utils.env import get_temp_workdir
 from .utils.files import clean_temp_files, ensure_path_exists, ensure_path
 from .utils.probe import ParsedFile
@@ -36,7 +35,7 @@ def install_libraries():
         info(f"Do you want to install updated libraries for eac3to? {CONF}")
         if input("").lower() in ["y", "yes"]:
             info("Downloading libFLAC (32 bit for eac3to)...")
-            wget.download(LINKS[0], str(temp), None)
+            download_file(LINKS[0], temp)
             unpack_all(temp)
             find_and_rename(temp, r"libFLAC_dynamic\.dll", Path(dir, "libFLAC.dll"))
         clean_temp_files()
@@ -51,13 +50,13 @@ def install_libraries():
         info(f"Do you want to install updated/new libraries for qaac? {CONF}")
         if input("").lower() in ["y", "yes"]:
             info("Downloading libFLAC...")
-            wget.download(LINKS[1], str(temp), None)
+            download_file(LINKS[1], temp)
 
             info("Downloading wavpack...")
-            wget.download(LINKS[2], str(temp), None)
+            download_file(LINKS[2], temp)
 
             info("Downloading libsndfile...")
-            wget.download(LINKS[3], str(temp), None)
+            download_file(LINKS[3], temp)
             unpack_all(temp)
 
             find_and_rename(temp, r"libFLAC\.dll", Path(dir, "libFLAC.dll"), True)
@@ -67,7 +66,7 @@ def install_libraries():
             temp = get_temp_workdir()
 
             info("Downloading iTunes libraries...")
-            wget.download(LINKS[4], str(temp), None)
+            download_file(LINKS[4], temp)
             unpack_all(temp)
             find_and_rename(temp, r".*\.dll", dir)
 

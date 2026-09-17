@@ -14,7 +14,7 @@ from ..subtitle.sub import FontFile
 from ..utils.glob import GlobSearch
 from ..misc.chapters import Chapters
 from .tracks import Attachment, _track
-from ..utils.download import get_executable
+from ..utils.download import download_file, get_executable
 from ..utils.log import debug, error, info, warn, danger
 from ..utils.env import get_setup_attr, get_setup_dir, get_workdir, run_commandline
 from ..utils.files import ensure_path, ensure_path_exists, get_crc32, clean_temp_files
@@ -193,8 +193,6 @@ def output_names(
             title = clean_name(re.sub(re.escape(R"$title$"), "", title))
 
     if tmdb:
-        import wget  # type: ignore[import-untyped]
-
         debug("Fetching tmdb metadata...", "Mux")
         mediameta = tmdb.get_media_meta()
         epmeta = tmdb.get_episode_meta(epint) if not tmdb.movie else None
@@ -205,8 +203,8 @@ def output_names(
         if not tmdb.movie and epmeta:
             if tmdb.write_cover and epmeta.thumb_url:
                 cover = Path(get_workdir(), f"cover_land{Path(epmeta.thumb_url).suffix}")
-                if wget.download(epmeta.thumb_url, str(cover), None):
-                    tracks.append(Attachment(cover, "image/jpeg" if cover.suffix.lower() == ".jpg" else "image/png"))
+                download_file(epmeta.thumb_url, cover)
+                tracks.append(Attachment(cover, "image/jpeg" if cover.suffix.lower() == ".jpg" else "image/png"))
 
             filename = re.sub(re.escape(R"$title$"), epmeta.title, filename)
             title = re.sub(re.escape(R"$title$"), epmeta.title, title)

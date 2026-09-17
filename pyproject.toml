@@ -5,12 +5,11 @@ dynamic = ["version"]
 description = "A library for various muxing and automation tools for anything and everything fansubbing related"
 authors = [{ name = "Vodes", email = "vodes.imp@gmail.com" }]
 dependencies = [
-    "requests>=2.31.0",
+    "niquests>=3.21.1",
     "fontcollector>=4.0.0",
     "langcodes>=3.5.0",
     "language_data>=1.0.1",
     "ass>=1.0.2",
-    "wget>=3.2",
     "rich>=13.1.0",
     "pyparsebluray>=0.1.4",
     "pydantic>=2.5.0",
@@ -50,7 +49,6 @@ dev = [
     "ruff>=0.6.5",
     "scipy-stubs>=1.15.2.1",
     "types-psutil>=7.0.0.20250218",
-    "types-requests>=2.31.0.20240406",
     "py7zr>=0.20.5",
     "sox>=1.5.0",
     "mypy==1.17.1",

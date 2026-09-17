@@ -7,6 +7,8 @@ import os
 import sys
 import shutil as sh
 from pathlib import Path
+from tempfile import NamedTemporaryFile
+from urllib.parse import urlsplit
 from itertools import chain
 from dataclasses import dataclass
 from typing import Literal, overload
@@ -14,6 +16,7 @@ from typing import Literal, overload
 __all__: list[str] = [
     "get_executable",
     "download_binary",
+    "download_file",
     "unpack_all",
 ]
 
@@ -105,9 +108,47 @@ def _append_exe_to_path(file: PathLike) -> None:
         os.environ["PATH"] = os.pathsep.join([str(file.resolve()), os.environ["PATH"]])
 
 
-def download_binary(type: str) -> str:
-    import wget  # type: ignore[import-untyped]
+def download_file(url: str, destination: Path) -> Path:
+    if destination.is_dir():
+        destination /= Path(urlsplit(url).path).name
 
+    import niquests
+
+    with niquests.get(url, stream=True, timeout=60) as response:
+        response.raise_for_status()
+        content_length = response.headers.get("content-length")
+        try:
+            total = int(content_length) if content_length else None
+        except ValueError:
+            total = None
+
+        file = NamedTemporaryFile(dir=destination.parent, prefix=f".{destination.name}.", delete=False)
+        temporary = Path(file.name)
+        from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
+
+        try:
+            with (
+                file,
+                Progress(
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    DownloadColumn(),
+                    TransferSpeedColumn(),
+                    TimeRemainingColumn(),
+                ) as progress,
+            ):
+                task = progress.add_task(destination.name, total=total)
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    file.write(chunk)
+                    progress.update(task, advance=len(chunk))
+            temporary.replace(destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    return destination
+
+
+def download_binary(type: str) -> str:
     if os.name != "nt":
         raise EnvironmentError("Of course only Windows is supported for downloading of binaries!")
 
@@ -130,8 +171,7 @@ def download_binary(type: str) -> str:
     if not url:
         raise error(f"There is no tool registered for {type}!", get_executable)
 
-    wget.download(url, str(binary_dir.resolve()))
-    print("")
+    download_file(url, binary_dir.resolve())
     info("Done.", get_executable)
     unpack_all(binary_dir)
 
