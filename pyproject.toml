@@ -5,6 +5,11 @@ dynamic = ["version"]
 description = "A library for various muxing and automation tools for anything and everything fansubbing related"
 authors = [{ name = "Vodes", email = "vodes.imp@gmail.com" }]
 dependencies = [
+    "cyclopts>=3.0",
+    "questionary>=2.0",
+    "tomlkit>=0.13",
+    "platformdirs>=4.0",
+    "py-cpuinfo2>=10,<11",
     "niquests>=3.21.1",
     "fontcollector>=4.0.0",
     "langcodes>=3.5.0",
@@ -59,6 +64,7 @@ dev = [
 
 [project.scripts]
 muxtools = "muxtools:entry_point"
+mt = "muxtools:entry_point"
 
 [tool.hatch.build]
 artifacts = ["muxtools/_version.py"]
@@ -66,7 +72,7 @@ artifacts = ["muxtools/_version.py"]
 [tool.hatch.version]
 source = "versioningit"
 default-version = "0.0.0+unknown"
-next-version = "smallest"
+next-version = "minor" # Change back to 'smallest' after 0.5 release
 write = { file = "muxtools/_version.py", template = "__version__ = \"{normalized_version}\"\n__version_tuple__ = {version_tuple}" }
 
 [tool.hatch.version.format]

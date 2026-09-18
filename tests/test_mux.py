@@ -1,9 +1,7 @@
-from muxtools import Setup, get_workdir, ensure_path, Chapters, SubFile, mux, download_binary, Premux, do_audio, ParsedFile, TrackType, FFMpeg
-import muxtools
+from muxtools import Setup, get_workdir, ensure_path, Chapters, SubFile, mux, Premux, do_audio, ParsedFile, TrackType, FFMpeg
 
 from shutil import rmtree
 from time import sleep
-import os
 import pytest
 import hashlib
 
@@ -23,19 +21,6 @@ def setup_and_remove():
 
 
 def test_mux():
-    # Ensure use of mkvmerge 94.0 when running locally
-    if os.name == "nt":
-        from muxtools.utils.download import Tool
-
-        muxtools.utils.download.tools = [
-            Tool(
-                "mkvmerge",
-                "https://github.com/Vodes/muxtools-binaries/releases/download/mkvtoolnix-94.0/mkvtoolnix-94.0-windows-amd64.zip",
-                ["mkvextract", "mkvinfo", "mkvpropedit"],
-            )
-        ]
-        download_binary("mkvmerge")
-
     premux = Premux(
         test_dir / "test-data" / "sample-files" / "H265-Opus-EAC3-sample.mkv",
         mkvmerge_args="--no-global-tags --no-chapters --deterministic muxtools-tests-123",
@@ -45,7 +30,7 @@ def test_mux():
 
     out = mux(premux, sub.to_track("Test"), ch, outfile=get_workdir() / "muxed.mkv", print_cli=True)
 
-    assert hashlib.md5(out.read_bytes()).hexdigest() == "26ebd7a5bd5156adf265c07a938ae002"
+    assert hashlib.md5(out.read_bytes()).hexdigest() == "6a5162b6cb36951ba0840f56c5141668"
 
 
 def test_metadata_tokens():

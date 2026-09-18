@@ -474,6 +474,10 @@ class Sox(Trimmer):
         else:
             return self.resolved_ts.frame_to_time(abs(val), TimeType.EXACT).__float__()
 
+    def __post_init__(self) -> None:
+        sox_exe = get_executable("sox")
+        os.environ["PATH"] = str(Path(sox_exe).parent) + os.pathsep + os.environ["PATH"]
+
     def trim_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True) -> AudioFile:
         import sox  # type: ignore[import-untyped]
 

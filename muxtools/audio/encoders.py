@@ -306,7 +306,7 @@ class FDK_AAC(Encoder):
             fileIn = AudioFile.from_file(fileIn, self)
         output = make_output(fileIn.file, "m4a", "fdkaac", self.output)
         if not has_libFDK():
-            exe = get_executable("fdkaac", False, False)
+            exe = get_executable("fdkaac", can_error=False)
             if not exe:
                 raise error(
                     "Your installation of ffmpeg wasn't compiled with libFDK."

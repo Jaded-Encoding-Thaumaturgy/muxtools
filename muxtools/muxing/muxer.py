@@ -104,7 +104,7 @@ def mux(
             if not tags:
                 debug("File does not contain writing library tags. Skipping the muxtools branding.", "Mux")
 
-            mkvpropedit = get_executable("mkvpropedit", False, False)
+            mkvpropedit = get_executable("mkvpropedit", can_error=False)
             if not mkvpropedit:
                 warn("Mkvpropedit could not be found!", "Mux", 0)
 

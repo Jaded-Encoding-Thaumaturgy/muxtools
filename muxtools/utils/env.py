@@ -15,7 +15,6 @@ __all__ = [
     "get_workdir",
     "get_temp_workdir",
     "is_debug",
-    "download_allowed",
     "run_commandline",
     "get_binary_version",
     "version_settings_dict",
@@ -58,10 +57,6 @@ def get_temp_workdir() -> Path:
 
 def is_debug() -> bool:
     return get_setup_attr("debug", True)
-
-
-def download_allowed() -> bool:
-    return get_setup_attr("allow_binary_download", False)
 
 
 def communicate_stdout(command: str | list[str], shell: bool = False, **kwargs) -> tuple[int, str]:

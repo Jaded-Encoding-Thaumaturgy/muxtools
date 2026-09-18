@@ -4,7 +4,6 @@ from time import sleep
 from shutil import rmtree
 import pytest
 import logging
-import os
 
 test_dir = ensure_path(__file__, None).parent.parent
 sample_file_aac = test_dir / "test-data" / "audio" / "aac_source.m4a"
@@ -56,13 +55,10 @@ def test_flac_input():
 
 
 def test_flac_sox_trim():
-    # Cba to add sox to the github workflow
-    if os.name != "nt":
-        return
     meta = VideoMeta.from_json(test_dir / "test-data" / "input" / "vigilantes_s01e01.json")
 
     out = do_audio(sample_file_flac, trims=(-24, None), num_frames=len(meta.pts), timesource=meta, trimmer=Sox(), encoder=Opus())
-    logging.getLogger("test_flac_sox_trim").log(200, get_md5_for_stream(out.file))
+    assert get_md5_for_stream(out.file) == "e4850767705690b94a8771de69896402"
 
 
 @pytest.mark.xfail

@@ -684,7 +684,7 @@ class SubFile(BaseSubFile):
                                 This requires arch.Resample.moon in either of your autoload folders.
                                 None means it will use it if it can find the script. True will try to force it.
         """
-        aegicli = get_executable("aegisub-cli", False)
+        aegicli = get_executable("aegisub-cli")
         video = dummy_video(1920, 1080) if not video else ensure_path_exists(video, self)
         doc = self._read_doc()
 

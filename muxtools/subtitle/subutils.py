@@ -24,7 +24,7 @@ def create_document() -> Document:
 
 
 def has_arch_resampler() -> bool:
-    aegicli = Path(get_executable("aegisub-cli", False))
+    aegicli = Path(get_executable("aegisub-cli"))
     sourcedir = Path(aegicli.parent, "automation")
     check = [sourcedir]
 

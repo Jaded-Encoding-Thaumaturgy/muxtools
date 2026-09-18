@@ -7,11 +7,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    env:
-      MKVTOOLNIX_VERSION: "94.0"
-      OPUS_VER: "opus-tools-0.2-libopus-1.6.1"
-      FLAC_VER: "flac-1.5.0.post1"
-      FFMPEG_VER: "ffmpeg-9.0.1-27-g9b0578816c-2026-09-07"
     strategy:
       fail-fast: false
       matrix:
@@ -24,42 +19,9 @@ jobs:
           submodules: recursive
       - name: Setup uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-      - name: Cache MKVToolNix
-        id: cache-mkvtoolnix
-        uses: actions/cache@v6
-        with:
-          path: MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage
-          key: mkvtoolnix-${{ env.MKVTOOLNIX_VERSION }}-appimage
-      - name: Download MKVToolNix
-        if: steps.cache-mkvtoolnix.outputs.cache-hit != 'true'
-        run: wget https://mkvtoolnix.download/appimage/MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage
-      - name: Setup MKVToolNix
-        # Extract the appimage so we don't have to install libfuse and add included libs to ldconfig
-        run: |
-          chmod u+x "MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage" && "./MKVToolNix_GUI-${{ env.MKVTOOLNIX_VERSION }}-x86_64.AppImage" --appimage-extract
-          echo "$PWD/squashfs-root/usr/lib" | sudo tee /etc/ld.so.conf.d/mkvtoolnix.conf
-          sudo ldconfig
-          chmod u+x -R $PWD/squashfs-root/usr/bin
-          sudo ln -sf "$PWD/squashfs-root/usr/bin/mkvmerge" "/usr/bin/mkvmerge"
-          sudo ln -sf "$PWD/squashfs-root/usr/bin/mkvpropedit" "/usr/bin/mkvpropedit"
-          sudo ln -sf "$PWD/squashfs-root/usr/bin/mkvinfo" "/usr/bin/mkvinfo"
-          sudo ln -sf "$PWD/squashfs-root/usr/bin/mkvextract" "/usr/bin/mkvextract"
-      - name: Check mkvmerge
-        run: mkvmerge --version
 
-      - name: Download other binaries
-        run: |
-          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.OPUS_VER }}/${{ env.OPUS_VER }}-linux-x86_64.tar.zst && \
-            sudo tar --zstd -xf ${{ env.OPUS_VER }}-linux-x86_64.tar.zst -C /usr/bin
-          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.FLAC_VER }}/${{ env.FLAC_VER }}-linux-x86_64.tar.zst && \
-            sudo tar --zstd -xf ${{ env.FLAC_VER }}-linux-x86_64.tar.zst -C /usr/bin
-          wget https://github.com/Vodes/muxtools-binaries/releases/download/${{ env.FFMPEG_VER }}/${{ env.FFMPEG_VER }}-linux-x86_64.tar.zst && \
-            sudo tar --zstd -xf ${{ env.FFMPEG_VER }}-linux-x86_64.tar.zst -C /usr/bin
-      - name: Check binaries
-        run: |
-          opusenc --version
-          flac --version
-          ffmpeg -version
+      - name: Sync project binaries
+        run: uv run --python ${{ matrix.python-version }} muxtools binaries sync
 
       - name: Run tests (Python ${{ matrix.python-version }})
         run: uv run --python ${{ matrix.python-version }} pytest tests

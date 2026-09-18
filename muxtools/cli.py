@@ -1,238 +1,377 @@
-import os
-import re
+"""The muxtools command-line interface."""
+
+from __future__ import annotations
+
 import sys
-import shlex
 import shutil
-import subprocess
+from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
+from typing import Annotated, Any, Literal
 
-from .utils.log import info, warn, error
-from .utils.download import download_file, unpack_all
-from .utils.env import get_temp_workdir
-from .utils.files import clean_temp_files, ensure_path_exists, ensure_path
-from .utils.probe import ParsedFile
+from cyclopts import App, Parameter
+from rich.text import Text
+
+from .utils import binaries as manager
+from .config import BinaryMode, ProjectConfig, discover_config, init_config, migrate_config
 from .utils.convert import get_timemeta_from_video
+from .utils.files import ensure_path_exists
+from .utils.probe import ParsedFile
 
-CONF = "([green bold]Y[/] | [red]n[/])"
-
-LINKS = [
-    "https://www.rarewares.org/files/lossless/flac_dll-1.4.3-x86.zip",
-    "https://github.com/xiph/flac/releases/download/1.4.3/flac-1.4.3-win.zip",
-    "https://github.com/dbry/WavPack/releases/download/5.6.0/wavpack-5.6.0-dll.zip",
-    "https://github.com/libsndfile/libsndfile/releases/download/1.2.0/libsndfile-1.2.0-win64.zip",
-    "https://files.catbox.moe/bkj665.7z",  # Sourced from https://github.com/AnimMouse/QTFiles/ but the file there can't be extracted by py7zr
-]
+app = App(name="muxtools")
+binaries = App(name=["binaries", "bin"])
+app.command(binaries)
 
 
-def install_libraries():
-    if os.name != "nt":
-        info("This script does not work on anything but windows.")
-        exit()
+def _choose(message: str, choices: list[str]) -> str:
+    if not sys.stdin.isatty():
+        raise ValueError(f"{message}: provide a choice as an argument")
+    import questionary
 
-    temp = get_temp_workdir()
-    dir = get_exe_folder("eac3to")
-    if dir:
-        info(f"Do you want to install updated libraries for eac3to? {CONF}")
-        if input("").lower() in ["y", "yes"]:
-            info("Downloading libFLAC (32 bit for eac3to)...")
-            download_file(LINKS[0], temp)
-            unpack_all(temp)
-            find_and_rename(temp, r"libFLAC_dynamic\.dll", Path(dir, "libFLAC.dll"))
-        clean_temp_files()
-        info(f"Do you want to delete the awful eac3to sounds? {CONF}")
-        if input("").lower() in ["y", "yes"]:
-            for f in dir.rglob("*.wav"):
-                f.unlink(True)
-
-    temp = get_temp_workdir()
-    dir = get_exe_folder("qaac")
-    if dir:
-        info(f"Do you want to install updated/new libraries for qaac? {CONF}")
-        if input("").lower() in ["y", "yes"]:
-            info("Downloading libFLAC...")
-            download_file(LINKS[1], temp)
-
-            info("Downloading wavpack...")
-            download_file(LINKS[2], temp)
-
-            info("Downloading libsndfile...")
-            download_file(LINKS[3], temp)
-            unpack_all(temp)
-
-            find_and_rename(temp, r"libFLAC\.dll", Path(dir, "libFLAC.dll"), True)
-            find_and_rename(temp, r"wavpackdll\.dll", Path(dir, "wavpackdll.dll"), True)
-            find_and_rename(temp, r"sndfile\.dll", Path(dir, "sndfile.dll"))
-            clean_temp_files()
-            temp = get_temp_workdir()
-
-            info("Downloading iTunes libraries...")
-            download_file(LINKS[4], temp)
-            unpack_all(temp)
-            find_and_rename(temp, r".*\.dll", dir)
-
-    clean_temp_files()
+    try:
+        answer = questionary.select(message, choices=choices).ask()
+    except KeyboardInterrupt:
+        raise SystemExit(130) from None
+    if answer is None:
+        raise SystemExit(130)
+    return answer
 
 
-def find_and_rename(dir: Path, pattern: str, renameto: Path, x64_parent_dir: bool = False):
-    regex = re.compile(pattern, re.IGNORECASE)
-    if not renameto.is_dir() and renameto.exists():
-        renameto.unlink()
-    for f in dir.rglob("*"):
-        if x64_parent_dir:
-            if "64" not in f.parent.name:
-                continue
-        if regex.match(f.name):
-            if renameto.is_dir():
-                shutil.move(f, Path(renameto, f.name))
-            else:
-                shutil.move(f, renameto)
-                break
+def _choose_many(message: str, choices: list[str]) -> list[str]:
+    if not sys.stdin.isatty():
+        raise ValueError(f"{message}: provide choices as arguments")
+    import questionary
+    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.keys import Keys
+    from questionary.prompts.common import InquirerControl
+
+    prompt = questionary.checkbox(message, choices=choices, instruction="Enter: highlighted or checked · Space: toggle selections")
+    control = next(window.content for window in prompt.application.layout.find_all_windows() if isinstance(window.content, InquirerControl))
+    bindings = prompt.application.key_bindings
+    assert isinstance(bindings, KeyBindings)
+    bindings.remove(Keys.ControlM)
+
+    @bindings.add(Keys.ControlM, eager=True)
+    def submit(event: Any) -> None:
+        selected = control.get_selected_values() or [control.get_pointed_at()]
+        control.is_answered = True
+        event.app.exit(result=[choice.value for choice in selected])
+
+    try:
+        answer = prompt.ask()
+    except KeyboardInterrupt:
+        raise SystemExit(130) from None
+    if answer is None:
+        raise SystemExit(130)
+    return answer
 
 
-def install_scoop():
-    if os.name != "nt":
-        info("This script does not work on anything but windows.")
-        info("You should be able to install everything yourself via AUR or whatever you're using.")
-        exit()
-    if shutil.which("scoop"):
+def _specs(values: tuple[str, ...], catalog: dict[str, Any], offline: bool = False) -> list[str]:
+    if values:
+        return list(values)
+    latest = "latest installed version" if offline else "latest version"
+    selected = _choose_many(f"Select packages (multiple: {latest} of each)", sorted(catalog["packages"]))
+    if len(selected) != 1:
+        return selected
+    name = selected[0]
+    versions = catalog["packages"][name]["versions"]
+    if not versions:
+        raise ValueError(f"No catalog versions are available for {name}")
+    version = _choose("Select a version", sorted(versions, key=lambda key: versions[key]["version_code"], reverse=True))
+    return [f"{name}=={version}"]
+
+
+def _result(
+    label: str,
+    value: str | Path | None = None,
+    detail: str | Text | None = None,
+    *,
+    kind: Literal["success", "existing", "system"] = "success",
+) -> None:
+    marker, marker_style = {"success": ("✓", "bold green"), "existing": ("•", "bold cyan"), "system": ("✓", "bold cyan")}[kind]
+    line = Text(f"{marker} ", style=marker_style)
+    line.append(label, style="bold")
+    if value is not None:
+        line.append(f" {value}", style="cyan")
+    if detail:
+        line.append(" · ", style="dim")
+        if isinstance(detail, Text):
+            line.append(detail)
+        else:
+            line.append(detail, style="dim" if kind == "success" else "cyan" if kind == "system" else None)
+    app.console.print(line)
+
+
+@app.command
+def init(
+    *,
+    standalone: Annotated[bool, Parameter(negative=False)] = False,
+    pyproject: Annotated[bool, Parameter(negative=False)] = False,
+    local: Annotated[bool, Parameter(name=["--local", "-l"], negative=False, help="Use binaries installed in this project.")] = False,
+    global_: Annotated[bool, Parameter(name=["--global", "-g"], negative=False, help="Use binaries installed for this user.")] = False,
+    system: Annotated[bool, Parameter(name=["--system", "-s"], negative=False, help="Use executables on PATH.")] = False,
+) -> None:
+    """Initialize project configuration. Prompts for a binary mode in a terminal; defaults to local in scripts."""
+    if standalone and pyproject:
+        raise ValueError("Choose only one of --standalone and --pyproject")
+    if sum((local, global_, system)) > 1:
+        raise ValueError("Choose only one of --local, --global, and --system")
+    name = "muxtools.toml" if standalone else "pyproject.toml" if pyproject else _choose("Configuration file", ["pyproject.toml", "muxtools.toml"])
+    if local or global_ or system:
+        mode: BinaryMode = "local" if local else "global" if global_ else "system"
+    elif sys.stdin.isatty():
+        modes: dict[str, BinaryMode] = {"Local (project)": "local", "Global (user)": "global", "System (PATH)": "system"}
+        mode = modes[_choose("Binary mode", list(modes))]
+    else:
+        mode = "local"
+    config = init_config(Path(name), mode)
+    _result("Configuration ready:", config.path, f"{config.mode} binaries")
+
+
+@app.command(name="migrate-config")
+def migrate_config_command(source: Path = Path("config.ini"), *, destination: Path) -> None:
+    """Copy legacy INI settings into a selected TOML file."""
+    _result("Migrated configuration:", migrate_config(source, destination).path)
+
+
+@app.command(name=["video-meta", "vm"])
+def video_meta(input: Path, output: Path | None = None) -> None:
+    """Generate VideoMeta JSON from a video."""
+    path = ensure_path_exists(input, None)
+    parsed = ParsedFile.from_file(path, None, False)
+    if not parsed.is_video_file:
+        raise ValueError(f"{path.name!r} is not a video file")
+    destination = output or Path.cwd() / f"{path.stem}_meta.json"
+    get_timemeta_from_video(path, 0, destination, parsed, None)
+    _result("VideoMeta written:", destination)
+
+
+@binaries.command
+def add(*specs: str, offline: bool = False) -> None:
+    """Declare and install packages in the current project."""
+    config = discover_config()
+    if config is None:
+        raise ValueError("No project configuration found; run 'muxtools init'")
+    catalog = manager.load_catalog(offline)
+    selected = _specs(specs, catalog, offline)
+    if not selected:
+        app.console.print("[dim]No packages selected.[/dim]")
         return
-
-    info("This script depends on having [link=https://scoop.sh]scoop[/link] installed.")
-    info(f"Do you want to install it? {CONF}")
-
-    answer = input("")
-    if answer.lower() not in ["y", "yes"]:
-        info("Aborting...")
-        exit(0)
-
-    info("Setting group policy for powershell...")
-    _run_powershell(["Set-ExecutionPolicy", "RemoteSigned", "-Scope", "CurrentUser"])
-    info("Downloading and installing scoop for current user...")
-    subprocess.run("irm get.scoop.sh | iex", shell=True, executable=shutil.which("powershell"))
-    os.environ["PATH"] += os.pathsep + str(Path(str(os.environ["USERPROFILE"]), "scoop", "shims").resolve())
-
-
-def install_dependencies():
-    install_scoop()
-    info("Updating scoop buckets...")
-    _run_powershell("scoop update", True)
-
-    if not shutil.which("git"):
-        request_install("git", "Needed for a lot of things. Just install it.")
-
-    if not shutil.which("ffmpeg"):
-        request_install(
-            "ffmpeg",
-            "This is used for ensuring compatibility for basically every encoder.",
-            "versions/ffmpeg-gyan-nightly",
-            ("versions", ""),
-            "ffmpeg-gyan-nightly",
-        )
-    if not shutil.which("fdkaac"):
-        request_install(
-            "fdkaac",
-            "The second best AAC encoder. Not really necessary tbf.",
-            "vodes/fdkaac",
-            ("vodes", "https://github.com/Vodes/Bucket"),
-            "fdkaac",
-        )
-    if not shutil.which("sox"):
-        request_install("SoX", "This is used & preferred for trimming lossless audio.")
-
-    if not shutil.which("mkvmerge") or not shutil.which("mkvextract"):
-        request_install(
-            "Mkvtoolnix",
-            "This is used for all muxing operations.\nYou might have already installed this but mkvmerge and mkvextract could not be found in path!",
-            "extras/mkvtoolnix",
-            ("extras", ""),
-        )
-
-    if not shutil.which("opusenc"):
-        request_install(
-            "opus-tools",
-            "This is used for encoding audio to opus via opusenc.",
-            "vodes/opus-tools-rarewares",
-            ("vodes", "https://github.com/Vodes/Bucket"),
-        )
-
-    if not shutil.which("flac"):
-        request_install("FLAC", "This is used for encoding audio to flac via the official reference encoder.")
-
-    if not shutil.which("qaac"):
-        if not request_install("qaac", "This is used for encoding audio to aac."):
-            warn("qAAC requires external libraries from iTunes because apple is funny.\nYou can automatically install these with [b u]libs[/].")
-
-    if not shutil.which("eac3to"):
-        if not request_install(
-            "eac3to", "This is used for audio extraction/processing.\nMostly useless due to the ffmpeg implementation in this package."
-        ):
-            warn(
-                "eac3to has some stupid sounds included that play when processing finishes."
-                + "\nIt also has a bunch of outdated libraries included."
-                + "\nYou can automatically solve these issues with [b u]libs[/]."
+    _, versions = manager.add(config, selected, offline, catalog)
+    for name, version in versions.items():
+        if config.mode == "system":
+            _result(name, f"{version} (catalog)", "declared; system version not checked", kind="system")
+        else:
+            location = "locally" if config.mode == "local" else "globally"
+            _result(
+                name,
+                version,
+                f"{'already installed' if offline else 'installed'} {location}, added to project",
+                kind="existing" if offline else "success",
             )
 
-    print("\n\n")
-    install_libraries()
 
-
-def request_install(
-    name: str, description: str, scoop_package: str | None = None, scoop_bucket: tuple[str, str] | None = None, exact_name: str | None = None
-) -> int:
-    info(f"Do you want to install {name}? {CONF}\n{description}")
-    if input("").lower() in ["y", "yes"]:
-        if scoop_bucket:
-            info(f"Adding scoop bucket '{scoop_bucket[0]}'...")
-            _run_powershell(f"scoop bucket add {scoop_bucket[0]} {scoop_bucket[1]}")
-            _run_powershell("scoop update", True)
-        info(f"Installing {exact_name if exact_name else name} via scoop...")
-        return _run_powershell(f"scoop install {scoop_package if scoop_package else name.lower()} -u -a 64bit")
-    return -1
-
-
-def get_exe_folder(name: str) -> Path | None:
-    exe_path = shutil.which(name)
-    if exe_path is not None:
-        exe_path = Path(exe_path)
-        # if this was installed with scoop
-        if exe_path.parent.name == "shims":
-            return Path(exe_path.parent.parent, "apps", name, "current")
+@binaries.command
+def install(
+    *specs: str,
+    local: Annotated[bool, Parameter(name=["--local", "-l"])] = False,
+    global_: Annotated[bool, Parameter(name=["--global", "-g"])] = False,
+    offline: bool = False,
+) -> None:
+    """Install packages without modifying project declarations."""
+    if local and global_:
+        raise ValueError("Choose only one of --local and --global")
+    config = discover_config()
+    scope = "local" if local else "global" if global_ else None
+    mode = scope or (config.mode if config else "global")
+    root = manager.scope_path(config, scope)
+    catalog = manager.load_catalog(offline)
+    selected = _specs(specs, catalog, offline)
+    if not selected:
+        app.console.print("[dim]No packages selected.[/dim]")
+        return
+    for raw in selected:
+        spec = manager.parse_spec(raw)
+        if offline:
+            name = manager.resolve_name(spec.name, catalog)
+            canonical = manager.Spec(name, spec.operator, spec.version)
+            matches = manager.usable_installed(canonical, catalog["packages"][name], root)
+            if not matches:
+                raise ValueError(f"{name} is missing and cannot be installed offline")
+            item = max(matches, key=lambda value: value["version_code"])
         else:
-            return exe_path.parent
-    return exe_path
+            item = manager.install(spec, catalog, root)
+        location = "locally" if mode == "local" else "globally"
+        _result(
+            item["name"], item["version"], f"{'already installed' if offline else 'installed'} {location}", kind="existing" if offline else "success"
+        )
 
 
-def _run_powershell(args: str | list[str], quiet: bool = False) -> int:
-    if isinstance(args, str):
-        args = shlex.split(args)
-    powershell_exe = shutil.which("powershell")
-    assert powershell_exe
-    pwsh = [powershell_exe]
-    pwsh.extend(args)
-    if quiet:
-        p = subprocess.Popen(pwsh, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+@binaries.command
+def sync(*, offline: bool = False) -> None:
+    """Ensure project binary declarations are available."""
+    config = discover_config()
+    if config is None:
+        raise ValueError("No project configuration found")
+    if not config.packages:
+        app.console.print("[dim]No packages declared.[/dim]")
+        return
+    results = manager.sync(config, offline)
+    location = "locally" if config.mode == "local" else "globally"
+    for result in results:
+        if result.state == "installed":
+            _result(result.name, result.version, f"installed {location}")
+        elif result.state == "existing":
+            _result(result.name, result.version, f"already installed {location}", kind="existing")
+        else:
+            detail = Text("available on PATH", style="cyan")
+            if result.version_unchecked:
+                detail.append(" (version not checked)", style="yellow")
+            _result(result.name, detail=detail, kind="system")
+
+
+@binaries.command(name="list")
+def list_binaries(*, global_: Annotated[bool, Parameter(name=["--global", "-g"])] = False) -> None:
+    """Show installed versions and the version selected by this project."""
+    config = discover_config()
+    if config is None and not global_:
+        app.console.print("[yellow]No project configuration found.[/yellow]")
+        return
+    try:
+        catalog = manager.load_catalog(offline=True)
+    except ValueError:
+        catalog = None
+    if config and config.mode == "system" and not global_:
+        app.console.print(Text("Project binaries (system)", style="bold cyan"))
+        for raw in config.packages:
+            spec = manager.parse_spec(raw)
+            package = catalog["packages"].get(spec.name) if catalog else None
+            provided = package.get("provides", []) if package else [spec.name]
+            missing = [binary for binary in provided if not shutil.which(binary)]
+            line = Text(f"{spec.name}: ", style="bold")
+            line.append("missing " + ", ".join(missing) if missing else "available on PATH", style="yellow" if missing else "green")
+            if spec.operator:
+                line.append(" (version not checked)", style="dim")
+            app.console.print(line)
+        if not config.packages:
+            app.console.print("[dim]No packages declared.[/dim]")
+        return
+
+    if global_:
+        scope = "global"
     else:
-        p = subprocess.Popen(pwsh)
-    p.communicate()
-    print("")
-    return p.returncode
+        assert config is not None
+        scope = config.mode
+    root = manager.scope_path(config, scope)
+    items = manager.installed(root)
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for item in items:
+        grouped[item["name"]].append(item)
+    selected: dict[str, str] = {}
+    problems: dict[str, str] = {}
+    if config and config.mode == scope:
+        selected, problems = _project_versions(config, catalog, root, items)
+    app.console.print(Text("Global binaries" if global_ else f"Project binaries ({scope})", style="bold cyan"))
+    names = sorted(grouped.keys() | problems.keys() | selected.keys())
+    if not names:
+        app.console.print("[dim]No installed binaries.[/dim]")
+        return
+    for name in names:
+        line = Text(f"{name}: ", style="bold")
+        versions = sorted(grouped.get(name, []), key=lambda item: item["version_code"], reverse=True)
+        for index, item in enumerate(versions):
+            if index:
+                line.append(", ")
+            active = selected.get(name) == item["version"]
+            line.append(item["version"], style="green" if active else None)
+            if active:
+                line.append("*", style="bold green")
+        if name in problems:
+            if versions:
+                line.append(" ")
+            line.append(f"({problems[name]})", style="yellow")
+        app.console.print(line)
+    if selected:
+        app.console.print("[dim]* selected by the current project[/dim]")
 
 
-def generate_videometa(file: str | None = None, output: str | None = None):
-    if not file:
-        error("You have to pass an input video file!", None)
-        sys.exit(1)
+def _project_versions(
+    config: ProjectConfig, catalog: dict[str, Any] | None, root: Path, items: list[dict[str, Any]]
+) -> tuple[dict[str, str], dict[str, str]]:
+    selected = {}
+    problems = {}
+    for raw in config.packages:
+        spec = manager.parse_spec(raw)
+        try:
+            name = manager.resolve_name(spec.name, catalog) if catalog else spec.name
+            package = catalog["packages"][name] if catalog else {}
+            matches = manager.usable_installed(manager.Spec(name, spec.operator, spec.version), package, root, items)
+        except ValueError:
+            problems[spec.name] = "unknown package or constraint version"
+            continue
+        if matches:
+            selected[name] = max(matches, key=lambda item: item["version_code"])["version"]
+        else:
+            problems[name] = "needs sync"
+    return selected, problems
 
-    in_path = ensure_path_exists(file, None)
-    parsed = ParsedFile.from_file(in_path, None, False)
-    if not parsed.is_video_file:
-        error(f'"{in_path.name}" is not a video file!', None)
-        sys.exit(1)
 
-    if not output:
-        info("Generating VideoMeta file in your current work directory.", None)
-        out_path = ensure_path(os.getcwd(), None) / f"{in_path.stem}_meta.json"
+@binaries.command
+def remove(*names: str) -> None:
+    """Remove package declarations from project configuration."""
+    config = discover_config()
+    if config is None:
+        raise ValueError("No project configuration found")
+    if not names and not config.packages:
+        app.console.print("[dim]No packages declared.[/dim]")
+        return
+    selected = (
+        list(names)
+        if names
+        else _choose_many("Select declarations to remove", list(dict.fromkeys(manager.parse_spec(raw).name for raw in config.packages)))
+    )
+    if not selected:
+        app.console.print("[dim]No packages selected.[/dim]")
+        return
+    updated = manager.remove(config, selected)
+    removed = [manager.parse_spec(raw) for raw in config.packages if raw not in updated.packages]
+    for spec in removed:
+        version = ("" if spec.operator == "==" else spec.operator) + spec.version if spec.operator and spec.version else None
+        _result(spec.name, version, "removed from project")
+    if not removed:
+        app.console.print("[yellow]No matching project declarations.[/yellow]")
+
+
+@binaries.default
+def binaries_menu() -> None:
+    """Choose a binary management action."""
+    if not sys.stdin.isatty():
+        app.help_print("binaries")
+        return
+    config = discover_config()
+    actions: dict[str, Callable[[], None]]
+    if config is None:
+        actions = {
+            "Initialize project": init,
+            "Install globally": lambda: install(global_=True),
+            "List global binaries": lambda: list_binaries(global_=True),
+        }
     else:
-        out_path = ensure_path(output, None)
 
-    get_timemeta_from_video(in_path, 0, out_path, parsed, None)
+        def install_selected() -> None:
+            if config.mode == "system":
+                scope = _choose("Install scope", ["global", "local"])
+                install(global_=scope == "global", local=scope == "local")
+            else:
+                install()
+
+        actions = {
+            "List project binaries": list_binaries,
+            "List global binaries": lambda: list_binaries(global_=True),
+            "Add package": add,
+            "Install package": install_selected,
+            "Sync project": sync,
+        }
+        if config.packages:
+            actions["Remove declaration"] = remove
+    actions[_choose("Choose a binary action", list(actions))]()

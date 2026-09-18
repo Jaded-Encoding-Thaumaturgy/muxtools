@@ -181,7 +181,7 @@ class LossyWav(Encoder):
         output = ensure_valid_in(fileIn, False, self.preprocess, valid_type=ValidInputType.W64, caller=self)
 
         args = [
-            get_executable("lossyWAV", False),
+            get_executable("lossyWAV"),
             str(output.file),
             "--quality",
             self.quality.name.lower(),
