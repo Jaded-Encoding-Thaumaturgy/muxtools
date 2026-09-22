@@ -20,8 +20,10 @@ def parse_spec(value: str) -> Spec:
 
 def target_name() -> str:
     system = platform.system().lower()
+    if system == "darwin":
+        system = "macos"
     arch = platform.machine().lower()
-    arch = {"amd64": "x86_64", "x64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}.get(arch, arch)
+    arch = {"amd64": "x86_64", "x64": "x86_64", "aarch64": "arm64"}.get(arch, arch)
     return f"{system}-{arch}"
 
 
