@@ -12,4 +12,4 @@ arbitrary_value = "woah"
 # Pinned versions are used for the tests, both in CI and locally
 [muxtools.binaries]
 prefer = "local"
-packages = ["mkvtoolnix==101.0", "opus-tools==0.2-libopus-1.6.1", "flac==1.5.0.post1", "ffmpeg==9.0.1-27-g9b0578816c-2026-09-07", "sox-ng==14.8.1"]
+packages = ["mkvtoolnix==102.0", "opus-tools==0.2-libopus-1.6.1+1", "flac==1.5.0.post2", "ffmpeg==9.0.2-r2", "sox-ng==14.8.1.post1"]

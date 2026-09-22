@@ -30,7 +30,7 @@ def test_mux():
 
     out = mux(premux, sub.to_track("Test"), ch, outfile=get_workdir() / "muxed.mkv", print_cli=True)
 
-    assert hashlib.md5(out.read_bytes()).hexdigest() == "6a5162b6cb36951ba0840f56c5141668"
+    assert hashlib.md5(out.read_bytes()).hexdigest() == "63fcf53fefdc794b8678637895e1be79"
 
 
 def test_metadata_tokens():
