@@ -37,7 +37,7 @@ def _choose(message: str, choices: list[str]) -> str:
     return answer
 
 
-def _choose_many(message: str, choices: list[str]) -> list[str]:
+def _choose_many(message: str, choices: list[Any]) -> list[str]:
     if not sys.stdin.isatty():
         raise ValueError(f"{message}: provide choices as arguments")
     import questionary
@@ -146,8 +146,16 @@ def video_meta(input: Path, output: Path | None = None) -> None:
     _result("VideoMeta written:", destination)
 
 
-@binaries.command
-def add(*specs: str, offline: bool = False) -> None:
+@binaries.command(
+    help_epilogue=(
+        "Examples:\n"
+        "- `muxtools binaries add opusenc` — add the latest version.\n"
+        "- `muxtools binaries add 'x265==4.2'` — pin a version.\n"
+        "- `muxtools binaries add --offline opusenc` — use cached data.\n\n"
+        "No specs: choose packages in a terminal."
+    )
+)
+def add(*specs: str, offline: Annotated[bool, Parameter(help="Use the cached catalog and installed binaries.")] = False) -> None:
     """Declare and install packages in the current project."""
     config = discover_config()
     if config is None:
@@ -171,12 +179,20 @@ def add(*specs: str, offline: bool = False) -> None:
             )
 
 
-@binaries.command
+@binaries.command(
+    help_epilogue=(
+        "Examples:\n"
+        "- `muxtools binaries install x265` — install without declaring.\n"
+        "- `muxtools binaries install -g 'x265==4.2'` — install globally.\n"
+        "- `muxtools binaries install --offline opusenc` — use an installed version.\n\n"
+        "No specs: choose packages in a terminal."
+    )
+)
 def install(
     *specs: str,
-    local: Annotated[bool, Parameter(name=["--local", "-l"])] = False,
-    global_: Annotated[bool, Parameter(name=["--global", "-g"])] = False,
-    offline: bool = False,
+    local: Annotated[bool, Parameter(name=["--local", "-l"], help="Install in this project.")] = False,
+    global_: Annotated[bool, Parameter(name=["--global", "-g"], help="Install for this user.")] = False,
+    offline: Annotated[bool, Parameter(help="Use the cached catalog and installed binaries.")] = False,
 ) -> None:
     """Install packages without modifying project declarations."""
     if local and global_:
@@ -207,8 +223,14 @@ def install(
         )
 
 
-@binaries.command
-def sync(*, offline: bool = False) -> None:
+@binaries.command(
+    help_epilogue=(
+        "Examples:\n"
+        "- `muxtools binaries sync` — install missing declared packages.\n"
+        "- `muxtools binaries sync --offline` — check installed packages without downloading."
+    )
+)
+def sync(*, offline: Annotated[bool, Parameter(help="Check without downloading; require installed binaries.")] = False) -> None:
     """Ensure project binary declarations are available."""
     config = discover_config()
     if config is None:
@@ -230,8 +252,16 @@ def sync(*, offline: bool = False) -> None:
             _result(result.name, detail=detail, kind="system")
 
 
-@binaries.command(name="list")
-def list_binaries(*, global_: Annotated[bool, Parameter(name=["--global", "-g"])] = False) -> None:
+@binaries.command(
+    name="list",
+    help_epilogue=(
+        "Examples:\n"
+        "- `muxtools binaries list` — show project binaries.\n"
+        "- `muxtools binaries list -g` — show global binaries.\n"
+        "`*` marks the version selected by this project."
+    ),
+)
+def list_binaries(*, global_: Annotated[bool, Parameter(name=["--global", "-g"], help="List user-global binaries.")] = False) -> None:
     """Show installed versions and the version selected by this project."""
     config = discover_config()
     if config is None and not global_:
@@ -303,8 +333,8 @@ def _project_versions(
     for raw in config.packages:
         spec = manager.parse_spec(raw)
         try:
-            name = manager.resolve_name(spec.name, catalog) if catalog else spec.name
-            package = catalog["packages"][name] if catalog else {}
+            name = manager.resolve_installed_name(spec.name, items, catalog)
+            package = catalog["packages"].get(name, {}) if catalog else {}
             matches = manager.usable_installed(manager.Spec(name, spec.operator, spec.version), package, root, items)
         except ValueError:
             problems[spec.name] = "unknown package or constraint version"
@@ -316,30 +346,87 @@ def _project_versions(
     return selected, problems
 
 
-@binaries.command
-def remove(*names: str) -> None:
-    """Remove package declarations from project configuration."""
+@binaries.command(
+    name=["remove", "rm"],
+    help_epilogue=(
+        "Examples:\n"
+        "- `muxtools binaries rm x265` — remove all versions (and a local declaration).\n"
+        "- `muxtools binaries rm 'x265<=4.1'` — remove matching versions.\n"
+        "- `muxtools binaries rm '*'` — clean unused local versions.\n"
+        "- `muxtools binaries rm -g -y x265` — remove global versions without prompting.\n\n"
+        "No selectors: choose installed versions in a terminal."
+    ),
+)
+def remove(
+    *selectors: str,
+    local: Annotated[bool, Parameter(name=["--local", "-l"], help="Remove from project storage.")] = False,
+    global_: Annotated[bool, Parameter(name=["--global", "-g"], help="Remove from user-global storage.")] = False,
+    yes: Annotated[bool, Parameter(name=["--yes", "-y"], negative=False, help="Skip the confirmation prompt.")] = False,
+) -> None:
+    """Remove installed versions; '*' cleans unused project-local versions."""
+    if local and global_:
+        raise ValueError("Choose only one of --local and --global")
     config = discover_config()
-    if config is None:
-        raise ValueError("No project configuration found")
-    if not names and not config.packages:
-        app.console.print("[dim]No packages declared.[/dim]")
-        return
-    selected = (
-        list(names)
-        if names
-        else _choose_many("Select declarations to remove", list(dict.fromkeys(manager.parse_spec(raw).name for raw in config.packages)))
-    )
+    scope = "local" if local else "global" if global_ else config.mode if config and config.mode != "system" else None
+    if scope is None:
+        if config and sys.stdin.isatty():
+            scope = _choose("Remove from which scope?", ["local", "global"])
+        else:
+            raise ValueError("Choose --local or --global for binary removal")
+    selected = list(selectors)
     if not selected:
-        app.console.print("[dim]No packages selected.[/dim]")
+        if not sys.stdin.isatty():
+            raise ValueError("Provide package or version selectors")
+        root = manager.scope_path(config, scope)
+        items = manager.installed(root)
+        if not items:
+            app.console.print("[dim]No installed binaries.[/dim]")
+            return
+        active: dict[str, str] = {}
+        if config and config.mode == scope:
+            try:
+                catalog = manager.load_catalog(offline=True)
+            except ValueError:
+                catalog = None
+            active, _ = _project_versions(config, catalog, root, items)
+        import questionary
+
+        choices: list[Any] = []
+        last_name = None
+        for item in sorted(items, key=lambda item: (item["name"], -item["version_code"], item["version"])):
+            if item["name"] != last_name:
+                choices.append(questionary.Separator(f"── {item['name']} ──"))
+                last_name = item["name"]
+            label = f"{item['version']}{'  * selected' if active.get(item['name']) == item['version'] else ''}"
+            choices.append(questionary.Choice(label, value=f"{item['name']}=={item['version']}"))
+        selected = _choose_many("Select installed versions to remove", choices)
+        if not selected:
+            app.console.print("[dim]No binaries selected.[/dim]")
+            return
+    plan = manager.plan_removal(config, scope, selected)
+    if not plan.items and not plan.declarations:
+        app.console.print("[dim]No matching installed binaries or local declarations.[/dim]")
         return
-    updated = manager.remove(config, selected)
-    removed = [manager.parse_spec(raw) for raw in config.packages if raw not in updated.packages]
-    for spec in removed:
-        version = ("" if spec.operator == "==" else spec.operator) + spec.version if spec.operator and spec.version else None
-        _result(spec.name, version, "removed from project")
-    if not removed:
-        app.console.print("[yellow]No matching project declarations.[/yellow]")
+    app.console.print(Text(f"Remove from {scope} binaries:", style="bold cyan"))
+    for item in plan.items:
+        app.console.print(f"  {item['name']} {item['version']}")
+    for raw in plan.declarations:
+        app.console.print(f"  Project declaration: {raw}")
+    if not yes:
+        if not sys.stdin.isatty():
+            raise ValueError("Use -y/--yes to confirm removal in a noninteractive session")
+        if _choose("Remove these binaries and declarations?", ["No", "Yes"]) != "Yes":
+            app.console.print("[dim]Removal cancelled.[/dim]")
+            return
+    result = manager.apply_removal(plan)
+    for item in result.removed:
+        _result(item["name"], item["version"], f"removed {scope} install")
+    for raw in result.declarations:
+        _result(raw, detail="removed from project")
+    if result.failed:
+        for failure in result.failed:
+            app.console.print(f"[red]Could not remove {failure.item['name']} {failure.item['version']}: {failure.error}[/red]")
+        raise ValueError(f"Failed to remove {len(result.failed)} installed version(s)")
 
 
 @binaries.default
@@ -355,6 +442,7 @@ def binaries_menu() -> None:
             "Initialize project": init,
             "Install globally": lambda: install(global_=True),
             "List global binaries": lambda: list_binaries(global_=True),
+            "Remove global binaries": lambda: remove(global_=True),
         }
     else:
 
@@ -371,7 +459,8 @@ def binaries_menu() -> None:
             "Add package": add,
             "Install package": install_selected,
             "Sync project": sync,
+            "Clean unused local binaries": lambda: remove("*", local=True),
+            "Remove local binaries": lambda: remove(local=True),
+            "Remove global binaries": lambda: remove(global_=True),
         }
-        if config.packages:
-            actions["Remove declaration"] = remove
     actions[_choose("Choose a binary action", list(actions))]()

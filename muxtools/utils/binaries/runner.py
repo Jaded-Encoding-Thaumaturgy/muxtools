@@ -7,8 +7,8 @@ from pathlib import Path
 from cpuinfo import get_cpu_info  # type: ignore[import-untyped]
 
 from .types import Spec
-from .sanitization import parse_spec, _installed_metadata, version_code, satisfies
-from .operations import scope_path, load_catalog, resolve_name
+from .sanitization import parse_spec, _installed_metadata, version_code, satisfies, resolve_name, resolve_installed_name
+from .operations import scope_path, load_catalog
 from ..log import warn
 from ...config import ProjectConfig, discover_config
 
@@ -122,17 +122,17 @@ def get_managed_executable(name: str, config: ProjectConfig | None = None) -> st
         catalog = load_catalog(offline=True)
     except ValueError:
         pass
+    installed_items = _installed_metadata(root)
     for raw in config.packages:
         spec = parse_spec(raw)
-        package = spec.name
+        package = resolve_name(spec.name, catalog) if catalog else resolve_installed_name(spec.name, installed_items)
+        items = [item for item in installed_items if item["name"] == package]
         if catalog:
-            package = resolve_name(package, catalog)
             provided = catalog["packages"][package].get("provides", [])
         else:
-            provided = [key for item in _installed_metadata(root, package) for key in item.get("binaries", {})]
+            provided = [key for item in items for key in item.get("binaries", {})]
         if name not in provided:
             continue
-        items = _installed_metadata(root, package)
         required = version_code(Spec(package, spec.operator, spec.version), catalog["packages"].get(package, {}) if catalog else {}, root)
         valid = [item for item in items if satisfies(item["version_code"], spec.operator, required)]
         for item in sorted(valid, key=lambda value: value["version_code"], reverse=True):

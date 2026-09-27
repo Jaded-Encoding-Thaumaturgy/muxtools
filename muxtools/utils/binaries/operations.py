@@ -14,8 +14,17 @@ from typing import Any
 from platformdirs import user_cache_path, user_data_path
 from rich.console import Console
 
-from .sanitization import parse_spec, _installed_metadata, version_code, satisfies, target_name
-from .types import Spec, SyncResult
+from .sanitization import (
+    parse_spec,
+    _installed_metadata,
+    version_code,
+    satisfies,
+    target_name,
+    resolve_name,
+    resolve_installed_name,
+    managed_install_directory,
+)
+from .types import Spec, SyncResult, RemovalPlan, RemovalFailure, RemovalResult
 from ...config import ProjectConfig, update_config
 from ..download import download_file
 
@@ -34,7 +43,79 @@ __all__ = [
     "add",
     "sync",
     "remove",
+    "plan_removal",
+    "apply_removal",
 ]
+
+
+def plan_removal(config: ProjectConfig | None, scope: str, selectors: list[str]) -> RemovalPlan:
+    """Choose managed installations to remove without changing project declarations."""
+    if scope not in ("local", "global"):
+        raise ValueError("Choose --local or --global")
+    if scope == "global" and "*" in selectors:
+        raise ValueError("Global removal requires explicit package or version selectors")
+    root = scope_path(config, scope)
+    items = installed(root)
+    try:
+        catalog = load_catalog(offline=True)
+    except (ValueError, OSError):
+        catalog = None
+    selected: set[tuple[str, str]] = set()
+    declarations: set[str] = set()
+    if "*" in selectors:
+        if len(selectors) != 1:
+            raise ValueError("'*' cannot be combined with other selectors")
+        protected: set[tuple[str, str]] = set()
+        if config and config.mode == "local":
+            for raw in config.packages:
+                spec = parse_spec(raw)
+                name = resolve_installed_name(spec.name, items, catalog)
+                package = catalog["packages"].get(name, {}) if catalog else {}
+                try:
+                    matches = usable_installed(Spec(name, spec.operator, spec.version), package, root, items)
+                except ValueError:
+                    matches = []
+                if matches:
+                    chosen = max(matches, key=lambda item: item["version_code"])
+                    protected.add((name, chosen["version"]))
+        selected = {(item["name"], item["version"]) for item in items} - protected
+    else:
+        for raw in selectors:
+            spec = parse_spec(raw)
+            name = resolve_installed_name(spec.name, items, catalog)
+            package = catalog["packages"].get(name, {}) if catalog else {}
+            if spec.operator is None:
+                selected.update((item["name"], item["version"]) for item in items if item["name"] == name)
+                if scope == "local" and config and config.mode == "local":
+                    declarations.update(raw for raw in config.packages if resolve_installed_name(parse_spec(raw).name, items, catalog) == name)
+            else:
+                matches = matching_installed(Spec(name, spec.operator, spec.version), package, root, items)
+                selected.update((item["name"], item["version"]) for item in matches)
+    targets = tuple(item for item in items if (item["name"], item["version"]) in selected)
+    for item in targets:
+        managed_install_directory(root, item)
+    return RemovalPlan(root, targets, tuple(raw for raw in config.packages if raw in declarations) if config else (), config)
+
+
+def apply_removal(plan: RemovalPlan) -> RemovalResult:
+    """Remove planned versions, then edit local declarations for fully removed packages."""
+    removed: list[dict[str, Any]] = []
+    failed: list[RemovalFailure] = []
+    for item in plan.items:
+        try:
+            shutil.rmtree(managed_install_directory(plan.root, item))
+        except (OSError, ValueError) as error:
+            failed.append(RemovalFailure(item, error))
+        else:
+            removed.append(item)
+    changed: list[str] = []
+    if plan.config and plan.declarations:
+        failed_names = {failure.item["name"] for failure in failed}
+        changed = [raw for raw in plan.declarations if resolve_installed_name(parse_spec(raw).name, plan.items) not in failed_names]
+        if changed:
+            update_config(plan.config.path, packages=[raw for raw in plan.config.packages if raw not in changed])
+    installed(plan.root)
+    return RemovalResult(tuple(removed), tuple(failed), tuple(changed))
 
 
 def scope_path(config: ProjectConfig | None, scope: str | None = None) -> Path:
@@ -71,16 +152,6 @@ def load_catalog(offline: bool = False) -> dict[str, Any]:
     if catalog.get("schema_version") != 1 or not isinstance(catalog.get("packages"), dict):
         raise ValueError("Invalid cached binary catalog")
     return catalog
-
-
-def resolve_name(name: str, catalog: dict[str, Any]) -> str:
-    packages = catalog["packages"]
-    if name in packages:
-        return name
-    providers = [package for package, data in packages.items() if name in data.get("provides", [])]
-    if not providers:
-        raise ValueError(f"No package or provided binary named {name!r} exists in the catalog")
-    return min(providers, key=lambda value: (len(value), value))
 
 
 def installed(root: Path) -> list[dict[str, Any]]:
@@ -251,5 +322,6 @@ def add(
 
 
 def remove(config: ProjectConfig, names: list[str]) -> ProjectConfig:
+    """Remove declarations from a project config (legacy Python API)."""
     wanted = set(names)
     return update_config(config.path, packages=[raw for raw in config.packages if parse_spec(raw).name not in wanted])
