@@ -11,7 +11,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from platformdirs import user_cache_path, user_data_path
+from platformdirs import user_cache_path
 from rich.console import Console
 
 from .sanitization import (
@@ -25,7 +25,7 @@ from .sanitization import (
     managed_install_directory,
 )
 from .types import Spec, SyncResult, RemovalPlan, RemovalFailure, RemovalResult
-from ...config import ProjectConfig, update_config
+from ...config import EffectiveBinaryConfig, ProjectConfig, global_binary_path, update_config
 from ..download import download_file
 
 CATALOG_URL = "https://github.com/Vodes/muxtools-binaries/releases/download/catalog-v1/versions.json"
@@ -118,14 +118,15 @@ def apply_removal(plan: RemovalPlan) -> RemovalResult:
     return RemovalResult(tuple(removed), tuple(failed), tuple(changed))
 
 
-def scope_path(config: ProjectConfig | None, scope: str | None = None) -> Path:
+def scope_path(config: ProjectConfig | EffectiveBinaryConfig | None, scope: str | None = None) -> Path:
     mode = scope or (config.mode if config else "global")
     if mode == "local":
-        if config is None:
+        project_config = config.project_config if isinstance(config, EffectiveBinaryConfig) else config
+        if project_config is None:
             raise ValueError("Local scope requires a project configuration")
-        return config.root / ".muxtools" / "bins"
+        return project_config.root / ".muxtools" / "bins"
     if mode == "global":
-        return user_data_path("muxtools", appauthor=False) / "bins"
+        return global_binary_path()
     raise ValueError('Binary management is disabled by prefer = "system"; use --local or --global')
 
 
@@ -256,7 +257,7 @@ def install(spec: Spec, catalog: dict[str, Any], root: Path) -> dict[str, Any]:
     return next(item for item in _installed_metadata(root, name) if item["version"] == version["version"])
 
 
-def sync(config: ProjectConfig, offline: bool = False) -> list[SyncResult]:
+def sync(config: ProjectConfig | EffectiveBinaryConfig, offline: bool = False) -> list[SyncResult]:
     catalog = load_catalog(offline)
     results = []
     if config.mode == "system":

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 import tomlkit
+from platformdirs import user_data_path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 BinaryMode = Literal["local", "global", "system"]
@@ -58,6 +60,38 @@ class ProjectConfig:
     @property
     def packages(self) -> list[str]:
         return self.settings.binaries.packages
+
+
+@dataclass(frozen=True)
+class EffectiveBinaryConfig:
+    mode: BinaryMode
+    packages: list[str]
+    project_config: ProjectConfig | None = None
+
+
+def _environment_boolean(name: str) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    if not value:
+        return False
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"Invalid boolean value for {name}: {os.environ[name]!r}")
+
+
+def global_binary_path() -> Path:
+    value = os.environ.get("MUXTOOLS_BINARIES_GLOBAL_PATH", "")
+    return Path(value) if value else user_data_path("muxtools", appauthor=False) / "bins"
+
+
+def resolve_binary_config(project_config: ProjectConfig | None) -> EffectiveBinaryConfig | None:
+    if project_config is not None:
+        return EffectiveBinaryConfig(project_config.mode, list(project_config.packages), project_config)
+    if not _environment_boolean("MUXTOOLS_BINARIES_MANAGED_GLOBAL"):
+        return None
+    packages = [value.strip() for value in os.environ.get("MUXTOOLS_BINARIES_PACKAGES", "").split(",") if value.strip()]
+    return EffectiveBinaryConfig("global", packages)
 
 
 def _section(path: Path) -> tuple[str, ...]:

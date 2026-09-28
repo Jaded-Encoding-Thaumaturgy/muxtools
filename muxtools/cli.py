@@ -13,7 +13,7 @@ from cyclopts import App, Parameter
 from rich.text import Text
 
 from .utils import binaries as manager
-from .config import BinaryMode, ProjectConfig, discover_config, init_config, migrate_config
+from .config import BinaryMode, EffectiveBinaryConfig, ProjectConfig, discover_config, init_config, migrate_config, resolve_binary_config
 from .utils.convert import get_timemeta_from_video
 from .utils.files import ensure_path_exists
 from .utils.probe import ParsedFile
@@ -232,7 +232,7 @@ def install(
 )
 def sync(*, offline: Annotated[bool, Parameter(help="Check without downloading; require installed binaries.")] = False) -> None:
     """Ensure project binary declarations are available."""
-    config = discover_config()
+    config = resolve_binary_config(discover_config())
     if config is None:
         raise ValueError("No project configuration found")
     if not config.packages:
@@ -262,8 +262,8 @@ def sync(*, offline: Annotated[bool, Parameter(help="Check without downloading; 
     ),
 )
 def list_binaries(*, global_: Annotated[bool, Parameter(name=["--global", "-g"], help="List user-global binaries.")] = False) -> None:
-    """Show installed versions and the version selected by this project."""
-    config = discover_config()
+    """Show installed versions and the version selected by active declarations."""
+    config = resolve_binary_config(discover_config())
     if config is None and not global_:
         app.console.print("[yellow]No project configuration found.[/yellow]")
         return
@@ -301,7 +301,13 @@ def list_binaries(*, global_: Annotated[bool, Parameter(name=["--global", "-g"],
     problems: dict[str, str] = {}
     if config and config.mode == scope:
         selected, problems = _project_versions(config, catalog, root, items)
-    app.console.print(Text("Global binaries" if global_ else f"Project binaries ({scope})", style="bold cyan"))
+    if global_:
+        heading = "Global binaries"
+    elif config is not None and config.project_config is None:
+        heading = "Environment binaries (global)"
+    else:
+        heading = f"Project binaries ({scope})"
+    app.console.print(Text(heading, style="bold cyan"))
     names = sorted(grouped.keys() | problems.keys() | selected.keys())
     if not names:
         app.console.print("[dim]No installed binaries.[/dim]")
@@ -322,11 +328,12 @@ def list_binaries(*, global_: Annotated[bool, Parameter(name=["--global", "-g"],
             line.append(f"({problems[name]})", style="yellow")
         app.console.print(line)
     if selected:
-        app.console.print("[dim]* selected by the current project[/dim]")
+        source = "the environment configuration" if config and config.project_config is None else "the current project"
+        app.console.print(f"[dim]* selected by {source}[/dim]")
 
 
 def _project_versions(
-    config: ProjectConfig, catalog: dict[str, Any] | None, root: Path, items: list[dict[str, Any]]
+    config: ProjectConfig | EffectiveBinaryConfig, catalog: dict[str, Any] | None, root: Path, items: list[dict[str, Any]]
 ) -> tuple[dict[str, str], dict[str, str]]:
     selected = {}
     problems = {}

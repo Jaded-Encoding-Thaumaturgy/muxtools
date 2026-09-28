@@ -10,7 +10,7 @@ from .types import Spec
 from .sanitization import parse_spec, _installed_metadata, version_code, satisfies, resolve_name, resolve_installed_name
 from .operations import scope_path, load_catalog
 from ..log import warn
-from ...config import ProjectConfig, discover_config
+from ...config import ProjectConfig, discover_config, resolve_binary_config
 
 __all__ = ["get_managed_executable"]
 
@@ -113,17 +113,17 @@ def _get_fitting_variant(entry: dict[str, Any] | str, directory: Path) -> Path:
 
 
 def get_managed_executable(name: str, config: ProjectConfig | None = None) -> str | None:
-    config = config or discover_config()
-    if config is None or config.mode == "system":
+    effective_config = resolve_binary_config(config if config is not None else discover_config())
+    if effective_config is None or effective_config.mode == "system":
         return shutil.which(name)
-    root = scope_path(config)
+    root = scope_path(effective_config)
     catalog = None
     try:
         catalog = load_catalog(offline=True)
     except ValueError:
         pass
     installed_items = _installed_metadata(root)
-    for raw in config.packages:
+    for raw in effective_config.packages:
         spec = parse_spec(raw)
         package = resolve_name(spec.name, catalog) if catalog else resolve_installed_name(spec.name, installed_items)
         items = [item for item in installed_items if item["name"] == package]
