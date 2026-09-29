@@ -72,7 +72,7 @@ artifacts = ["muxtools/_version.py"]
 [tool.hatch.version]
 source = "versioningit"
 default-version = "0.0.0+unknown"
-next-version = "minor" # Change back to 'smallest' after 0.5 release
+next-version = "minor-release" # Change back to 'smallest-release' after 0.5 release
 write = { file = "muxtools/_version.py", template = "__version__ = \"{normalized_version}\"\n__version_tuple__ = {version_tuple}" }
 
 [tool.hatch.version.format]
