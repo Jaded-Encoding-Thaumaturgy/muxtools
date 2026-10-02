@@ -1,5 +1,5 @@
 from muxtools import SubFile, VideoMeta, Setup, get_workdir, ensure_path, resolve_timesource_and_scale, ABCTimestamps, TimeType
-from muxtools.subtitle.basesub import _Line
+from muxtools.subtitle.basesub import _Line, OutOfBoundsMode
 from typing import cast
 from shutil import rmtree
 from datetime import timedelta
@@ -19,8 +19,13 @@ def setup_and_remove():
     rmtree(get_workdir())
 
 
-def _timedelta_to_frame(delta: timedelta, ts: ABCTimestamps, type: TimeType) -> int:
-    return ts.time_to_frame(int(delta.total_seconds() * 1000), type, 3)
+def _timedelta_to_frame(delta: timedelta, ts: ABCTimestamps, type: TimeType) -> int | None:
+    time = int(delta.total_seconds() * 1000)
+    if type == TimeType.END and time <= ts.first_timestamps:
+        # With End time, a frame under the first_timestamps doesn't make any sense,
+        # so VideoTimestamps raise a Exception.
+        return None
+    return ts.time_to_frame(time, type, 3)
 
 
 def _line_yap(line: _Line | None) -> str:
@@ -75,6 +80,28 @@ def test_shift_by_7200() -> None:
     sub_doc = sub._read_doc()
 
     sub_correct = SubFile(test_dir / "test-data" / "output" / "vigilantes_s01e01_en_shifted_7200.ass")
+    sub_correct_doc = sub_correct._read_doc()
+
+    for presumed, correct in zip(sub_doc.events, sub_correct_doc.events):
+        presumed = cast(_Line, presumed)
+        correct = cast(_Line, correct)
+
+        _compare_times(presumed.start, correct.start, resolved, TimeType.START)
+        _compare_times(presumed.end, correct.end, resolved, TimeType.END)
+
+
+def test_shift_by_minus_5() -> None:
+    """
+    Simple test for shifting subs by -5 frames.
+    """
+    meta = VideoMeta.from_json(test_dir / "test-data" / "input" / "vigilantes_s01e01.json")
+    resolved = resolve_timesource_and_scale(meta)
+
+    sub = SubFile(test_dir / "test-data" / "input" / "input_for_negative_shift.ass")
+    sub.shift(-5, resolved, oob_mode=OutOfBoundsMode.MAX_TO_ZERO)
+    sub_doc = sub._read_doc()
+
+    sub_correct = SubFile(test_dir / "test-data" / "output" / "input_for_negative_shift_shifted_-5.ass")
     sub_correct_doc = sub_correct._read_doc()
 
     for presumed, correct in zip(sub_doc.events, sub_correct_doc.events):

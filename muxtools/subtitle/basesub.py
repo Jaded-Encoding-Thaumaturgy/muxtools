@@ -268,6 +268,7 @@ class BaseSubFile(ABC, MuxingFile):
         new_start_frame = start_frame + offset if shift_start else start_frame
         new_end_frame = end_frame + offset if shift_end else end_frame
 
+        set_end_time_to_0 = False
         if new_start_frame < 0 or new_end_frame < 0:
             outofbounds = True
             match oob_mode:
@@ -276,17 +277,16 @@ class BaseSubFile(ABC, MuxingFile):
                 case OutOfBoundsMode.MAX_TO_ZERO:
                     new_start_frame = 0
                     if new_end_frame < 0:
-                        new_end_frame = 0
+                        set_end_time_to_0 = True
                 case _:
                     new_start_frame = 0
-                    new_end_frame = 0
+                    set_end_time_to_0 = True
 
         start = timestamps.frame_to_time(new_start_frame, TimeType.START, 2, True)
-
-        if new_end_frame > 0:
-            end = timestamps.frame_to_time(new_end_frame, TimeType.END, 2, True)
+        if set_end_time_to_0:
+            end = timestamps.frame_to_time(0, TimeType.START, 2, True)
         else:
-            end = timestamps.frame_to_time(new_end_frame, TimeType.START, 2, True)
+            end = timestamps.frame_to_time(new_end_frame, TimeType.END, 2, True)
 
         new_line = deepcopy(line)
         new_line.start = timedelta(milliseconds=start * 10)
