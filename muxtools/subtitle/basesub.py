@@ -254,7 +254,8 @@ class BaseSubFile(ABC, MuxingFile):
         start_frame = timestamps.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
 
         end_ms = int(line.end.total_seconds() * 1000)
-        if end_ms <= timestamps.first_timestamps:
+        zero_length = end_ms <= timestamps.first_timestamps
+        if zero_length:
             end_frame = start_frame
         else:
             end_frame = timestamps.time_to_frame(end_ms, TimeType.END, 3)
@@ -277,16 +278,18 @@ class BaseSubFile(ABC, MuxingFile):
                     new_start_frame = 0
                     if new_end_frame < 0:
                         new_end_frame = 0
+                        zero_length = True
                 case _:
                     new_start_frame = 0
                     new_end_frame = 0
+                    zero_length = True
 
         start = timestamps.frame_to_time(new_start_frame, TimeType.START, 2, True)
 
-        if new_end_frame > 0:
-            end = timestamps.frame_to_time(new_end_frame, TimeType.END, 2, True)
-        else:
+        if zero_length:
             end = timestamps.frame_to_time(new_end_frame, TimeType.START, 2, True)
+        else:
+            end = timestamps.frame_to_time(new_end_frame, TimeType.END, 2, True)
 
         new_line = deepcopy(line)
         new_line.start = timedelta(milliseconds=start * 10)
