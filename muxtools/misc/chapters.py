@@ -189,7 +189,7 @@ class Chapters:
             out_file = out / "chapters.txt"
         else:
             out_file = out
-        with open(out_file, "w", encoding="UTF-8") as f:
+        with open(out_file, "w", encoding="utf_8_sig") as f:
             chapters = [
                 "CHAPTER{num:02d}={time}\nCHAPTER{num:02d}NAME={name}\n".format(
                     num=i + 1,
