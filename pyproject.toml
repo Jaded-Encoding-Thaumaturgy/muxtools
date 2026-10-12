@@ -55,8 +55,6 @@ dev = [
     "types-psutil>=7.0.0.20250218",
     "py7zr>=0.20.5",
     "sox>=1.5.0",
-    "mypy==1.17.1",
-    "ty==0.0.1a19",
     "pyrefly>=1.3.2",
 ]
 
@@ -98,10 +96,6 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = false
-
-[tool.mypy]
-local_partial_types = true
-allow_redefinition_new = true
 
 [tool.pyrefly]
 preset = "default"
