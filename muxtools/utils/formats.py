@@ -1,10 +1,9 @@
 from __future__ import annotations
 import re
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
-if TYPE_CHECKING:
-    from typed_ffmpeg.ffprobe.schema import streamType
+from .ffprobe import ProbeStream
 
 __all__ = ["AudioFormat"]
 
@@ -31,7 +30,7 @@ class AudioFormat(Enum):
         self.profile = profile
 
     @staticmethod
-    def from_track(track: streamType) -> Optional["AudioFormat"]:
+    def from_track(track: ProbeStream) -> Optional["AudioFormat"]:
         matched_by_profile: AudioFormat | None = None
         for form in AudioFormat:
             if not form.profile:
@@ -61,9 +60,7 @@ class AudioFormat(Enum):
         return False
 
     def __eq__(self, value: Any) -> bool:
-        from typed_ffmpeg.ffprobe.schema import streamType
-
-        if isinstance(value, streamType):
+        if isinstance(value, ProbeStream):
             profile_matches = bool(value.profile and self.profile and self.profile.casefold() == value.profile.casefold())
             if self.profile and not profile_matches:
                 return False

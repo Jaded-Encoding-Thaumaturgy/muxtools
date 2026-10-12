@@ -785,7 +785,6 @@ dependencies = [
     { name = "questionary" },
     { name = "rich" },
     { name = "tomlkit" },
-    { name = "typed-ffmpeg-compatible" },
     { name = "videotimestamps" },
 ]
 
@@ -820,7 +819,6 @@ requires-dist = [
     { name = "questionary", specifier = ">=2.0" },
     { name = "rich", specifier = ">=13.1.0" },
     { name = "tomlkit", specifier = ">=0.13" },
-    { name = "typed-ffmpeg-compatible", specifier = "~=3.7.1" },
     { name = "videotimestamps", specifier = ">=1.2.0" },
 ]
 
@@ -1519,15 +1517,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/96/e07752635b98536177fa1f37671c8f3cdde2e724c6bcf6034b2cfb571565/tomlkit-0.15.1.tar.gz", hash = "sha256:e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97", size = 180129, upload-time = "2026-07-17T01:48:04.562Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/13/bc/8c13eb66537dce1d2bd3a57132902f38d0e7f5bb46fa9f4daed9fe9d76ee/tomlkit-0.15.1-py3-none-any.whl", hash = "sha256:177a05aece5a8ca5266fd3c448abb47b8d352f09d477d3ca8332db4d89b24304", size = 49449, upload-time = "2026-07-17T01:48:05.728Z" },
-]
-
-[[package]]
-name = "typed-ffmpeg-compatible"
-version = "3.7.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d5/6e/10ae1ea1ee255a48039ca6cce5db46b47dd00f4c09c32460b12041e1d7ec/typed_ffmpeg_compatible-3.7.1.tar.gz", hash = "sha256:717f1e7de132405440744eb099ce59518fec9ac5d161fd03d95c59ac600f53ab", size = 274354, upload-time = "2025-10-17T03:00:37.372Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/bb/f093ba252fe4f8810e9370f0b18cbbb9caefad107673cd086564731934cd/typed_ffmpeg_compatible-3.7.1-py3-none-any.whl", hash = "sha256:fb798115eea4df89d611f5f9930cddc5668c4afc9c54d00e548ba46c19fe35e5", size = 292210, upload-time = "2025-10-17T03:00:35.956Z" },
 ]
 
 [[package]]
