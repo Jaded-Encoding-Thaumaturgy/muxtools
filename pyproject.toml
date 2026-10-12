@@ -55,6 +55,7 @@ dev = [
     "py7zr>=0.20.5",
     "sox>=1.5.0",
     "pyrefly>=1.3.2",
+    "rust-just>=1.58.0",
 ]
 
 [project.urls]
