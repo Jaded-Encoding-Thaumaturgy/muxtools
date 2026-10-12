@@ -315,11 +315,11 @@ class SubFile(BaseSubFile):
                         if isinstance(line, Comment):
                             line.TYPE = "Dialogue"
                             if print_swaps:
-                                info(f'autoswapper: Uncommented Line {i} - "{log_escape(line.text)}"', self)
+                                info(f'autoswapper: Uncommented Line {i} - "{log_escape(cast(_Line, line).text)}"', self)
                         elif isinstance(line, Dialogue):
                             line.TYPE = "Comment"
                             if print_swaps:
-                                info(f'autoswapper: Commented Line {i} - "{log_escape(line.text)}"', self)
+                                info(f'autoswapper: Commented Line {i} - "{log_escape(cast(_Line, line).text)}"', self)
 
         self.manipulate_lines(_do_autoswap)
         return self
@@ -471,6 +471,7 @@ class SubFile(BaseSubFile):
         :param shift_mode:      Choose what to shift by. Defaults to shifting by frames.
         :param oob_mode:        What to do with lines that are out of bounds after shifting.
         """
+        resolved_ts = None
         if sync is not None or sync2 is not None and shift_mode == ShiftMode.FRAME:
             resolved_ts = resolve_timesource_and_scale(timesource, timescale, fetch_from_setup=True, caller=self)
 
@@ -493,6 +494,7 @@ class SubFile(BaseSubFile):
                 field = line.name if use_actor_field else line.effect
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
                     if shift_mode == ShiftMode.FRAME:
+                        assert resolved_ts is not None
                         target = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
                     else:
                         target = line.start
@@ -518,6 +520,7 @@ class SubFile(BaseSubFile):
             field = line.name if use_actor_field else line.effect
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
                 if shift_mode == ShiftMode.FRAME:
+                    assert resolved_ts is not None
                     second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
                 else:
                     second_sync = line.start
@@ -530,6 +533,7 @@ class SubFile(BaseSubFile):
         if second_sync is None and target is not None:
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
                 if shift_mode == ShiftMode.FRAME:
+                    assert resolved_ts is not None
                     second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
                 else:
                     second_sync = line.start
@@ -545,6 +549,7 @@ class SubFile(BaseSubFile):
             if shift_mode == ShiftMode.FRAME:
                 assert isinstance(target, int)
                 assert isinstance(second_sync, int)
+                assert resolved_ts is not None
                 offset = target - second_sync
                 line_result = self._shift_line_by_frames(line, offset, resolved_ts, oob_mode)
             else:
@@ -652,7 +657,7 @@ class SubFile(BaseSubFile):
         if delete_existing:
             doc.styles = []
 
-        names = [style.name.casefold() for style in styles]
+        names = [cast(str, style.name).casefold() for style in styles]
         existing = [style for style in doc.styles if style.name.casefold() not in names]
         styles.extend(existing)
         doc.styles = styles

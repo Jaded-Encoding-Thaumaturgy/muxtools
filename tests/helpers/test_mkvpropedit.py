@@ -66,9 +66,11 @@ def test_mkvpropedit_crops():
     MKVPropEdit(f).video_track(crop=(1, 2, 3, 4)).run()
     parsed = ParsedFile.from_file(f)
     assert parsed.tracks[0].raw_ffprobe.side_data_list
+    assert parsed.tracks[0].raw_ffprobe.side_data_list.side_data is not None
 
     side_data = parsed.tracks[0].raw_ffprobe.side_data_list.side_data[0]
     assert side_data.type == "Frame Cropping"
+    assert side_data.side_datum is not None
     assert [data for data in side_data.side_datum if data.key == "crop_left"][0].value == "1"
     assert [data for data in side_data.side_datum if data.key == "crop_top"][0].value == "2"
     assert [data for data in side_data.side_datum if data.key == "crop_right"][0].value == "3"
@@ -78,9 +80,11 @@ def test_mkvpropedit_crops():
     MKVPropEdit(f).video_track(crop=(2, 4)).run()
     parsed = ParsedFile.from_file(f)
     assert parsed.tracks[0].raw_ffprobe.side_data_list
+    assert parsed.tracks[0].raw_ffprobe.side_data_list.side_data is not None
 
     side_data = parsed.tracks[0].raw_ffprobe.side_data_list.side_data[0]
     assert side_data.type == "Frame Cropping"
+    assert side_data.side_datum is not None
     assert [data for data in side_data.side_datum if data.key == "crop_left"][0].value == "2"
     assert [data for data in side_data.side_datum if data.key == "crop_right"][0].value == "2"
     assert [data for data in side_data.side_datum if data.key == "crop_top"][0].value == "4"
@@ -90,9 +94,11 @@ def test_mkvpropedit_crops():
     MKVPropEdit(f).video_track(crop=4).run()
     parsed = ParsedFile.from_file(f)
     assert parsed.tracks[0].raw_ffprobe.side_data_list
+    assert parsed.tracks[0].raw_ffprobe.side_data_list.side_data is not None
 
     side_data = parsed.tracks[0].raw_ffprobe.side_data_list.side_data[0]
     assert side_data.type == "Frame Cropping"
+    assert side_data.side_datum is not None
     assert len([data for data in side_data.side_datum if data.value == "4"]) == 4
 
     # Crop removed

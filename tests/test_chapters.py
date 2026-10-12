@@ -1,6 +1,9 @@
 from muxtools import Setup, get_workdir, ensure_path, Chapters, get_executable, run_commandline
 from shutil import rmtree
 from time import sleep
+from datetime import timedelta
+from typing import cast
+from muxtools.utils.types import LooseChapter
 import pytest
 
 test_dir = ensure_path(__file__, None).parent
@@ -14,6 +17,27 @@ def setup_and_remove():
 
     sleep(0.1)
     rmtree(get_workdir())
+
+
+def test_add_chapters() -> None:
+    ch = Chapters([], _print=False)
+    existing = (timedelta(seconds=2), "Existing")
+    ch.add(existing)
+    ch.add((24, "First"))
+
+    assert ch.chapters == [(timedelta(milliseconds=1001), "First"), existing]
+    assert ch.chapters[1] is existing
+
+
+@pytest.mark.parametrize("chapter", [(), (24,), (24, "name", "extra"), (timedelta(0),), (timedelta(0), "name", "extra")])
+def test_add_rejects_malformed_chapter(chapter: tuple[object, ...]) -> None:
+    ch = Chapters([(0, "Existing")], _print=False)
+    before = ch.chapters.copy()
+
+    with pytest.raises(ValueError):
+        ch.add([(24, "Valid"), cast(LooseChapter, chapter)])
+
+    assert ch.chapters == before
 
 
 def test_chapters_from_mkv():

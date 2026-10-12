@@ -20,7 +20,8 @@ attribute_blacklist = ["executable", "resumable", "x265", "was_file", "affinity"
 
 
 class FractionEncoder(json.JSONEncoder):
-    def default(self, obj):
+    # Preserve the existing keyword parameter name.
+    def default(self, obj):  # pyrefly: ignore[bad-override-param-name]
         if isinstance(obj, Fraction):
             return {"numerator": obj.numerator, "denominator": obj.denominator}
         return super().default(obj)
@@ -179,7 +180,7 @@ class CLIKwargs(ABC):
 
     def update_custom_args(self, **kwargs):
         if self.__custom_args_dict is None:
-            self.get_custom_args_dict()
+            self.__custom_args_dict = self.get_custom_args_dict()
 
         self.__custom_args_dict.update(**kwargs)
 
