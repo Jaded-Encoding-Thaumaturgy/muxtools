@@ -18,19 +18,6 @@ class _ProbeModel(BaseModel):
     def _keep_raw(cls, data: Any) -> Any:
         return {**data, "raw": data} if isinstance(data, dict) else data
 
-    @field_validator(
-        "index",
-        "width",
-        "height",
-        "sample_rate",
-        "channels",
-        "bits_per_sample",
-        "bits_per_raw_sample",
-        "bit_rate",
-        "nb_streams",
-        mode="before",
-        check_fields=False,
-    )
     @classmethod
     def _optional_int(cls, value: Any) -> int | None:
         try:
@@ -66,12 +53,33 @@ class ProbeStream(_ProbeModel):
     disposition: dict[str, int] = Field(default_factory=dict)
     side_data_list: list[dict[str, Any]] = Field(default_factory=list)
 
+    # Keep validators on the models that define their fields for static doc tools.
+    @field_validator(
+        "index",
+        "width",
+        "height",
+        "sample_rate",
+        "channels",
+        "bits_per_sample",
+        "bits_per_raw_sample",
+        "bit_rate",
+        mode="before",
+    )
+    @classmethod
+    def _validate_optional_int(cls, value: Any) -> int | None:
+        return cls._optional_int(value)
+
 
 class ProbeFormat(_ProbeModel):
     nb_streams: int | None = None
     format_name: str | None = None
     format_long_name: str | None = None
     tags: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("nb_streams", mode="before")
+    @classmethod
+    def _validate_optional_int(cls, value: Any) -> int | None:
+        return cls._optional_int(value)
 
 
 class ProbeResult(_ProbeModel):

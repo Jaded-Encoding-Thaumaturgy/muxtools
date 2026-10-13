@@ -57,16 +57,29 @@ def test_json_metadata_and_numeric_fields():
 
 @pytest.mark.parametrize("value", [None, "N/A", "", "unknown"])
 def test_unavailable_numeric_fields(value):
-    result = parse_probe_json(json.dumps({"format": {}, "streams": [{"sample_rate": value, "bits_per_raw_sample": value, "bit_rate": value}]}))
+    fields = ("index", "width", "height", "sample_rate", "channels", "bits_per_sample", "bits_per_raw_sample", "bit_rate")
+    raw = {"format": {"nb_streams": value}, "streams": [dict.fromkeys(fields, value)]}
+    result = parse_probe_json(json.dumps(raw))
     stream = result.streams[0]
-    assert stream.sample_rate is None
-    assert stream.bits_per_raw_sample is None
-    assert stream.bit_rate is None
-    assert stream.channels is None
+    assert result.format.nb_streams is None
+    assert all(getattr(stream, field) is None for field in fields)
+    assert result.format.raw == raw["format"]
+    assert stream.raw == raw["streams"][0]
     assert stream.tags == {}
     assert stream.disposition == {}
     assert stream.side_data_list == []
     assert result.chapters == []
+
+
+@pytest.mark.parametrize("value", [0, "0", 42, "42", -1, "-1"])
+def test_all_numeric_fields(value):
+    fields = ("index", "width", "height", "sample_rate", "channels", "bits_per_sample", "bits_per_raw_sample", "bit_rate")
+    raw = {"format": {"nb_streams": value}, "streams": [dict.fromkeys(fields, value)]}
+    result = parse_probe_json(json.dumps(raw))
+    assert result.format.nb_streams == int(value)
+    assert all(getattr(result.streams[0], field) == int(value) for field in fields)
+    assert result.format.raw == raw["format"]
+    assert result.streams[0].raw == raw["streams"][0]
 
 
 def test_parsing_preserves_raw_tags(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
