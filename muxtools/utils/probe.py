@@ -104,7 +104,13 @@ class ParsedFile:
     raw_mkvmerge: MKVInfo | None
 
     @staticmethod
-    def from_file(path: PathLike | GlobSearch, caller: Any | None = None, allow_mkvmerge_warning: bool = True) -> "ParsedFile":
+    def from_file(
+        path: PathLike | GlobSearch,
+        caller: Any | None = None,
+        allow_mkvmerge_warning: bool = True,
+        *,
+        _allow_unknown_codecs: bool = False,
+    ) -> "ParsedFile":
         """
         Parses a file with ffprobe and, if given and a video track is found, mkvmerge.
 
@@ -141,20 +147,24 @@ class ParsedFile:
 
         sorted_streams = sorted(out.streams, key=lambda s: -1 if not s.index else s.index)
         tracks = list[TrackInfo]()
+        relative_indices: dict[str, int] = {}
         for type, values in groupby(sorted_streams, lambda v: v.codec_type):
             if not type:
                 raise error(f"Could not get codec_type for some tracks in '{path.stem}'!", caller)
-            for i, track in enumerate(values):
+            for i, track in enumerate(values, start=relative_indices.get(type, 0)):
+                relative_indices[type] = i + 1
                 if track.index is None:
                     raise error(f"Track {i} (assumed) in '{path.stem}' does not have a real track index!", caller)
 
                 mkvmerge_meta = None
                 if mkvmerge_out and type in ["video", "audio", "subtitle"]:
-                    found = [tr for tr in mkvmerge_out.tracks if tr.id == track.index and type in tr.type.name.lower()]
-                    mkvmerge_meta = found[0] if found else None
+                    found = [tr for tr in mkvmerge_out.tracks if type in tr.type.name.lower()]
+                    mkvmerge_meta = found[i] if i < len(found) else None
                 codec_name = track.codec_name
                 if track.codec_type == "attachment" and not codec_name:
                     codec_name = "attachment"
+                if not codec_name and _allow_unknown_codecs:
+                    codec_name = "unknown"
                 if not codec_name:
                     raise error(f"Track {track.index} in '{path.stem}' does not have a codec_name!", caller)
 

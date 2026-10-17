@@ -57,25 +57,34 @@ def ensure_path_exists(pathIn: PathLike | Sequence[PathLike] | GlobSearch | File
     return path
 
 
-def uniquify_path(path: PathLike) -> str:
+def uniquify_path(path: PathLike, *, reserved: Sequence[PathLike] = (), companion_extensions: Sequence[str] = ()) -> str:
     """
-    Extends path to not conflict with existing files
+    Extends path to avoid existing or reserved paths.
 
-    :param file:        Input file
+    :param path:                 Input path.
+    :param reserved:             Additional paths that must not be reused.
+    :param companion_extensions: Extensions whose companion paths must also be free.
 
-    :return:            Unique path
+    :return:                     Unique path.
     """
 
     path = str(ensure_path(path, None))
+    reserved_paths = {ensure_path(reserved_path, None) for reserved_path in reserved}
 
     filename, extension = os.path.splitext(path)
     counter = 1
 
-    while os.path.exists(path):
+    while True:
+        candidate = Path(path)
+        conflicts = candidate.exists() or candidate.resolve() in reserved_paths
+        conflicts = conflicts or any(
+            companion.exists() or companion.resolve() in reserved_paths for companion in (candidate.with_suffix(ext) for ext in companion_extensions)
+        )
+        if not conflicts:
+            return str(candidate)
+
         path = filename + " (" + str(counter) + ")" + extension
         counter += 1
-
-    return path
 
 
 def get_crc32(file: PathLike) -> str:
