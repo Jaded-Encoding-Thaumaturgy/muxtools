@@ -142,6 +142,9 @@ def test_output_routing(source: Path, tmp_path: Path) -> None:
 
 
 def test_explicit_output_filename(source: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Preserve project binaries when changing directories outside the project.
+    for name in ("ffprobe", "mkvmerge", "mkvextract"):
+        monkeypatch.setenv(f"vof_exe_{name}", get_executable(name))
     monkeypatch.chdir(tmp_path)
     track = MKVExtract(source, tmp_path / "default").audio_track(output="custom/name.txt")
 

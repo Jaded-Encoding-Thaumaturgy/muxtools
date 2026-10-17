@@ -48,7 +48,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.4, <9.0.0",
+    "pytest~=9.1.1",
     "ruff>=0.6.5",
     "scipy-stubs>=1.15.2.1",
     "types-psutil>=7.0.0.20250218",
