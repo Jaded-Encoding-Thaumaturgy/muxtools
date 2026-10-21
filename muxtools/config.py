@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import tomlkit
 from platformdirs import user_data_path
@@ -19,6 +19,13 @@ class BinarySettings(BaseModel):
 
     prefer: BinaryMode = "system"
     packages: list[str] = Field(default_factory=list)
+    strict: bool = False
+
+    @model_validator(mode="after")
+    def validate_strict_mode(self) -> Self:
+        if self.strict and self.prefer == "system":
+            raise ValueError('strict = true cannot be combined with prefer = "system"; choose "local" or "global"')
+        return self
 
 
 class MuxSettings(BaseModel):
@@ -61,12 +68,17 @@ class ProjectConfig:
     def packages(self) -> list[str]:
         return self.settings.binaries.packages
 
+    @property
+    def strict(self) -> bool:
+        return self.settings.binaries.strict
+
 
 @dataclass(frozen=True)
 class EffectiveBinaryConfig:
     mode: BinaryMode
     packages: list[str]
     project_config: ProjectConfig | None = None
+    strict: bool = False
 
 
 def _environment_boolean(name: str) -> bool:
@@ -87,11 +99,11 @@ def global_binary_path() -> Path:
 
 def resolve_binary_config(project_config: ProjectConfig | None) -> EffectiveBinaryConfig | None:
     if project_config is not None:
-        return EffectiveBinaryConfig(project_config.mode, list(project_config.packages), project_config)
+        return EffectiveBinaryConfig(project_config.mode, list(project_config.packages), project_config, strict=project_config.strict)
     if not _environment_boolean("MUXTOOLS_BINARIES_MANAGED_GLOBAL"):
         return None
     packages = [value.strip() for value in os.environ.get("MUXTOOLS_BINARIES_PACKAGES", "").split(",") if value.strip()]
-    return EffectiveBinaryConfig("global", packages)
+    return EffectiveBinaryConfig("global", packages, strict=_environment_boolean("MUXTOOLS_BINARIES_STRICT"))
 
 
 def _section(path: Path) -> tuple[str, ...]:

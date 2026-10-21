@@ -31,7 +31,7 @@ app.command(proxy_app)
 
 @proxy_app.default
 def proxy(*tokens: Annotated[str, Parameter(allow_leading_hyphen=True)]) -> None:
-    """Run an installed binary, honoring project or environment configuration."""
+    """Run a managed binary without PATH fallback, honoring project or environment configuration."""
     try:
         options, command = getopt(tokens, "hp:", ["help", "package="])
     except GetoptError as exc:
@@ -43,7 +43,7 @@ def proxy(*tokens: Annotated[str, Parameter(allow_leading_hyphen=True)]) -> None
                 "Usage: muxtools proxy [--package PACKAGE] EXECUTABLE [ARGS...]\n\n"
                 "Run a binary using project/environment configuration, or the latest global install.\n"
                 "  -p, --package PACKAGE  Select an installed package provider.\n\n"
-                "All arguments after EXECUTABLE are forwarded unchanged. No binaries are downloaded."
+                "All arguments after EXECUTABLE are forwarded unchanged. No binaries are downloaded or resolved from PATH."
             )
             return
         if package is not None:
@@ -55,9 +55,9 @@ def proxy(*tokens: Annotated[str, Parameter(allow_leading_hyphen=True)]) -> None
         raise ValueError("Provide an executable: muxtools proxy [--package PACKAGE] EXECUTABLE [ARGS...]")
     name, *arguments = command
     try:
-        executable = _resolve_executable(name, package=package, default_global=True)
+        executable = _resolve_executable(name, package=package, default_global=True, strict=True)
         if executable is None:
-            raise FileNotFoundError(f"Executable {name!r} was not found on PATH")
+            raise FileNotFoundError(f"Managed executable {name!r} was not found; Install or add a package to your current project.")
         args = [executable, *arguments]
         if sys.platform == "win32":
             raise SystemExit(subprocess.call(args))

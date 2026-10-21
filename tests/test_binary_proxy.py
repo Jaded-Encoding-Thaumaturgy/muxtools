@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
@@ -32,7 +33,7 @@ def global_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     def no_catalog(offline: bool = False) -> dict[str, object]:
         raise ValueError("no catalog")
 
-    for name in ("MUXTOOLS_BINARIES_MANAGED_GLOBAL", "MUXTOOLS_BINARIES_PACKAGES", "vof_exe_tool", "vof_exe_python"):
+    for name in ("MUXTOOLS_BINARIES_MANAGED_GLOBAL", "MUXTOOLS_BINARIES_PACKAGES", "MUXTOOLS_BINARIES_STRICT", "vof_exe_tool", "vof_exe_python"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(runner, "discover_config", lambda: None)
     monkeypatch.setattr(runner, "load_catalog", no_catalog)
@@ -112,10 +113,35 @@ def test_proxy_uses_latest_version_of_shortest_global_provider(global_root: Path
     assert launched == [[str(latest / "standalone"), "--version"]]
 
 
-def test_proxy_reports_missing_global_binary() -> None:
+@pytest.mark.parametrize("mode", [None, "local", "global"])
+def test_proxy_rejects_path_fallback_in_strict_mode(mode: Literal["local", "global"] | None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    if mode is not None:
+        config = init_config(tmp_path / "muxtools.toml", mode=mode)
+        config = update_config(config.path, {"binaries": {"strict": False}})
+        monkeypatch.setattr(runner, "discover_config", lambda: config)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: f"/system/{name}")
+
     with pytest.raises(SystemExit) as missing:
         cli.app(["proxy", "missing"], result_action="return_value")
     assert missing.value.code == 127
+
+
+def test_proxy_rejects_system_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = init_config(tmp_path / "muxtools.toml", mode="system")
+    monkeypatch.setattr(runner, "discover_config", lambda: config)
+
+    with pytest.raises(ValueError, match="system"):
+        cli.app(["proxy", "tool"], result_action="return_value")
+
+
+def test_strict_configured_binary_resolves_from_managed_install(global_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    selected = _install(global_root, "tool", "1", 1, tool="tool")
+    config = init_config(tmp_path / "muxtools.toml", mode="global")
+    config = update_config(config.path, {"binaries": {"strict": True}}, ["tool==1"])
+    monkeypatch.setattr(runner, "discover_config", lambda: config)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: f"/system/{name}")
+
+    assert manager.get_managed_executable("tool") == str(selected / "tool")
 
 
 def test_system_mode_rejects_package_selection(tmp_path: Path) -> None:

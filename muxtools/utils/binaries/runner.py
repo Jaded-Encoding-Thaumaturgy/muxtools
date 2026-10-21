@@ -177,11 +177,23 @@ def get_managed_executable(name: str, config: ProjectConfig | None = None, *, pa
 
     Selection honors configured constraints and never falls back to another
     provider. Custom ``vof_exe_*`` paths take precedence over package selection.
+    Strict binary configuration disables PATH fallback for undeclared executables.
     """
     return _resolve_executable(name, config, package=package)
 
 
-def _resolve_executable(name: str, config: ProjectConfig | None = None, *, package: str | None = None, default_global: bool = False) -> str | None:
+def _path_fallback(name: str, strict: bool) -> str | None:
+    if strict:
+        raise FileNotFoundError(
+            f"No managed package is configured to provide {name!r}; strict mode disables PATH fallback. "
+            f"Run 'muxtools binaries add {name}' in a project or select an installed package explicitly."
+        )
+    return shutil.which(name)
+
+
+def _resolve_executable(
+    name: str, config: ProjectConfig | None = None, *, package: str | None = None, default_global: bool = False, strict: bool = False
+) -> str | None:
     custom = os.environ.get(f"vof_exe_{name.lower()}")
     if custom:
         path = Path(custom)
@@ -189,14 +201,17 @@ def _resolve_executable(name: str, config: ProjectConfig | None = None, *, packa
             return str(path.resolve())
         raise FileNotFoundError(f"Custom executable for {name} not found: {custom}")
     effective_config = resolve_binary_config(config if config is not None else discover_config())
+    strict = strict or (effective_config.strict if effective_config else False)
+    if strict and effective_config is not None and effective_config.mode == "system":
+        raise ValueError('Strict binary resolution cannot use prefer = "system"; choose "local" or "global"')
     selected = package if package is not None else _package_selections.get().get(name)
     if selected is not None:
         _validate_package(selected)
     else:
         if effective_config is None and not default_global:
-            return shutil.which(name)
+            return _path_fallback(name, strict)
         if effective_config is not None and effective_config.mode == "system":
-            return shutil.which(name)
+            return _path_fallback(name, strict)
     root = scope_path(effective_config)
     catalog = _cached_catalog()
     installed_items = _installed_metadata(root)
@@ -216,4 +231,4 @@ def _resolve_executable(name: str, config: ProjectConfig | None = None, *, packa
             continue
         spec = Spec(provider, declared.operator, declared.version)
         break
-    return _package_executable(name, spec, root, installed_items, catalog) if spec is not None else shutil.which(name)
+    return _package_executable(name, spec, root, installed_items, catalog) if spec is not None else _path_fallback(name, strict)

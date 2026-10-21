@@ -6,6 +6,7 @@ import sys
 import tarfile
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Literal
 
 import pytest
 
@@ -14,7 +15,7 @@ if sys.version_info >= (3, 14):
 else:
     from backports import zstd
 
-from muxtools import cli
+from muxtools import cli, get_executable
 from muxtools.utils import binaries as manager, download
 from muxtools.utils.binaries import Spec, parse_spec, resolve_name, satisfies, version_code
 from muxtools.utils.binaries import operations, runner
@@ -234,3 +235,44 @@ def test_runtime_respects_managed_and_system_modes(tmp_path: Path, monkeypatch: 
     assert manager.get_managed_executable("tool", config) == str(directory / "tool")
     system_config = update_config(config.path, {"binaries": {"prefer": "system"}})
     assert manager.get_managed_executable("tool", system_config) == "/system/tool"
+
+
+def test_strict_system_configuration_is_rejected(tmp_path: Path) -> None:
+    config = init_config(tmp_path / "muxtools.toml", mode="system")
+
+    with pytest.raises(ValueError, match="strict"):
+        update_config(config.path, {"binaries": {"strict": True}})
+
+
+@pytest.mark.parametrize("mode", ["local", "global"])
+def test_strict_mode_blocks_undeclared_path_fallback(mode: Literal["local", "global"], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = init_config(tmp_path / "muxtools.toml", mode=mode)
+    config = update_config(config.path, {"binaries": {"strict": True}})
+    monkeypatch.setenv("MUXTOOLS_BINARIES_GLOBAL_PATH", str(tmp_path / "global"))
+    monkeypatch.setattr(runner, "discover_config", lambda: config)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: f"/system/{name}")
+
+    with pytest.raises(FileNotFoundError, match="strict mode disables PATH fallback"):
+        get_executable("undeclared")
+
+
+@pytest.mark.parametrize("mode", ["local", "global"])
+def test_strict_mode_can_error_false_returns_none(mode: Literal["local", "global"], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = init_config(tmp_path / "muxtools.toml", mode=mode)
+    config = update_config(config.path, {"binaries": {"strict": True}})
+    monkeypatch.setenv("MUXTOOLS_BINARIES_GLOBAL_PATH", str(tmp_path / "global"))
+    monkeypatch.setattr(runner, "discover_config", lambda: config)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: f"/system/{name}")
+
+    assert get_executable("undeclared", can_error=False) is None
+
+
+def test_custom_override_wins_in_strict_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    custom = tmp_path / "custom-tool"
+    custom.write_bytes(b"custom")
+    config = init_config(tmp_path / "muxtools.toml", mode="global")
+    config = update_config(config.path, {"binaries": {"strict": True}})
+    monkeypatch.setattr(runner, "discover_config", lambda: config)
+    monkeypatch.setenv("vof_exe_tool", str(custom))
+
+    assert get_executable("tool") == str(custom.resolve())

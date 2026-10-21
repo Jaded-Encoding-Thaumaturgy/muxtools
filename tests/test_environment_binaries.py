@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from muxtools import cli
-from muxtools.config import EffectiveBinaryConfig, resolve_binary_config
+from muxtools.config import EffectiveBinaryConfig, init_config, resolve_binary_config, update_config
 from muxtools.utils import binaries as manager
 from muxtools.utils.binaries import operations, runner
 
@@ -12,6 +12,7 @@ ENVIRONMENT_VARIABLES = (
     "MUXTOOLS_BINARIES_GLOBAL_PATH",
     "MUXTOOLS_BINARIES_MANAGED_GLOBAL",
     "MUXTOOLS_BINARIES_PACKAGES",
+    "MUXTOOLS_BINARIES_STRICT",
 )
 
 
@@ -56,6 +57,33 @@ def test_cli_sync_accepts_environment_config(monkeypatch: pytest.MonkeyPatch, ca
     cli.sync(offline=True)
     assert received == [(EffectiveBinaryConfig("global", ["tool==1"]), True)]
     assert capsys.readouterr().out == "• tool 1 · already installed globally\n"
+
+
+def test_environment_strict_is_ignored_without_managed_global(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MUXTOOLS_BINARIES_STRICT", "1")
+    assert resolve_binary_config(None) is None
+
+
+def test_project_strict_setting_overrides_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MUXTOOLS_BINARIES_MANAGED_GLOBAL", "1")
+    monkeypatch.setenv("MUXTOOLS_BINARIES_STRICT", "1")
+    project = init_config(tmp_path / "muxtools.toml", mode="local")
+    project = update_config(project.path, {"binaries": {"strict": False}})
+    monkeypatch.setattr(runner, "discover_config", lambda: project)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: f"/system/{name}")
+
+    assert manager.get_managed_executable("undeclared") == "/system/undeclared"
+
+
+def test_environment_strict_blocks_path_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MUXTOOLS_BINARIES_MANAGED_GLOBAL", "1")
+    monkeypatch.setenv("MUXTOOLS_BINARIES_STRICT", "1")
+    monkeypatch.setenv("MUXTOOLS_BINARIES_GLOBAL_PATH", str(tmp_path / "global"))
+    monkeypatch.setattr(runner, "discover_config", lambda: None)
+    monkeypatch.setattr(runner.shutil, "which", lambda name: f"/system/{name}")
+
+    with pytest.raises(FileNotFoundError, match="strict mode disables PATH fallback"):
+        manager.get_managed_executable("undeclared")
 
 
 def test_environment_runtime_resolution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
