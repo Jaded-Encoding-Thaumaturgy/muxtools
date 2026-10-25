@@ -1,5 +1,8 @@
 from muxtools import SubFile, VideoMeta, Setup, get_workdir, ensure_path, resolve_timesource_and_scale, ABCTimestamps, TimeType, OutOfBoundsMode
 from muxtools.subtitle.basesub import _Line
+from muxtools.subtitle.subutils import create_document
+from ass import Dialogue, Style
+from pathlib import Path
 from typing import cast
 from shutil import rmtree
 from datetime import timedelta
@@ -34,6 +37,15 @@ def _compare_times(delta: timedelta, other: timedelta, ts: ABCTimestamps, type: 
     tolerance = timedelta(microseconds=10000)  # One centisecond; both aegisub and muxtools will center the time so this should never be an issue
     assert _timedelta_to_frame(delta, ts, type) == _timedelta_to_frame(other, ts, type), _line_yap(line)  # Frame matches
     assert (other - delta) <= tolerance, _line_yap(line)  # Difference is within tolerance
+
+
+def _write_sub(path: Path, lines: list[tuple[timedelta, timedelta, str]]) -> Path:
+    doc = create_document()
+    doc.styles.append(Style(name="Default"))
+    doc.events.extend(Dialogue(start=start, end=end, style="Default", text=text) for start, end, text in lines)
+    with open(path, "w", encoding="utf_8_sig") as writer:
+        doc.dump_file(writer)
+    return path
 
 
 def test_shift_by_24() -> None:
@@ -92,18 +104,15 @@ def test_shift_to_frame_zero() -> None:
     from fractions import Fraction
 
     resolved = resolve_timesource_and_scale(Fraction(24000, 1001))
-    path = get_workdir() / "shift_zero.ass"
-    path.write_text(
-        "[Script Info]\nScriptType: v4.00+\n\n[V4+ Styles]\n"
-        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        "Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1\n\n[Events]\n"
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-        "Dialogue: 0,0:07:18.42,0:07:18.46,Default,,0,0,0,,one frame\n"
-        "Dialogue: 0,0:07:18.46,0:07:18.52,Default,,0,0,0,,next\n"
-        "Dialogue: 0,0:07:18.30,0:07:18.60,Default,,0,0,0,,partial\n"
-        "Dialogue: 0,0:00:00.20,0:00:00.42,Default,,0,0,0,,gone\n"
-        "Dialogue: 0,0:00:00.00,0:00:00.00,Default,,0,0,0,,empty\n",
-        encoding="utf-8",
+    path = _write_sub(
+        get_workdir() / "shift_zero.ass",
+        [
+            (timedelta(minutes=7, seconds=18, milliseconds=420), timedelta(minutes=7, seconds=18, milliseconds=460), "one frame"),
+            (timedelta(minutes=7, seconds=18, milliseconds=460), timedelta(minutes=7, seconds=18, milliseconds=520), "next"),
+            (timedelta(minutes=7, seconds=18, milliseconds=300), timedelta(minutes=7, seconds=18, milliseconds=600), "partial"),
+            (timedelta(milliseconds=200), timedelta(milliseconds=420), "gone"),
+            (timedelta(0), timedelta(0), "empty"),
+        ],
     )
     first = _timedelta_to_frame(timedelta(minutes=7, seconds=18, milliseconds=420), resolved, TimeType.START)
 
@@ -127,10 +136,6 @@ def test_shift_to_frame_zero() -> None:
     assert empty.end == empty.start, _line_yap(empty)
 
 
-def _cs_to_ass(cs: int) -> str:
-    return f"{cs // 360000}:{cs // 6000 % 60:02}:{cs // 100 % 60:02}.{cs % 100:02}"
-
-
 def _shift_bounded(frame_ranges: list[tuple[int, int]], frames: int, **kwargs) -> list[tuple[int, int]]:
     """
     Writes one line per (start, end) frame range, shifts the file and returns the resulting (start, end) frames.
@@ -138,19 +143,15 @@ def _shift_bounded(frame_ranges: list[tuple[int, int]], frames: int, **kwargs) -
     from fractions import Fraction
 
     resolved = resolve_timesource_and_scale(Fraction(24000, 1001))
-    path = get_workdir() / "shift_bounds.ass"
-    events = "".join(
-        f"Dialogue: 0,{_cs_to_ass(resolved.frame_to_time(start, TimeType.START, 2, True))},"
-        f"{_cs_to_ass(resolved.frame_to_time(end, TimeType.END, 2, True))},Default,,0,0,0,,line {i}\n"
+    lines = [
+        (
+            timedelta(milliseconds=resolved.frame_to_time(start, TimeType.START, 2, True) * 10),
+            timedelta(milliseconds=resolved.frame_to_time(end, TimeType.END, 2, True) * 10),
+            f"line {i}",
+        )
         for i, (start, end) in enumerate(frame_ranges)
-    )
-    path.write_text(
-        "[Script Info]\nScriptType: v4.00+\n\n[V4+ Styles]\n"
-        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        "Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1\n\n[Events]\n"
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n" + events,
-        encoding="utf-8",
-    )
+    ]
+    path = _write_sub(get_workdir() / "shift_bounds.ass", lines)
 
     sub = SubFile(path)
     sub.shift(frames, resolved, **kwargs)
