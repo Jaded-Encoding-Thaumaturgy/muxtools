@@ -261,11 +261,11 @@ class SubFile(BaseSubFile):
         # the text after a {*} can't run past the next {*, so a swap can never swallow the one after it
         inner = rf"(?:(?!{{{marker}).)*?"
         swap_regex = re.compile(
-            # hide word: This sentence is no longer{*} complete{*}
+            # Hide Word: This sentence is no longer{*} complete{*}
             rf"{{{marker}}}(?P<hide>{inner}){{{marker} *}}"
-            # ab swap_ {*}This will be replaced{*With this}
+            # AB Swap: {*}This will be replaced{*With this}
             rf"|{{{marker}}}(?P<a>{inner}){{{marker}(?!{marker})(?P<b>[^}}]+)}}"
-            # show word: This sentence is no longer{** incomplete}
+            # Show Word: This sentence is no longer{** incomplete}
             rf"|{{{marker}{marker}(?P<show>[^}}]+)}}"
         )
 
