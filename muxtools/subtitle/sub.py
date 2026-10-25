@@ -215,7 +215,7 @@ class SubFile(BaseSubFile):
         - `abc{**def}` becomes `abc{*}def{*}` (Show Word)
         - `abc{*}def{*}` becomes `abc{**def}` (Hide Word)
 
-        Note: AB Swap and Hide Word will remove any tags from the swapped text, to ensure the comment isn't broken.
+        Note: Without `inline_tag_markers`, AB Swap and Hide Word will remove anything in `{}` (tags and comments) from the text they hide, to ensure the comment isn't broken.
 
         You can also comment in or out entire lines by using the line marker in either the `effect` or `name` field.
         - A dialogue line with effect or name set to `***` will be commented.
@@ -223,6 +223,7 @@ class SubFile(BaseSubFile):
 
 
         `inline_tag_markers` can be used to swap ASS tags as well. Keep in mind that "\" and "/" will be swapped, so override tags aren't applied.
+        This also affects any of these characters that were in the text to begin with, e.g. `and/or` will turn into `and\or` once it's hidden and shown again.
 
         Assuming the markers are as default, except inline_tag_markers = `[]`:
         - `{*}{\i1}abc{*[/b1]def}` becomes `{*}{\b1}def{*[/i1]abc}` (AB Swap)
@@ -237,7 +238,7 @@ class SubFile(BaseSubFile):
                                         Should be one character. Default `*`
         :param line_marker:             Marker to use for full-line swaps. Default `***`
         :param inline_tag_markers:      Two characters that will be replaced with `{}` respectively in the inline swaps.
-                                        Defaults to `None`, which will just remove any tags from the swapped text.
+                                        Defaults to `None`, which will remove anything in `{}` from the hidden text.
         :param exact_names:             Match style names in full instead of substring matching as mentioned above. (still case-insensitive)
 
         :return:                        This SubTrack
@@ -260,18 +261,18 @@ class SubFile(BaseSubFile):
         # the text after a {*} can't run past the next {*, so a swap can never swallow the one after it
         inner = rf"(?:(?!{{{marker}).)*?"
         swap_regex = re.compile(
-            # This sentence is no longer{*} complete{*}
+            # hide word: This sentence is no longer{*} complete{*}
             rf"{{{marker}}}(?P<hide>{inner}){{{marker} *}}"
-            # {*}This will be replaced{*With this}
+            # ab swap_ {*}This will be replaced{*With this}
             rf"|{{{marker}}}(?P<a>{inner}){{{marker}(?!{marker})(?P<b>[^}}]+)}}"
-            # This sentence is no longer{** incomplete}
+            # show word: This sentence is no longer{** incomplete}
             rf"|{{{marker}{marker}(?P<show>[^}}]+)}}"
         )
 
         def _hide(text: str) -> str:
             if inline_tag_markers:
                 return text.replace("{", inline_tag_markers[0]).replace("}", inline_tag_markers[1]).replace("\\", "/")
-            # the tags can't survive without tag markers, and leaving them without their braces would still apply them inside the comment
+            # without tag markers nothing in {} can survive, and leaving it without its braces would apply tags inside the comment and show comments as text
             return re.sub(r"{[^}]*}", "", text).replace("{", "").replace("}", "")
 
         def _reveal(text: str) -> str:
@@ -298,7 +299,6 @@ class SubFile(BaseSubFile):
                             info(f'autoswapper: Swapped "{log_escape(match.group(0))}" for "{log_escape(swapped)}" on line {i}', self)
                         return swapped
 
-                    # everything is swapped in one pass, so the result of one swap can't get swapped again by another
                     line.text = swap_regex.sub(_swap_and_log, line.text)
 
                     if line.effect.strip() == line_marker or line.name.strip() == line_marker:
