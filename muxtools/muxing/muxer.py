@@ -180,6 +180,7 @@ def output_names(
     filename = get_setup_attr("out_name", R"$show$ - $ep$ (premux)")
     title = get_setup_attr("mkv_title_naming", "")
 
+    epint = 0
     try:
         ep_temp = str(episode)
         if " " in ep_temp:

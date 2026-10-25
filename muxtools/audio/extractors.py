@@ -2,7 +2,7 @@ from shlex import split as splitcommand
 from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
-from typing import Sequence
+from typing import Callable, Sequence, cast, overload
 from pathlib import Path
 from itertools import takewhile
 import subprocess
@@ -47,7 +47,8 @@ class Eac3to(Extractor):
     output: PathLike | None = None
     append: str = ""
 
-    def extract_audio(self, input: PathLike, quiet: bool = True, is_temp: bool = False, force_flac: bool = False) -> AudioFile:
+    # Preserve the existing keyword parameter name.
+    def extract_audio(self, input: PathLike, quiet: bool = True, is_temp: bool = False, force_flac: bool = False) -> AudioFile:  # pyrefly: ignore[bad-override-param-name]
         eac3to = get_executable("eac3to")
         input = ensure_path_exists(input, self)
         parsed = ParsedFile.from_file(input, self)
@@ -113,7 +114,8 @@ class FFMpeg(HasExtractor, HasTrimmer):
         def __post_init__(self):
             self.executable = get_executable("ffmpeg")
 
-        def extract_audio(self, input: PathLike, quiet: bool = True, is_temp: bool = False, force_flac: bool = False) -> AudioFile:
+        # Preserve the existing keyword parameter name.
+        def extract_audio(self, input: PathLike, quiet: bool = True, is_temp: bool = False, force_flac: bool = False) -> AudioFile:  # pyrefly: ignore[bad-override-param-name]
             input = ensure_path_exists(input, self)
             parsed = ParsedFile.from_file(input, self)
             track = parsed.find_tracks(relative_id=self.track, type=TrackType.AUDIO, caller=self, error_if_empty=True)[0]
@@ -342,6 +344,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             else:
                 info(f"Generating trimmed tracks for '{fileIn.file.stem}'...", self)
                 concat: list = []
+                cont_delay = fileIn.container_delay if self.preserve_delay else 0
                 first = True
                 for i, tr in enumerate(self.trim):
                     nArgs = args.copy()
@@ -465,7 +468,13 @@ class Sox(Trimmer):
     num_frames: int = 0
     output: PathLike | None = None
 
-    def _conv(self, val: int | None):
+    @overload
+    def _conv(self, val: int) -> float: ...
+
+    @overload
+    def _conv(self, val: None) -> None: ...
+
+    def _conv(self, val: int | None) -> float | None:
         if val is None:
             return None
 
@@ -511,7 +520,8 @@ class Sox(Trimmer):
             soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
             formats = ["wav" for file in files_to_concat]
             soxr.set_input_format(file_type=formats)
-            soxr.build(files_to_concat, str(out.resolve()), "concatenate")
+            # SoX incorrectly annotates the input list as a single path.
+            cast(Callable[[list[str], str, str], bool], soxr.build)(files_to_concat, str(out.resolve()), "concatenate")
             debug("Done", self)
         else:
             soxr = sox.Transformer()

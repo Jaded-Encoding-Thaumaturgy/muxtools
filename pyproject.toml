@@ -19,8 +19,7 @@ dependencies = [
     "pyparsebluray>=0.1.4",
     "pydantic>=2.5.0",
     "psutil>=5.6.4",
-    "videotimestamps>=1.0.0",
-    "typed-ffmpeg-compatible~=3.7.1",
+    "videotimestamps>=1.2.0",
     "mkvinfo~=0.0.3",
     "fonttools>=4.55.0",
     "ass-tag-analyzer>=0.0.4",
@@ -49,14 +48,14 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.4, <9.0.0",
+    "pytest~=9.1.1",
     "ruff>=0.6.5",
     "scipy-stubs>=1.15.2.1",
     "types-psutil>=7.0.0.20250218",
     "py7zr>=0.20.5",
     "sox>=1.5.0",
-    "mypy==1.17.1",
-    "ty==0.0.1a19",
+    "pyrefly>=1.3.2",
+    "rust-just>=1.58.0",
 ]
 
 [project.urls]
@@ -98,9 +97,12 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = false
 
-[tool.mypy]
-local_partial_types = true
-allow_redefinition_new = true
+[tool.pyrefly]
+preset = "default"
+search-path = ["tests"]
+
+[tool.pyrefly.errors]
+redefinition = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = [

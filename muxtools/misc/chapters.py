@@ -3,11 +3,12 @@ from __future__ import annotations
 from datetime import timedelta
 from fractions import Fraction
 from pathlib import Path
-from typing import TypeVar
+from typing import TypeVar, cast
 from video_timestamps import TimeType, ABCTimestamps
 import re
 
 from ..subtitle.sub import SubFile
+from ..subtitle.basesub import _Line
 from ..utils.log import error, info, warn, debug
 from ..utils.glob import GlobSearch
 from ..utils.download import get_executable
@@ -115,7 +116,7 @@ class Chapters:
         self.chapters = chapters
         return self
 
-    def add(self: ChaptersSelf, chapters: Chapter | list[Chapter], index: int = 0) -> ChaptersSelf:
+    def add(self: ChaptersSelf, chapters: LooseChapter | list[LooseChapter] | list[Chapter], index: int = 0) -> ChaptersSelf:
         """
         Adds a chapter at the specified index
         """
@@ -124,15 +125,14 @@ class Chapters:
         else:
             chapters = chapters
 
-        converted = []
+        converted: list[Chapter] = []
         for ch in chapters:
-            if isinstance(ch[0], int):
-                current = list(ch)
-                ms = self.timestamps.frame_to_time(current[0], TimeType.START, 3)
-                current[0] = timedelta(milliseconds=ms)
-                converted.append(tuple(current))
+            time_value, name = ch
+            if isinstance(time_value, int):
+                ms = self.timestamps.frame_to_time(time_value, TimeType.START, 3)
+                converted.append((timedelta(milliseconds=ms), name))
             else:
-                converted.append(ch)
+                converted.append(cast(Chapter, ch))
 
         for ch in converted:
             self.chapters.insert(index, ch)
@@ -189,7 +189,7 @@ class Chapters:
             out_file = out / "chapters.txt"
         else:
             out_file = out
-        with open(out_file, "w", encoding="UTF-8") as f:
+        with open(out_file, "w", encoding="utf_8_sig") as f:
             chapters = [
                 "CHAPTER{num:02d}={time}\nCHAPTER{num:02d}NAME={name}\n".format(
                     num=i + 1,
@@ -249,7 +249,7 @@ class Chapters:
                 if match:
                     chapters.append((line.start, match.group(1)))
                 elif isinstance(line, Comment) and line.text:
-                    chapters.append((line.start, str(line.text).strip()))
+                    chapters.append((cast(_Line, line).start, str(line.text).strip()))
                 else:
                     warn(f"Chapter {(len(chapters) + 1):02.0f} does not have a name!", caller)
                     chapters.append((line.start, ""))

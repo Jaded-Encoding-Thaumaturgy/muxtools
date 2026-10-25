@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import shutil
+import subprocess
+from getopt import GetoptError, getopt
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
@@ -13,6 +16,7 @@ from cyclopts import App, Parameter
 from rich.text import Text
 
 from .utils import binaries as manager
+from .utils.binaries.runner import _resolve_executable
 from .config import BinaryMode, EffectiveBinaryConfig, ProjectConfig, discover_config, init_config, migrate_config, resolve_binary_config
 from .utils.convert import get_timemeta_from_video
 from .utils.files import ensure_path_exists
@@ -21,6 +25,46 @@ from .utils.probe import ParsedFile
 app = App(name="muxtools")
 binaries = App(name=["binaries", "bin"])
 app.command(binaries)
+proxy_app = App(name="proxy", help_flags=[], version_flags=[], end_of_options_delimiter="")
+app.command(proxy_app)
+
+
+@proxy_app.default
+def proxy(*tokens: Annotated[str, Parameter(allow_leading_hyphen=True)]) -> None:
+    """Run a managed binary without PATH fallback, honoring project or environment configuration."""
+    try:
+        options, command = getopt(tokens, "hp:", ["help", "package="])
+    except GetoptError as exc:
+        raise ValueError(str(exc)) from None
+    package = None
+    for option, value in options:
+        if option in ("--help", "-h"):
+            app.console.print(
+                "Usage: muxtools proxy [--package PACKAGE] EXECUTABLE [ARGS...]\n\n"
+                "Run a binary using project/environment configuration, or the latest global install.\n"
+                "  -p, --package PACKAGE  Select an installed package provider.\n\n"
+                "All arguments after EXECUTABLE are forwarded unchanged. No binaries are downloaded or resolved from PATH."
+            )
+            return
+        if package is not None:
+            raise ValueError("Provide --package only once")
+        if not value:
+            raise ValueError("--package requires a package name")
+        package = value
+    if not command:
+        raise ValueError("Provide an executable: muxtools proxy [--package PACKAGE] EXECUTABLE [ARGS...]")
+    name, *arguments = command
+    try:
+        executable = _resolve_executable(name, package=package, default_global=True, strict=True)
+        if executable is None:
+            raise FileNotFoundError(f"Managed executable {name!r} was not found; Install or add a package to your current project.")
+        args = [executable, *arguments]
+        if sys.platform == "win32":
+            raise SystemExit(subprocess.call(args))
+        os.execv(executable, args)
+    except OSError as exc:
+        app.error_console.print(Text(str(exc), style="red"))
+        raise SystemExit(127 if isinstance(exc, FileNotFoundError) else 126) from None
 
 
 def _choose(message: str, choices: list[str]) -> str:

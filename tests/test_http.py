@@ -14,6 +14,7 @@ def setup_and_remove():
     sleep(0.1)
     rmtree(get_workdir())
 
+
 def test_tmdb_custom_order() -> None:
     cfg = TmdbConfig(95479, 2, order=TMDBOrder.PRODUCTION)
     episode_meta = cfg.get_episode_meta(1)
@@ -28,8 +29,11 @@ def test_tmdb_sanitization() -> None:
     assert episode_meta.title == "Rei Kiriyama / The Town Along the River"
     assert episode_meta.title_sanitized == "Rei Kiriyama  The Town Along the River"
 
+
 def test_download_file() -> None:
-    file = download_file("https://github.com/Vodes/muxtools-binaries/releases/download/flac-1.5.0.post1/flac-1.5.0.post1-windows-x86_64.tar.zst", get_workdir())
+    file = download_file(
+        "https://github.com/Vodes/muxtools-binaries/releases/download/flac-1.5.0.post1/flac-1.5.0.post1-windows-x86_64.tar.zst", get_workdir()
+    )
 
     with file.open("rb") as stream:
         hash = hashlib.file_digest(stream, "sha256").hexdigest()

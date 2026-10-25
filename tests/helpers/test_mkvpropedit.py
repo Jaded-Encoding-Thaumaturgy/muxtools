@@ -66,34 +66,31 @@ def test_mkvpropedit_crops():
     MKVPropEdit(f).video_track(crop=(1, 2, 3, 4)).run()
     parsed = ParsedFile.from_file(f)
     assert parsed.tracks[0].raw_ffprobe.side_data_list
-
-    side_data = parsed.tracks[0].raw_ffprobe.side_data_list.side_data[0]
-    assert side_data.type == "Frame Cropping"
-    assert [data for data in side_data.side_datum if data.key == "crop_left"][0].value == "1"
-    assert [data for data in side_data.side_datum if data.key == "crop_top"][0].value == "2"
-    assert [data for data in side_data.side_datum if data.key == "crop_right"][0].value == "3"
-    assert [data for data in side_data.side_datum if data.key == "crop_bottom"][0].value == "4"
+    side_data = parsed.tracks[0].raw_ffprobe.side_data_list[0]
+    assert side_data["side_data_type"] == "Frame Cropping"
+    assert side_data["crop_left"] == 1
+    assert side_data["crop_top"] == 2
+    assert side_data["crop_right"] == 3
+    assert side_data["crop_bottom"] == 4
 
     # Crop 2 horizontally, 4 vertically
     MKVPropEdit(f).video_track(crop=(2, 4)).run()
     parsed = ParsedFile.from_file(f)
     assert parsed.tracks[0].raw_ffprobe.side_data_list
-
-    side_data = parsed.tracks[0].raw_ffprobe.side_data_list.side_data[0]
-    assert side_data.type == "Frame Cropping"
-    assert [data for data in side_data.side_datum if data.key == "crop_left"][0].value == "2"
-    assert [data for data in side_data.side_datum if data.key == "crop_right"][0].value == "2"
-    assert [data for data in side_data.side_datum if data.key == "crop_top"][0].value == "4"
-    assert [data for data in side_data.side_datum if data.key == "crop_bottom"][0].value == "4"
+    side_data = parsed.tracks[0].raw_ffprobe.side_data_list[0]
+    assert side_data["side_data_type"] == "Frame Cropping"
+    assert side_data["crop_left"] == 2
+    assert side_data["crop_right"] == 2
+    assert side_data["crop_top"] == 4
+    assert side_data["crop_bottom"] == 4
 
     # Crop 4 on all sides
     MKVPropEdit(f).video_track(crop=4).run()
     parsed = ParsedFile.from_file(f)
     assert parsed.tracks[0].raw_ffprobe.side_data_list
-
-    side_data = parsed.tracks[0].raw_ffprobe.side_data_list.side_data[0]
-    assert side_data.type == "Frame Cropping"
-    assert len([data for data in side_data.side_datum if data.value == "4"]) == 4
+    side_data = parsed.tracks[0].raw_ffprobe.side_data_list[0]
+    assert side_data["side_data_type"] == "Frame Cropping"
+    assert all(side_data[key] == 4 for key in ("crop_left", "crop_top", "crop_right", "crop_bottom"))
 
     # Crop removed
     MKVPropEdit(f).video_track(crop=0).run()

@@ -1,4 +1,4 @@
-from muxtools import ensure_path, Setup, get_workdir, do_audio, get_executable, Opus, Sox, FFMpeg, VideoMeta, FLAC
+from muxtools import ensure_path, Setup, get_workdir, do_audio, get_executable, Opus, Sox, FFMpeg, VideoMeta, FLAC, AudioFile
 from muxtools.utils.env import communicate_stdout
 from time import sleep
 from shutil import rmtree
@@ -36,6 +36,17 @@ def test_lossy_input_no_encode():
     assert get_md5_for_stream(out.file) == "3fe4c6674cc3b2ffc3ba3247c91ed622"
 
 
+@pytest.mark.parametrize("preserve_delay", [False, True])
+def test_lossy_multi_trim_starts_at_zero(preserve_delay: bool) -> None:
+    source = AudioFile.from_file(sample_file_aac, None)
+    source.container_delay = 123
+
+    out = FFMpeg.Trimmer(trim=[(0, 24), (24, 48)], preserve_delay=preserve_delay).trim_audio(source)
+
+    assert out.file.exists()
+    assert out.container_delay == (123 if preserve_delay else 0)
+
+
 # Some of these tests randomly fail on some github runners and I'm not sure why.
 # Only a concern when both python versions and repeated fails occur.
 @pytest.mark.xfail
@@ -52,6 +63,7 @@ def test_lossy_input(caplog):
 def test_flac_input():
     out = do_audio(sample_file_flac, encoder=Opus())
     assert get_md5_for_stream(out.file) == "f2dac56cf04fce1d411d84ebb9cc9b9f"
+
 
 @pytest.mark.xfail
 def test_flac_sox_trim():

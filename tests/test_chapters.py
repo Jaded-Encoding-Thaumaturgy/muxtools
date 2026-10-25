@@ -1,6 +1,9 @@
-from muxtools import Setup, get_workdir, ensure_path, Chapters
+from muxtools import Setup, get_workdir, ensure_path, Chapters, get_executable, run_commandline
 from shutil import rmtree
 from time import sleep
+from datetime import timedelta
+from typing import cast
+from muxtools.utils.types import LooseChapter
 import pytest
 
 test_dir = ensure_path(__file__, None).parent
@@ -14,6 +17,27 @@ def setup_and_remove():
 
     sleep(0.1)
     rmtree(get_workdir())
+
+
+def test_add_chapters() -> None:
+    ch = Chapters([], _print=False)
+    existing = (timedelta(seconds=2), "Existing")
+    ch.add(existing)
+    ch.add((24, "First"))
+
+    assert ch.chapters == [(timedelta(milliseconds=1001), "First"), existing]
+    assert ch.chapters[1] is existing
+
+
+@pytest.mark.parametrize("chapter", [(), (24,), (24, "name", "extra"), (timedelta(0),), (timedelta(0), "name", "extra")])
+def test_add_rejects_malformed_chapter(chapter: tuple[object, ...]) -> None:
+    ch = Chapters([(0, "Existing")], _print=False)
+    before = ch.chapters.copy()
+
+    with pytest.raises(ValueError):
+        ch.add([(24, "Valid"), cast(LooseChapter, chapter)])
+
+    assert ch.chapters == before
 
 
 def test_chapters_from_mkv():
@@ -40,3 +64,19 @@ def test_chapters_from_ogm():
     ch_ogm = Chapters(ogm)
 
     assert ch.chapters == ch_ogm.chapters
+
+
+def test_unicode_chapters_with_legacy_charset():
+    ch = Chapters([(0, "Prólogo"), (24, "日本語")], _print=False)
+    ogm = ch.to_file(minus_one_ms_hack=False)
+    assert Chapters(ogm, _print=False).chapters == ch.chapters
+
+    source = test_dir / "test-data" / "sample-files" / "H264-MP3-Vorbis-sample.mkv"
+    out = get_workdir() / "unicode-chapters.mkv"
+    # A BOM must override the legacy charset even on systems that default to UTF-8.
+    args = [get_executable("mkvmerge"), "-o", str(out), "--no-chapters", str(source), "--chapter-charset", "Windows-1252", "--chapters", str(ogm)]
+    assert run_commandline(args, mkvmerge=True) <= 1
+
+    extracted = get_workdir() / "extracted-chapters.txt"
+    assert run_commandline([get_executable("mkvextract"), str(out), "chapters", "-s", str(extracted)]) == 0
+    assert Chapters(extracted, _print=False).chapters == ch.chapters

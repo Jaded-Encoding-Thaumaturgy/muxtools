@@ -11,3 +11,4 @@ from .log import *
 from .parsing import *
 from .types import *
 from .subprogress import *
+from .binaries.runner import use_binary_package

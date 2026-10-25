@@ -53,7 +53,7 @@ class Setup(MuxSettings):
         config = discover_config(explicit=path)
         project_values = config.settings.model_dump(exclude={"binaries"}) if config else {}
         overrides = {key: value for key, value in options.items() if value is not None}
-        values = {**project_values, **overrides, "episode": episode, "config_path": str(path) if path else None}
+        values: dict[str, Any] = {**project_values, **overrides, "episode": episode, "config_path": str(path) if path else None}
         super().__init__(**values)
 
         if not self.work_dir:

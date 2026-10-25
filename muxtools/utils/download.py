@@ -19,14 +19,20 @@ __all__: list[str] = [
 
 
 @overload
-def get_executable(type: str, can_error: Literal[True] = ...) -> str: ...
+def get_executable(type: str, can_error: Literal[True] = ..., *, package: str | None = None) -> str: ...
 
 
 @overload
-def get_executable(type: str, can_error: Literal[False] = ...) -> str | None: ...
+def get_executable(type: str, can_error: Literal[False] = ..., *, package: str | None = None) -> str | None: ...
 
 
-def get_executable(type: str, can_error: bool = True) -> str | None:
+def get_executable(type: str, can_error: bool = True, *, package: str | None = None) -> str | None:
+    """Find an executable, optionally selecting its installed package provider.
+
+    ``package`` is a canonical name, without a version constraint. Configured
+    constraints still apply, and ``vof_exe_*`` overrides remain highest priority.
+    With ``can_error=False``, a missing executable returns ``None``.
+    """
     from .binaries.runner import get_managed_executable
 
     env = os.environ.get(f"vof_exe_{type.lower()}", None)
@@ -38,7 +44,7 @@ def get_executable(type: str, can_error: bool = True) -> str | None:
             return None
         raise error(f"Custom executable for {type} not found!", get_executable)
     try:
-        path = get_managed_executable(type)
+        path = get_managed_executable(type, package=package)
     except FileNotFoundError:
         if not can_error:
             return None

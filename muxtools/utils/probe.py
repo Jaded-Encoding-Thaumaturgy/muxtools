@@ -7,7 +7,6 @@ from mkvinfo import MKVInfo, Track as MkvInfoTrack, Container as MkvInfoContaine
 from itertools import groupby
 
 if TYPE_CHECKING:
-    from typed_ffmpeg.ffprobe.schema import streamType, ffprobeType, tagsType, formatType
     from langcodes import Language
 
 from .log import error, warn
@@ -15,9 +14,10 @@ from .types import PathLike, TrackType
 from .files import ensure_path_exists, GlobSearch
 from .download import get_executable
 from .formats import AudioFormat
+from .ffprobe import ProbeFormat, ProbeResult, ProbeStream, probe_file
 from .language_util import standardize_tag
 
-__all__ = ["ParsedFile", "TrackInfo", "ContainerInfo"]
+__all__ = ["ParsedFile", "TrackInfo", "ContainerInfo", "ProbeResult", "ProbeFormat", "ProbeStream"]
 
 _YUV_FMT_REGEX = r"yuv(?:a|j)?4\d\dp(?P<bits>\d+)?"
 
@@ -29,7 +29,7 @@ class ContainerInfo:
     format_long_name: str | None
     tags: dict[str, str]
 
-    raw_ffprobe: formatType
+    raw_ffprobe: ProbeFormat
     raw_mkvmerge: MkvInfoContainer | None
 
 
@@ -49,7 +49,7 @@ class TrackInfo:
     container_delay: int
 
     other_tags: dict[str, str]
-    raw_ffprobe: streamType
+    raw_ffprobe: ProbeStream
     raw_mkvmerge: MkvInfoTrack | None
 
     def get_audio_format(self) -> Optional["AudioFormat"]:
@@ -93,17 +93,6 @@ class TrackInfo:
             return Language.get(self.language or "und")
 
 
-def tags_to_dict(tags: tagsType | None) -> dict[str, str]:
-    if not tags or not tags.tag:
-        return dict()
-    new_dict = dict[str, str]()
-    for tag in [tag for tag in tags.tag if tag is not None]:
-        if not tag.key:
-            continue
-        new_dict[tag.key] = tag.value or ""
-    return new_dict
-
-
 @dataclass
 class ParsedFile:
     container_info: ContainerInfo
@@ -111,11 +100,17 @@ class ParsedFile:
     is_video_file: bool
     source: Path
 
-    raw_ffprobe: ffprobeType
+    raw_ffprobe: ProbeResult
     raw_mkvmerge: MKVInfo | None
 
     @staticmethod
-    def from_file(path: PathLike | GlobSearch, caller: Any | None = None, allow_mkvmerge_warning: bool = True) -> "ParsedFile":
+    def from_file(
+        path: PathLike | GlobSearch,
+        caller: Any | None = None,
+        allow_mkvmerge_warning: bool = True,
+        *,
+        _allow_unknown_codecs: bool = False,
+    ) -> "ParsedFile":
         """
         Parses a file with ffprobe and, if given and a video track is found, mkvmerge.
 
@@ -124,22 +119,19 @@ class ParsedFile:
         :param allow_mkvmerge_warning:  If the warning for a missing mkvmerge install should actually be printed.\n
                                         Again, for internal use.
         """
-        from typed_ffmpeg import probe_obj
-
         path = ensure_path_exists(path, caller)
         ffprobe_exe = get_executable("ffprobe")
         try:
-            out = probe_obj(path, cmd=ffprobe_exe, show_chapters=True)
-            assert out and out.format
-        except:
+            out = probe_file(path, ffprobe_exe)
+        except Exception:
             raise error(f"Failed to parse file '{path.stem}' with ffprobe!", caller)
 
-        if not out.streams or not out.streams.stream or (out.format.format_name is not None and "tty" in out.format.format_name):
+        if not out.streams or (out.format.format_name is not None and "tty" in out.format.format_name):
             return ParsedFile(ContainerInfo(0, "Unknown", None, {}, out.format, None), [], False, path, out, None)
 
-        is_video_file = bool([stream for stream in out.streams.stream if (stream.codec_type or "").lower() == "video"])
+        is_video_file = bool([stream for stream in out.streams if (stream.codec_type or "").lower() == "video"])
         container_info = ContainerInfo(
-            out.format.nb_streams or 0, out.format.format_name or "", out.format.format_long_name, tags_to_dict(out.format.tags), out.format, None
+            out.format.nb_streams or 0, out.format.format_name or "", out.format.format_long_name, out.format.tags.copy(), out.format, None
         )
         mkvmerge_exe = get_executable("mkvmerge", can_error=False)
         mkvmerge_out = None
@@ -153,27 +145,31 @@ class ParsedFile:
             except:
                 warn("Could not parse file with mkvmerge!", caller)
 
-        sorted_streams = sorted(out.streams.stream, key=lambda s: -1 if not s.index else s.index)
+        sorted_streams = sorted(out.streams, key=lambda s: -1 if not s.index else s.index)
         tracks = list[TrackInfo]()
+        relative_indices: dict[str, int] = {}
         for type, values in groupby(sorted_streams, lambda v: v.codec_type):
             if not type:
                 raise error(f"Could not get codec_type for some tracks in '{path.stem}'!", caller)
-            for i, track in enumerate(values):
+            for i, track in enumerate(values, start=relative_indices.get(type, 0)):
+                relative_indices[type] = i + 1
                 if track.index is None:
                     raise error(f"Track {i} (assumed) in '{path.stem}' does not have a real track index!", caller)
 
                 mkvmerge_meta = None
                 if mkvmerge_out and type in ["video", "audio", "subtitle"]:
-                    found = [tr for tr in mkvmerge_out.tracks if tr.id == track.index and type in tr.type.name.lower()]
-                    mkvmerge_meta = found[0] if found else None
+                    found = [tr for tr in mkvmerge_out.tracks if type in tr.type.name.lower()]
+                    mkvmerge_meta = found[i] if i < len(found) else None
                 codec_name = track.codec_name
                 if track.codec_type == "attachment" and not codec_name:
                     codec_name = "attachment"
+                if not codec_name and _allow_unknown_codecs:
+                    codec_name = "unknown"
                 if not codec_name:
                     raise error(f"Track {track.index} in '{path.stem}' does not have a codec_name!", caller)
 
-                is_default = bool(track.disposition.default) if track.disposition and track.disposition.default else False
-                is_forced = bool(track.disposition.forced) if track.disposition and track.disposition.forced else False
+                is_default = bool(track.disposition.get("default", 0))
+                is_forced = bool(track.disposition.get("forced", 0))
                 container_delay = 0
                 if mkvmerge_out and mkvmerge_meta and mkvmerge_meta.properties.minimum_timestamp:
                     timescale = mkvmerge_out.container.properties.timestamp_scale
@@ -185,7 +181,7 @@ class ParsedFile:
                             min_timestamp = max(min_timestamp - (mkvmerge_meta.properties.codec_delay / timescale), 0)
                         container_delay = int(min_timestamp)
 
-                tags = tags_to_dict(track.tags)
+                tags = track.tags.copy()
                 language = tags.pop("language", None)
                 title = tags.pop("title", None)
 
