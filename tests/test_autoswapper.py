@@ -1,27 +1,24 @@
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from ass import Dialogue, Style
 
 from muxtools import SubFile, Setup
+from muxtools.subtitle.subutils import create_document
 
-HEADER = """[Script Info]
-ScriptType: v4.00+
-PlayResX: 1920
-PlayResY: 1080
 
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
+def _write_sub(path: Path, text: str) -> Path:
+    doc = create_document()
+    doc.styles.append(Style(name="Default"))
+    doc.events.append(Dialogue(start=timedelta(0), end=timedelta(seconds=1), style="Default", text=text))
+    with open(path, "w", encoding="utf_8_sig") as writer:
+        doc.dump_file(writer)
+    return path
 
 
 def _swap(tmp_path: Path, text: str, **kwargs) -> str:
-    file = tmp_path / "swap.ass"
-    file.write_text(HEADER + f"Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,{text}\n", encoding="utf-8")
-    sub = SubFile(file)
+    sub = SubFile(_write_sub(tmp_path / "swap.ass", text))
     sub.autoswapper(**kwargs)
     return sub._read_doc().events[0].text
 
