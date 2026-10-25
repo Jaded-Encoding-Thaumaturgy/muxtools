@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from muxtools import SubFile
+from muxtools import SubFile, Setup
 
 HEADER = """[Script Info]
 ScriptType: v4.00+
@@ -30,6 +30,8 @@ def _swap(tmp_path: Path, text: str, **kwargs) -> str:
 def _in_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # SubFile writes its working copies to the current directory
     monkeypatch.chdir(tmp_path)
+    # Other tests leave a deleted workdir behind in the global setup, so always point it somewhere that exists
+    Setup("Test", None, work_dir=str(tmp_path))
 
 
 @pytest.mark.parametrize(
