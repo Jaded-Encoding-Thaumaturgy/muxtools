@@ -215,7 +215,7 @@ class SubFile(BaseSubFile):
         - `abc{**def}` becomes `abc{*}def{*}` (Show Word)
         - `abc{*}def{*}` becomes `abc{**def}` (Hide Word)
 
-        Note: AB Swap and Hide Word will remove `{}` from the swapped text, to ensure the comment isn't broken.
+        Note: Without `inline_tag_markers`, AB Swap and Hide Word will remove anything in `{}` (tags and comments) from the text they hide, to ensure the comment isn't broken.
 
         You can also comment in or out entire lines by using the line marker in either the `effect` or `name` field.
         - A dialogue line with effect or name set to `***` will be commented.
@@ -223,6 +223,7 @@ class SubFile(BaseSubFile):
 
 
         `inline_tag_markers` can be used to swap ASS tags as well. Keep in mind that "\" and "/" will be swapped, so override tags aren't applied.
+        This also affects any of these characters that were in the text to begin with, e.g. `and/or` will turn into `and\or` once it's hidden and shown again.
 
         Assuming the markers are as default, except inline_tag_markers = `[]`:
         - `{*}{\i1}abc{*[/b1]def}` becomes `{*}{\b1}def{*[/i1]abc}` (AB Swap)
@@ -237,7 +238,7 @@ class SubFile(BaseSubFile):
                                         Should be one character. Default `*`
         :param line_marker:             Marker to use for full-line swaps. Default `***`
         :param inline_tag_markers:      Two characters that will be replaced with `{}` respectively in the inline swaps.
-                                        Defaults to `None`, which will just remove the `{}` from the swapped text.
+                                        Defaults to `None`, which will remove anything in `{}` from the hidden text.
         :param exact_names:             Match style names in full instead of substring matching as mentioned above. (still case-insensitive)
 
         :return:                        This SubTrack
@@ -257,59 +258,48 @@ class SubFile(BaseSubFile):
 
         marker = re.escape(inline_marker)
 
-        ab_swap_regex = re.compile(rf"{{{marker}}}(.*?){{{marker}([^}}]+)}}")
-        show_word_regex = re.compile(rf"{{{marker}{marker}([^}}]+)}}")
-        hide_word_regex = re.compile(rf"{{{marker}}}(.*?){{{marker} *}}")
+        # the text after a {*} can't run past the next {*, so a swap can never swallow the one after it
+        inner = rf"(?:(?!{{{marker}).)*?"
+        swap_regex = re.compile(
+            # Hide Word: This sentence is no longer{*} complete{*}
+            rf"{{{marker}}}(?P<hide>{inner}){{{marker} *}}"
+            # AB Swap: {*}This will be replaced{*With this}
+            rf"|{{{marker}}}(?P<a>{inner}){{{marker}(?!{marker})(?P<b>[^}}]+)}}"
+            # Show Word: This sentence is no longer{** incomplete}
+            rf"|{{{marker}{marker}(?P<show>[^}}]+)}}"
+        )
 
-        backslash = "\\"  # This is to ensure support for previous python versions that don't allow backslashes in f-strings.
+        def _hide(text: str) -> str:
+            if inline_tag_markers:
+                return text.replace("{", inline_tag_markers[0]).replace("}", inline_tag_markers[1]).replace("\\", "/")
+            # without tag markers nothing in {} can survive, and leaving it without its braces would apply tags inside the comment and show comments as text
+            return re.sub(r"{[^}]*}", "", text).replace("{", "").replace("}", "")
+
+        def _reveal(text: str) -> str:
+            if inline_tag_markers:
+                return text.replace(inline_tag_markers[0], "{").replace(inline_tag_markers[1], "}").replace("/", "\\")
+            return text
+
+        def _swap(match: re.Match[str]) -> str:
+            if match.group("hide") is not None:
+                return f"{{{inline_marker * 2}{_hide(match.group('hide'))}}}"
+            if match.group("a") is not None:
+                return f"{{{inline_marker}}}{_reveal(match.group('b'))}{{{inline_marker}{_hide(match.group('a'))}}}"
+            return f"{{{inline_marker}}}{_reveal(match.group('show'))}{{{inline_marker}}}"
 
         def _do_autoswap(lines: LINES):
             from rich.markup import escape as log_escape
 
             for i, line in enumerate(lines):
                 if not allowed_styles or name_matches_style(str(line.style), allowed_styles, exact_names):
-                    to_swap: dict = {}
-                    # {*}This will be replaced{*With this}
-                    for match in re.finditer(ab_swap_regex, line.text):
-                        if inline_tag_markers:
-                            to_swap.update(
-                                {
-                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', backslash)}{{{inline_marker}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1]).replace(backslash, '/')}}}"
-                                }
-                            )
-                        else:
-                            to_swap.update(
-                                {
-                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(2)}{{{inline_marker}{match.group(1).replace('{', '').replace('}', '')}}}"
-                                }
-                            )
 
-                    # This sentence is no longer{** incomplete}
-                    for match in re.finditer(show_word_regex, line.text):
-                        if inline_tag_markers:
-                            to_swap.update(
-                                {
-                                    f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1).replace(inline_tag_markers[0], '{').replace(inline_tag_markers[1], '}').replace('/', backslash)}{{{inline_marker}}}"
-                                }
-                            )
-                        else:
-                            to_swap.update({f"{match.group(0)}": f"{{{inline_marker}}}{match.group(1)}{{{inline_marker}}}"})
-
-                    # This sentence is no longer{*} complete{*}
-                    for match in re.finditer(hide_word_regex, line.text):
-                        if inline_tag_markers:
-                            to_swap.update(
-                                {
-                                    f"{match.group(0)}": f"{{{inline_marker * 2}{match.group(1).replace('{', inline_tag_markers[0]).replace('}', inline_tag_markers[1]).replace(backslash, '/')}}}"
-                                }
-                            )
-                        else:
-                            to_swap.update({f"{match.group(0)}": f"{{{inline_marker * 2}{match.group(1).replace('{', '').replace('}', '')}}}"})
-
-                    for key, val in to_swap.items():
+                    def _swap_and_log(match: re.Match[str]) -> str:
+                        swapped = _swap(match)
                         if print_swaps:
-                            info(f'autoswapper: Swapped "{log_escape(key)}" for "{log_escape(val)}" on line {i}', self)
-                        line.text = line.text.replace(key, val)
+                            info(f'autoswapper: Swapped "{log_escape(match.group(0))}" for "{log_escape(swapped)}" on line {i}', self)
+                        return swapped
+
+                    line.text = swap_regex.sub(_swap_and_log, line.text)
 
                     if line.effect.strip() == line_marker or line.name.strip() == line_marker:
                         if isinstance(line, Comment):
