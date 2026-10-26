@@ -1,5 +1,8 @@
-from muxtools import SubFile, VideoMeta, Setup, get_workdir, ensure_path, resolve_timesource_and_scale, ABCTimestamps, TimeType
+from muxtools import SubFile, VideoMeta, Setup, get_workdir, ensure_path, resolve_timesource_and_scale, ABCTimestamps, TimeType, OutOfBoundsMode
 from muxtools.subtitle.basesub import _Line
+from muxtools.subtitle.subutils import create_document
+from ass import Dialogue, Style
+from pathlib import Path
 from typing import cast
 from shutil import rmtree
 from datetime import timedelta
@@ -34,6 +37,15 @@ def _compare_times(delta: timedelta, other: timedelta, ts: ABCTimestamps, type: 
     tolerance = timedelta(microseconds=10000)  # One centisecond; both aegisub and muxtools will center the time so this should never be an issue
     assert _timedelta_to_frame(delta, ts, type) == _timedelta_to_frame(other, ts, type), _line_yap(line)  # Frame matches
     assert (other - delta) <= tolerance, _line_yap(line)  # Difference is within tolerance
+
+
+def _write_sub(path: Path, lines: list[tuple[timedelta, timedelta, str]]) -> Path:
+    doc = create_document()
+    doc.styles.append(Style(name="Default"))
+    doc.events.extend(Dialogue(start=start, end=end, style="Default", text=text) for start, end, text in lines)
+    with open(path, "w", encoding="utf_8_sig") as writer:
+        doc.dump_file(writer)
+    return path
 
 
 def test_shift_by_24() -> None:
@@ -83,3 +95,104 @@ def test_shift_by_7200() -> None:
 
         _compare_times(presumed.start, correct.start, resolved, TimeType.START)
         _compare_times(presumed.end, correct.end, resolved, TimeType.END)
+
+
+def test_shift_to_frame_zero() -> None:
+    """
+    Shifting lines to or past frame 0 should keep visible frames visible and hide everything else.
+    """
+    from fractions import Fraction
+
+    resolved = resolve_timesource_and_scale(Fraction(24000, 1001))
+    path = _write_sub(
+        get_workdir() / "shift_zero.ass",
+        [
+            (timedelta(minutes=7, seconds=18, milliseconds=420), timedelta(minutes=7, seconds=18, milliseconds=460), "one frame"),
+            (timedelta(minutes=7, seconds=18, milliseconds=460), timedelta(minutes=7, seconds=18, milliseconds=520), "next"),
+            (timedelta(minutes=7, seconds=18, milliseconds=300), timedelta(minutes=7, seconds=18, milliseconds=600), "partial"),
+            (timedelta(milliseconds=200), timedelta(milliseconds=420), "gone"),
+            (timedelta(0), timedelta(0), "empty"),
+        ],
+    )
+    first = _timedelta_to_frame(timedelta(minutes=7, seconds=18, milliseconds=420), resolved, TimeType.START)
+
+    sub = SubFile(path)
+    sub.shift(-first, resolved, oob_mode=OutOfBoundsMode.MAX_TO_ZERO)
+    one, nxt, partial, gone, empty = (cast(_Line, line) for line in sub._read_doc().events)
+
+    # one frame line lands on frame 0 and stays one frame long
+    assert _timedelta_to_frame(one.start, resolved, TimeType.START) == 0, _line_yap(one)
+    assert _timedelta_to_frame(one.end, resolved, TimeType.END) == 0, _line_yap(one)
+    assert one.end > one.start, _line_yap(one)
+    assert one.end == nxt.start, _line_yap(one)
+
+    # frames 10509-10515 -> -3 to 3, start clamped to 0
+    assert _timedelta_to_frame(partial.start, resolved, TimeType.START) == 0, _line_yap(partial)
+    assert _timedelta_to_frame(partial.end, resolved, TimeType.END) == 3, _line_yap(partial)
+    assert partial.end > partial.start, _line_yap(partial)
+
+    # fully before 0 after the shift, should be hidden
+    assert gone.end == gone.start, _line_yap(gone)
+    assert empty.end == empty.start, _line_yap(empty)
+
+
+def _shift_bounded(frame_ranges: list[tuple[int, int]], frames: int, **kwargs) -> list[tuple[int, int]]:
+    """
+    Writes one line per (start, end) frame range, shifts the file and returns the resulting (start, end) frames.
+    """
+    from fractions import Fraction
+
+    resolved = resolve_timesource_and_scale(Fraction(24000, 1001))
+    lines = [
+        (
+            timedelta(milliseconds=resolved.frame_to_time(start, TimeType.START, 2, True) * 10),
+            timedelta(milliseconds=resolved.frame_to_time(end, TimeType.END, 2, True) * 10),
+            f"line {i}",
+        )
+        for i, (start, end) in enumerate(frame_ranges)
+    ]
+    path = _write_sub(get_workdir() / "shift_bounds.ass", lines)
+
+    sub = SubFile(path)
+    sub.shift(frames, resolved, **kwargs)
+    lines = (cast(_Line, line) for line in sub._read_doc().events)
+    return [(_timedelta_to_frame(line.start, resolved, TimeType.START), _timedelta_to_frame(line.end, resolved, TimeType.END)) for line in lines]
+
+
+def test_shift_before() -> None:
+    """
+    With `before`, only timestamps at or before that frame are shifted.
+    """
+    result = _shift_bounded([(50, 60), (100, 110), (150, 160)], 10, before=100)
+    # (100, 110) has its start on the boundary (shifted) and its end after it (untouched)
+    assert result == [(60, 70), (110, 110), (150, 160)], result
+
+
+def test_shift_after() -> None:
+    """
+    With `after`, only timestamps at or after that frame are shifted.
+    """
+    result = _shift_bounded([(50, 60), (90, 100), (150, 160)], 10, after=100)
+    # (90, 100) has its start before the boundary (untouched) and its end on it (shifted)
+    assert result == [(50, 60), (90, 110), (160, 170)], result
+
+
+def test_shift_before_and_after() -> None:
+    """
+    With both, timestamps outside of the (before, after) gap are shifted and the ones inside it are left alone.
+    """
+    result = _shift_bounded([(10, 20), (110, 120), (210, 220)], 5, before=50, after=200)
+    assert result == [(15, 25), (110, 120), (215, 225)], result
+
+
+def test_shift_without_bounds_shifts_everything() -> None:
+    result = _shift_bounded([(50, 60), (150, 160)], 10)
+    assert result == [(60, 70), (160, 170)], result
+
+
+def test_shift_bounds_with_negative_offset_and_oob() -> None:
+    """
+    Out of bounds handling still applies to lines that are partially shifted.
+    """
+    result = _shift_bounded([(2, 10), (200, 210)], -5, before=100, oob_mode=OutOfBoundsMode.MAX_TO_ZERO)
+    assert result == [(0, 5), (200, 210)], result
