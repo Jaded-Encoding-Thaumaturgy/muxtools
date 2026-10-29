@@ -1,7 +1,6 @@
 import logging
 import re
 import sys
-import time
 from typing import Any
 
 __all__ = [
@@ -137,14 +136,12 @@ def info(msg: str, caller: Any = None):
     logger.info(message)
 
 
-def warn(msg: str, caller: Any = None, sleep: int = 0):
+def warn(msg: str, caller: Any = None):
     message = _format_msg(msg, caller)
     logger.warning(message)
-    if sleep:
-        time.sleep(sleep)
 
 
-def danger(msg: str, caller: Any = None, sleep: int = 0):
+def danger(msg: str, caller: Any = None):
     message = _format_msg(msg, caller)
     logger.log(35, message)
 
@@ -152,9 +149,6 @@ def danger(msg: str, caller: Any = None, sleep: int = 0):
 
     if get_setup_attr("error_on_danger", False):
         raise LoggingException(message)
-
-    if sleep:
-        time.sleep(sleep)
 
 
 def error(msg: str, caller: Any = None) -> LoggingException:

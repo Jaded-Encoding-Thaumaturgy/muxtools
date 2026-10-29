@@ -452,7 +452,7 @@ def collect_fonts(
             if error_missing:
                 raise error(msg, collect_fonts)
             else:
-                danger(msg, collect_fonts, 3)
+                danger(msg, collect_fonts)
         else:
             fontname = _get_fontname(query.font_face)
             assert query.font_face.font_file
@@ -485,16 +485,16 @@ def collect_fonts(
                 collected_faces.add(query.font_face)
 
             if query.need_faux_bold:
-                warn(f"Faux bold used for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts, 2)
+                warn(f"Faux bold used for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts)
             elif query.mismatch_bold:
-                warn(f"Mismatched weight for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts, 2)
+                warn(f"Mismatched weight for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts)
 
             if query.mismatch_italic:
-                warn(f"Could not find a requested {'non-' if query.font_face.is_italic else ''}italic variant for '{fontname}'!", collect_fonts, 2)
+                warn(f"Could not find a requested {'non-' if query.font_face.is_italic else ''}italic variant for '{fontname}'!", collect_fonts)
 
             missing_glyphs = query.font_face.get_missing_glyphs(usage_data.characters_used)
             if len(missing_glyphs) != 0:
-                danger(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts, 3)
+                danger(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts)
 
     for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
         for f in get_workdir().glob(r):

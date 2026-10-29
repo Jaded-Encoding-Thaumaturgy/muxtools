@@ -65,7 +65,7 @@ def mux(
             continue
         elif isinstance(track, MuxingFile):
             if not isinstance(track, FontFile):
-                warn("It's strongly recommended to pass tracks to ensure naming and tagging instead of MuxingFiles directly!", "Mux", 1)
+                warn("It's strongly recommended to pass tracks to ensure naming and tagging instead of MuxingFiles directly!", "Mux")
             track = track.to_track()
             args.extend(track.mkvmerge_args())
             continue
@@ -106,7 +106,7 @@ def mux(
 
             mkvpropedit = get_executable("mkvpropedit", can_error=False)
             if not mkvpropedit:
-                warn("Mkvpropedit could not be found!", "Mux", 0)
+                warn("Mkvpropedit could not be found!", "Mux")
 
             from muxtools import __version__
 
@@ -188,7 +188,7 @@ def output_names(
         epint = int(ep_temp)
     except:
         if tmdb and not tmdb.movie:
-            danger(f"{episode} is not a valid integer! TMDB will be skipped.", "Mux", 3)
+            danger(f"{episode} is not a valid integer! TMDB will be skipped.", "Mux")
             tmdb = None
             filename = clean_name(re.sub(re.escape(R"$title$"), "", filename))
             title = clean_name(re.sub(re.escape(R"$title$"), "", title))
@@ -247,6 +247,6 @@ def check_mkvmerge_version():
         if match:
             version = match.group("version")
             if version and float(version) < 77:
-                danger("Please update your mkvtoolnix/mkvmerge for optimal behavior.", sleep=10)
+                danger("Please update your mkvtoolnix/mkvmerge for optimal behavior.")
     except:
         pass

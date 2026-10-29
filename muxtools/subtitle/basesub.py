@@ -102,7 +102,7 @@ class ASSHeader(IntEnum):
             if not isinstance(value, bool) and str(value).lower() not in ["yes", "no"]:
                 raise error(f"The valid values for {self.name} are 'yes', 'no' or a boolean with the same meaning.", caller)
             if str(value).lower() == "no" or value is False:
-                warn(f"There's practically no good reason for {self.name} to be 'no'. Carry on if you are sure.", caller, 1)
+                warn(f"There's practically no good reason for {self.name} to be 'no'. Carry on if you are sure.", caller)
             if isinstance(value, bool):
                 return "yes" if value else "no"
             return str(value).lower()
@@ -119,7 +119,7 @@ class ASSHeader(IntEnum):
                     contains_known = True
             if not contains_known:
                 joined = ", ".join(known_matrices)
-                warn(f"{self.name} doesn't contain a known valid matrix! ({joined})", caller, 1)
+                warn(f"{self.name} doesn't contain a known valid matrix! ({joined})", caller)
 
         return value
 
