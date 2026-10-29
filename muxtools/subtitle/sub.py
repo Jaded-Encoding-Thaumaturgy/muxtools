@@ -164,10 +164,15 @@ class SubFile(BaseSubFile):
         """
         doc = self._read_doc()
         used_styles = {line.style for line in doc.events if line.TYPE == "Dialogue"}
-        regex = re.compile(r"\{[^}]*\\r([^\\}]+)[^}]*\}")
+        # Only the last \r of an override block is used, since it resets the ones before it.
+        # Like libass, the name ends at a backslash or parenthesis and trailing spaces are ignored.
+        block_regex = re.compile(r"\{([^}]*)\}")
+        reset_regex = re.compile(r"\\[ \t]*r([^\\()]*)")
         for line in [line for line in doc.events if line.TYPE == "Dialogue"]:
-            for match in regex.finditer(line.text):
-                used_styles.add(match.group(1))
+            for block in block_regex.finditer(line.text):
+                resets = reset_regex.findall(block[1])
+                if resets and (name := resets[-1].rstrip(" \t")):
+                    used_styles.add(name)
         doc.styles = [style for style in doc.styles if style.name in used_styles]
         self._update_doc(doc)
         return self
@@ -398,7 +403,7 @@ class SubFile(BaseSubFile):
 
                 if dialogue_styles:
                     for s in dialogue_styles:
-                        if s.casefold() in line.style.casefold():
+                        if name_matches(s, line.style):
                             line.style = default_style
 
         return self.manipulate_lines(_func).clean_styles()
