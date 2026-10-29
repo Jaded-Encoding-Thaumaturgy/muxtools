@@ -251,9 +251,9 @@ class BaseSubFile(ABC, MuxingFile):
         after: int | None = None,
     ) -> ShiftResult:
         outofbounds = False
-        start_frame = timestamps.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+        start_frame = timestamps.time_to_frame(line.start // timedelta(milliseconds=1), TimeType.START, 3)
 
-        end_ms = int(line.end.total_seconds() * 1000)
+        end_ms = line.end // timedelta(milliseconds=1)
         zero_length = end_ms <= timestamps.first_timestamps
         if zero_length:
             end_frame = start_frame

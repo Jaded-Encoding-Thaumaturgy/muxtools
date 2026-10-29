@@ -485,7 +485,7 @@ class SubFile(BaseSubFile):
                 if field.lower().strip() == sync.lower().strip() or line.text.lower().strip() == sync.lower().strip():
                     if shift_mode == ShiftMode.FRAME:
                         assert resolved_ts is not None
-                        target = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                        target = resolved_ts.time_to_frame(line.start // timedelta(milliseconds=1), TimeType.START, 3)
                     else:
                         target = line.start
 
@@ -511,7 +511,7 @@ class SubFile(BaseSubFile):
             if field.lower().strip() == sync2.lower().strip() or line.text.lower().strip() == sync2.lower().strip():
                 if shift_mode == ShiftMode.FRAME:
                     assert resolved_ts is not None
-                    second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                    second_sync = resolved_ts.time_to_frame(line.start // timedelta(milliseconds=1), TimeType.START, 3)
                 else:
                     second_sync = line.start
                 mergedoc.events.remove(line)
@@ -524,7 +524,7 @@ class SubFile(BaseSubFile):
             for line in filter(lambda event: event.TYPE != "Comment", sorted_lines):
                 if shift_mode == ShiftMode.FRAME:
                     assert resolved_ts is not None
-                    second_sync = resolved_ts.time_to_frame(int(line.start.total_seconds() * 1000), TimeType.START, 3)
+                    second_sync = resolved_ts.time_to_frame(line.start // timedelta(milliseconds=1), TimeType.START, 3)
                 else:
                     second_sync = line.start
                 break
@@ -908,7 +908,7 @@ class SubFile(BaseSubFile):
         def srt_timedelta(timestamp: str, time_type: TimeType) -> timedelta:
             args = timestamp.split(",")[0].split(":")
             parsed = timedelta(hours=int(args[0]), minutes=int(args[1]), seconds=int(args[2]), milliseconds=int(timestamp.split(",")[1]))
-            cope = resolved_ts.time_to_frame(int(parsed.total_seconds() * 1000), time_type, 3)
+            cope = resolved_ts.time_to_frame(parsed // timedelta(milliseconds=1), time_type, 3)
             cope = resolved_ts.frame_to_time(cope, time_type, 3, True)
             return timedelta(milliseconds=cope)
 

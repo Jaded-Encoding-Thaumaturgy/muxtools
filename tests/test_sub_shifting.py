@@ -196,3 +196,23 @@ def test_shift_bounds_with_negative_offset_and_oob() -> None:
     """
     result = _shift_bounded([(2, 10), (200, 210)], -5, before=100, oob_mode=OutOfBoundsMode.MAX_TO_ZERO)
     assert result == [(0, 5), (200, 210)], result
+
+
+def test_shift_keeps_frame_with_float_imprecise_time() -> None:
+    """
+    256.09s turns into 256089ms when going through total_seconds(), which is on the previous frame at 23.976.
+    Shifting by 0 frames must keep the line on the same frames.
+    """
+    from fractions import Fraction
+
+    resolved = resolve_timesource_and_scale(Fraction(24000, 1001))
+    path = _write_sub(get_workdir() / "shift_float.ass", [(timedelta(milliseconds=256090), timedelta(milliseconds=256340), "on grid")])
+    sub = SubFile(path)
+
+    sub.shift(0, resolved)
+    line = cast(_Line, sub._read_doc().events[0])
+    # Frame n is shown at round(n * 1001 / 24) ms: 6140 at 256089, 6141 at 256131, 6146 at 256339 and 6147 at 256381.
+    # A line starts on the first frame shown at or after its start and ends after the last frame shown before its end.
+    # So the line is on frames 6141 to 6146 and has to stay in those frame windows.
+    assert timedelta(milliseconds=256089) < line.start <= timedelta(milliseconds=256131), _line_yap(line)
+    assert timedelta(milliseconds=256339) < line.end <= timedelta(milliseconds=256381), _line_yap(line)
