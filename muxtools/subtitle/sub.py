@@ -783,7 +783,7 @@ class SubFile(BaseSubFile):
         :param layer:       The layer you want. Defaults to 50 for additive and 99 otherwise.
         :param additive:    Add specified layer number instead of replacing the existing one.
         """
-        if not layer:
+        if layer is None:
             layer = 50 if additive else 99
 
         def _func(lines: LINES) -> None:
