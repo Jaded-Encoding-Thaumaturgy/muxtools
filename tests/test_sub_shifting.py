@@ -23,7 +23,7 @@ def setup_and_remove():
 
 
 def _timedelta_to_frame(delta: timedelta, ts: ABCTimestamps, type: TimeType) -> int:
-    return ts.time_to_frame(int(delta.total_seconds() * 1000), type, 3)
+    return ts.time_to_frame(delta // timedelta(milliseconds=1), type, 3)
 
 
 def _line_yap(line: _Line | None) -> str:
