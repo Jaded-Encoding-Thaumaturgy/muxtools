@@ -617,7 +617,7 @@ class SubFile(BaseSubFile):
         info(f"Collecting fonts for '{self.file.stem}'...", self)
 
         if error_missing:
-            warn("The 'error_missing' parameter is deprecated.\nPlease use the 'error_on_danger' variable on the Setup.", self, 1)
+            warn("The 'error_missing' parameter is deprecated.\nPlease use the 'error_on_danger' variable on the Setup.", self)
 
         if use_ntfs_compliant_names is None:
             use_ntfs_compliant_names = os.name == "nt"

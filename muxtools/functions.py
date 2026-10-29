@@ -75,11 +75,11 @@ def do_audio(
                     setattr(extractor, "track", track)
                     duration = af.duration or timedelta(milliseconds=0)
                     if duration > timedelta(seconds=2):
-                        danger(f"Could not find valid track {track} in '{f.name}' and falling back resulted in suspiciously long file.", do_audio, 1)
+                        danger(f"Could not find valid track {track} in '{f.name}' and falling back resulted in suspiciously long file.", do_audio)
                         continue
 
                     duration = format_timedelta(duration)
-                    warn(f"Fell back to track 0 for '{f.name}' with a duration of {duration}", do_audio, 1)
+                    warn(f"Fell back to track 0 for '{f.name}' with a duration of {duration}", do_audio)
 
                 extracted.append(af)
             audio = FFMpeg.Concat(extracted).concat_audio()
@@ -106,7 +106,7 @@ def do_audio(
             encoder = None
         elif track_format.should_not_transcode():
             encoder = None
-            warn("Audio will not be reencoded due to having Atmos or special DTS features.", do_audio, 2)
+            warn("Audio will not be reencoded due to having Atmos or special DTS features.", do_audio)
         else:
             encoder = Opus()
 

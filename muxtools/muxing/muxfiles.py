@@ -131,6 +131,6 @@ class AudioFile(MuxingFile):
 
         file = ensure_path_exists(pathIn, caller)
         if file.suffix.lower() != ".wav":
-            warn("It's strongly recommended to explicitly extract tracks first!", caller, 1)
+            warn("It's strongly recommended to explicitly extract tracks first!", caller)
 
         return AudioFile(file, 0, file)

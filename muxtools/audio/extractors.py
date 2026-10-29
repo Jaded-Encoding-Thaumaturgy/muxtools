@@ -55,7 +55,7 @@ class Eac3to(Extractor):
         track = parsed.find_tracks(relative_id=self.track, type=TrackType.AUDIO, caller=self, error_if_empty=True)[0]
         form = track.get_audio_format()
         if not form:
-            danger(f"Unrecognized format: {track.codec_name}\nWill extract as wav instead.", self, 2)
+            danger(f"Unrecognized format: {track.codec_name}\nWill extract as wav instead.", self)
             extension = "wav"
         else:
             extension = form.extension
@@ -125,7 +125,7 @@ class FFMpeg(HasExtractor, HasTrimmer):
             if not form:
                 lossy = False
                 extension = "wav"
-                danger("Unrecognized format: {track.format}\nWill extract as wav instead.", self, 2)
+                danger("Unrecognized format: {track.format}\nWill extract as wav instead.", self)
                 out = make_output(input, extension, f"extracted_{self.track}", self.output, temp=is_temp)
             else:
                 lossy = form.is_lossy

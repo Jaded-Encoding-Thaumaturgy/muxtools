@@ -59,7 +59,7 @@ def ensure_valid_in(
     if fileIn.has_multiple_tracks(caller):
         msg = f"'{fileIn.file.name}' is a container with multiple tracks.\n"
         msg += f"The first audio track will be {'piped' if supports_pipe else 'extracted'} using default ffmpeg."
-        warn(msg, caller, 5)
+        warn(msg, caller)
     trackinfo = fileIn.get_trackinfo()
     container = fileIn.get_containerinfo()
     preprocess = sanitize_pre(preprocess)
@@ -67,9 +67,9 @@ def ensure_valid_in(
     form = trackinfo.get_audio_format()
     if form:
         if form.is_lossy:
-            danger(f"It's strongly recommended to not reencode lossy audio! ({trackinfo.codec_name})", caller, 5)
+            danger(f"It's strongly recommended to not reencode lossy audio! ({trackinfo.codec_name})", caller)
         elif form.should_not_transcode():
-            warn("Encoding tracks with special DTS Features or Atmos is very much discouraged.", caller, 5)
+            warn("Encoding tracks with special DTS Features or Atmos is very much discouraged.", caller)
 
     wont_process = not any([p.can_run(trackinfo, preprocess) for p in preprocess])
 
