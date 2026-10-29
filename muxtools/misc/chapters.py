@@ -71,10 +71,10 @@ class Chapters:
         if trim_start > 0:
             chapters: list[Chapter] = []
             for time_value, name in self.chapters:
-                if self.timestamps.time_to_frame(int(time_value.total_seconds() * 1000), TimeType.START, 3) == 0:
+                if self.timestamps.time_to_frame(time_value // timedelta(milliseconds=1), TimeType.START, 3) == 0:
                     chapters.append((time_value, name))
                     continue
-                if self.timestamps.time_to_frame(int(time_value.total_seconds() * 1000), TimeType.START, 3) - trim_start < 0:
+                if self.timestamps.time_to_frame(time_value // timedelta(milliseconds=1), TimeType.START, 3) - trim_start < 0:
                     continue
                 trim_start_ms = self.timestamps.frame_to_time(trim_start, TimeType.START, 3)
                 time_value = time_value - timedelta(milliseconds=trim_start_ms)
@@ -89,7 +89,7 @@ class Chapters:
             if trim_end > 0:
                 chapters: list[Chapter] = []  # type: ignore[no-redef]
                 for chapter in self.chapters:
-                    if self.timestamps.time_to_frame(int(chapter[0].total_seconds() * 1000), TimeType.START, 3) < trim_end:
+                    if self.timestamps.time_to_frame(chapter[0] // timedelta(milliseconds=1), TimeType.START, 3) < trim_end:
                         chapters.append(chapter)
                 self.chapters = chapters
 
@@ -147,7 +147,7 @@ class Chapters:
         :param shift_amount:    Frames to shift by
         """
         time, name = self.chapters[chapter]
-        ch_frame = self.timestamps.time_to_frame(int(time.total_seconds() * 1000), TimeType.START, 3) + shift_amount
+        ch_frame = self.timestamps.time_to_frame(time // timedelta(milliseconds=1), TimeType.START, 3) + shift_amount
         if ch_frame > 0:
             ms = self.timestamps.frame_to_time(ch_frame, TimeType.START, 3)
             time = timedelta(milliseconds=ms)
@@ -170,7 +170,7 @@ class Chapters:
         """
         info("Chapters:")
         for time, name in self.chapters:
-            frame = self.timestamps.time_to_frame(int(time.total_seconds() * 1000), TimeType.START, 3)
+            frame = self.timestamps.time_to_frame(time // timedelta(milliseconds=1), TimeType.START, 3)
             print(f"{name}: {format_timedelta(time)} | {frame}")
         print("", end="\n")
         return self
