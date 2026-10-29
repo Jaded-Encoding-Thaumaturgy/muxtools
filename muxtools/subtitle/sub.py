@@ -938,7 +938,7 @@ class SubFile(BaseSubFile):
                 text, sign = convert_tags(match["text"])
                 doc.events.append(Dialogue(layer=99, start=start, end=end, text=text, style="Sign" if sign and style_all_caps else "Default"))
 
-        out = file.with_suffix(".ass")
+        out = make_output(file, "ass")
         with open(out, "w", encoding="utf_8_sig") as writer:
             doc.dump_file(writer)
         out = cls(file=out, container_delay=0, source=file)
