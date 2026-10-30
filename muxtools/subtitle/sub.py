@@ -67,7 +67,8 @@ class SubFile(BaseSubFile):
                             If the GlobSearch returns multiple results or if a list was passed it will merge them.
 
     :param container_delay: Set a container delay used in the muxing process later.
-    :param source:          The file this sub originates from, will be set by the constructor.
+    :param source:          The original file this sub came from, like the mkv it was extracted from.
+                            Defaults to `file`, or the first file if several are merged.
     :param encoding:        Encoding used for reading and writing the subtitle files.
     """
 
@@ -105,7 +106,7 @@ class SubFile(BaseSubFile):
                         continue
                     main.styles.append(style)
 
-            source = file[0]
+            source = source or file[0]
             out = make_output(file[0], "ass", "merged")
             with open(out, "w", encoding=self.encoding) as writer:
                 main.dump_file(writer)
@@ -114,7 +115,7 @@ class SubFile(BaseSubFile):
             debug("Done")
         else:
             file = ensure_path_exists(file, self)
-            source = file
+            source = source or file
             if not os.path.samefile(file.parent, get_workdir()):
                 out = make_output(file, "ass", "vof")
                 with open(out, "w", encoding=self.encoding) as writer:
@@ -872,7 +873,7 @@ class SubFile(BaseSubFile):
         with open(new_path, "w", encoding=self.encoding) as writer:
             doc.dump_file(writer)
 
-        new = self.__class__(new_path, self.container_delay, self.source)
+        new = self.__class__(new_path, self.container_delay, self.source, self.tags.copy() if self.tags else None)
         new.encoding = self.encoding
         return new
 
