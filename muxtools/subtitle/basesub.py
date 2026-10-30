@@ -9,6 +9,7 @@ from copy import deepcopy
 from video_timestamps import ABCTimestamps, TimeType
 
 from ..utils.log import error, warn, danger
+from ..utils.convert import timedelta_to_frame
 from ..utils.types import PathLike
 from ..muxing.muxfiles import MuxingFile
 from ..utils.files import GlobSearch, ensure_path
@@ -251,8 +252,9 @@ class BaseSubFile(ABC, MuxingFile):
         after: int | None = None,
     ) -> ShiftResult:
         outofbounds = False
-        start_frame = timestamps.time_to_frame(line.start // timedelta(milliseconds=1), TimeType.START, 3)
+        start_frame = timedelta_to_frame(timestamps, line.start, TimeType.START)
 
+        # Whole milliseconds without going through a float, see timedelta_to_frame
         end_ms = line.end // timedelta(milliseconds=1)
         zero_length = end_ms <= timestamps.first_timestamps
         if zero_length:

@@ -220,6 +220,19 @@ def resolve_timesource_and_scale(
     raise crit("Invalid timesource passed!", caller)
 
 
+def timedelta_to_frame(timestamps: ABCTimestamps, time: timedelta, time_type: TimeType) -> int:
+    """
+    Precisely converts a timedelta to the frame it falls on.
+
+    :param timestamps:  The timestamps of the video
+    :param time:        The timedelta
+    :param time_type:   The type of timing to use for conversion
+
+    :return:            The frame number
+    """
+    return timestamps.time_to_frame(time // timedelta(milliseconds=1), time_type, 3)
+
+
 def format_timedelta(time: timedelta, precision: int = 3) -> str:
     """
     Formats a timedelta to hh:mm:ss.s[*precision] and pads with 0 if there aren't more numbers to work with.

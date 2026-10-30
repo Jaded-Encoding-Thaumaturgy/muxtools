@@ -16,6 +16,7 @@ from .convert import (
     timedelta_from_formatted,
     resolve_timesource_and_scale,
     format_timedelta,
+    timedelta_to_frame,
 )
 
 
@@ -227,7 +228,7 @@ def parse_chapters_bdmv(
                         chapters.append((time, f"Chapter {i:02.0f}"))
                     if chapters and _print:
                         for time, name in chapters:
-                            frame = mkv_ts.time_to_frame(time // timedelta(milliseconds=1), TimeType.EXACT, 3)
+                            frame = timedelta_to_frame(mkv_ts, time, TimeType.EXACT)
                             print(f"{name}: {format_timedelta(time)} | {frame}")
 
         if chapters:
