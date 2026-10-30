@@ -569,32 +569,49 @@ class SubFile(BaseSubFile):
     def collect_fonts(
         self,
         use_system_fonts: bool = True,
-        search_current_dir: bool = True,
+        search_current_dir: bool | None = None,
         additional_fonts: list[PathLike] = [],
         collect_draw_fonts: bool = True,
         error_missing: bool = False,
         use_ntfs_compliant_names: bool | None = None,
     ) -> list[FontFile]:
         """
-        Collects fonts for current subtitle.
-        Note that this places all fonts into the workdir for the episode/Setup and all fonts in it.
+        Collects the fonts used by this subtitle.
+        The fonts are copied into the workdir of the current Setup, and every font in the workdir is returned,
+        including any collected for other subtitles.
 
-        :param use_system_fonts:            Parses and checks against all installed fonts
-        :param search_current_dir:          Recursively checks the current work directory for fonts
-        :param additional_fonts:            Can be a directory or a path to a file directly (or a list of either)
-        :param collect_draw_fonts:          Whether or not to include fonts used for drawing (usually Arial)
+        If you're collecting fonts for multiple subtitles, use `muxtools.collect_fonts` with all of them instead.
+        It loads the font files only once rather than once per call, which is much faster.
+
+        :param use_system_fonts:            Search the fonts installed on the system.
+        :param search_current_dir:          Recursively search the current working directory for fonts.\n
+                                            This is **deprecated** and will be removed in the future.
+                                            Add `"."` to `additional_fonts` instead.
+                                            The default `None` still searches it for now, but this will stop when the parameter is removed.
+        :param additional_fonts:            Font files or directories to search, as a single path or a list.
+        :param collect_draw_fonts:          Include fonts used only for drawings (usually Arial).
                                             See https://github.com/libass/libass/issues/617 for details.
-        :param error_missing:               Raise an error instead of just warnings when a font is missing.\n
-                                            This is **deprecated** and will be removed at some point in the future.
-                                            Please use `error_on_danger` in the Setup.
-        :param use_ntfs_compliant_names:    Ensure that filenames will work on an NTFS (Windows) filesystem.
-                                            The `None` default means it'll use them but only if you're running the script on windows.
+        :param error_missing:               Raise an error instead of a warning when a font is missing.\n
+                                            This is **deprecated** and will be removed in the future.
+                                            Use `error_on_danger` in the Setup instead.
+        :param use_ntfs_compliant_names:    Ensure that filenames will work on NTFS (Windows) filesystems.
+                                            The default `None` only does this when running on Windows.
 
-        :return:                        A list of FontFile objects
+        :return:                            A list of FontFile objects
         """
 
         if not isinstance(additional_fonts, list):
             additional_fonts = [additional_fonts]
+
+        if search_current_dir is None:
+            warn(
+                "The 'search_current_dir' parameter is deprecated and the current directory will no longer be searched by default.\n"
+                "Please add '.' to 'additional_fonts' if you need it, or pass 'search_current_dir=False' to silence this.",
+                self,
+            )
+            search_current_dir = True
+        elif search_current_dir:
+            warn("The 'search_current_dir' parameter is deprecated.\nPlease add '.' to 'additional_fonts' instead.", self)
 
         if search_current_dir:
             additional_fonts = [*additional_fonts, os.getcwd()]

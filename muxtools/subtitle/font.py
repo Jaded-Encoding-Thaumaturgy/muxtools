@@ -422,17 +422,19 @@ def collect_fonts(
     use_ntfs_compliant_names: bool | None = None,
 ) -> list[MTFontFile]:
     """
-    Collects fonts for all passed subtitles, loading the font files only once.
-    This is much faster than calling `SubFile.collect_fonts` on each subtitle.
-    Note that this places all fonts into the workdir for the episode/Setup and returns all fonts in it.
+    Collects the fonts used by one or more subtitles, loading the font files only once.
+    For multiple subtitles, this is much faster than calling `SubFile.collect_fonts` on each one.
+    The fonts are copied into the workdir of the current Setup, and every font in the workdir is returned.
 
-    :param subs:                        The subtitle files to collect fonts for
-    :param use_system_fonts:            Parses and checks against all installed fonts
-    :param additional_fonts:            Can be a directory or a path to a file directly (or a list of either)
-    :param collect_draw_fonts:          Whether or not to include fonts used for drawing (usually Arial)
+    Pass `"."` to `additional_fonts` if you want to search the current working directory.
+
+    :param subs:                        The subtitle file or files to collect fonts for.
+    :param use_system_fonts:            Search the fonts installed on the system.
+    :param additional_fonts:            Font files or directories to search, as a single path or a list.
+    :param collect_draw_fonts:          Include fonts used only for drawings (usually Arial).
                                         See https://github.com/libass/libass/issues/617 for details.
-    :param use_ntfs_compliant_names:    Ensure that filenames will work on an NTFS (Windows) filesystem.
-                                        The `None` default means it'll use them but only if you're running the script on windows.
+    :param use_ntfs_compliant_names:    Ensure that filenames will work on NTFS (Windows) filesystems.
+                                        The default `None` only does this when running on Windows.
 
     :return:                            A list of FontFile objects
     """
