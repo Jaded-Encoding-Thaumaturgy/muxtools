@@ -418,6 +418,7 @@ def _get_fontname(font: ABCFontFace) -> str:
 def collect_fonts(
     subs: SubFile | list[SubFile],
     use_system_fonts: bool = True,
+    search_current_dir: bool = True,
     additional_fonts: PathLike | list[PathLike] = [],
     collect_draw_fonts: bool = True,
     use_ntfs_compliant_names: bool | None = None,
@@ -427,10 +428,9 @@ def collect_fonts(
     For multiple subtitles, this is much faster than calling `SubFile.collect_fonts` on each one.
     The fonts are copied into the workdir of the current Setup, and every font in the workdir is returned.
 
-    Pass `"."` to `additional_fonts` if you want to search the current working directory.
-
     :param subs:                        The subtitle file or files to collect fonts for.
     :param use_system_fonts:            Search the fonts installed on the system.
+    :param search_current_dir:          Recursively search the current working directory for fonts.
     :param additional_fonts:            Font files or directories to search, as a single path or a list.
     :param collect_draw_fonts:          Include fonts used only for drawings (usually Arial).
                                         See https://github.com/libass/libass/issues/617 for details.
@@ -444,17 +444,21 @@ def collect_fonts(
     if not isinstance(additional_fonts, list):
         additional_fonts = [additional_fonts]
 
-    return _collect_fonts(subs, use_system_fonts, additional_fonts, collect_draw_fonts, False, use_ntfs_compliant_names)
+    return _collect_fonts(subs, use_system_fonts, search_current_dir, additional_fonts, collect_draw_fonts, False, use_ntfs_compliant_names)
 
 
 def _collect_fonts(
     subs: list[SubFile],
     use_system_fonts: bool,
+    search_current_dir: bool,
     additional_fonts: list[PathLike],
     collect_draw_fonts: bool,
     error_missing: bool,
     use_ntfs_compliant_names: bool | None,
 ) -> list[MTFontFile]:
+    if search_current_dir:
+        additional_fonts = [*additional_fonts, os.getcwd()]
+
     resolved_paths: list[Path] = []
 
     for f in additional_fonts:

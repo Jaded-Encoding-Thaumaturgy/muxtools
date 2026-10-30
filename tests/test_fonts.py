@@ -108,7 +108,7 @@ def test_collect_fonts_multiple_subs(tmp_path: Path) -> None:
 
     Setup("Test", None, error_on_danger=True)
     with _warnings() as warnings:
-        collected = collect_fonts([first, second], use_system_fonts=False, additional_fonts=source)
+        collected = collect_fonts([first, second], use_system_fonts=False, search_current_dir=False, additional_fonts=source)
     assert not warnings
     assert len(collected) == 3
 
@@ -124,9 +124,9 @@ def test_collect_fonts_separate_calls(tmp_path: Path) -> None:
     first = _write_sub(tmp_path / "first.ass", [("Default", "Foo Bar")], [("Default", "abc")])
     second = _write_sub(tmp_path / "second.ass", [("Default", "Foo/Bar")], [("Default", "def")])
 
-    collect_fonts(first, use_system_fonts=False, additional_fonts=source)
-    collect_fonts(second, use_system_fonts=False, additional_fonts=source)
-    collected = collect_fonts(first, use_system_fonts=False, additional_fonts=source)
+    collect_fonts(first, use_system_fonts=False, search_current_dir=False, additional_fonts=source)
+    collect_fonts(second, use_system_fonts=False, search_current_dir=False, additional_fonts=source)
+    collected = collect_fonts(first, use_system_fonts=False, search_current_dir=False, additional_fonts=source)
     assert len(collected) == 2
 
 

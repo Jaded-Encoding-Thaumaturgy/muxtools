@@ -569,7 +569,7 @@ class SubFile(BaseSubFile):
     def collect_fonts(
         self,
         use_system_fonts: bool = True,
-        search_current_dir: bool | None = None,
+        search_current_dir: bool = True,
         additional_fonts: list[PathLike] = [],
         collect_draw_fonts: bool = True,
         error_missing: bool = False,
@@ -584,10 +584,7 @@ class SubFile(BaseSubFile):
         It loads the font files only once rather than once per call, which is much faster.
 
         :param use_system_fonts:            Search the fonts installed on the system.
-        :param search_current_dir:          Recursively search the current working directory for fonts.\n
-                                            This is **deprecated** and will be removed in the future.
-                                            Add `"."` to `additional_fonts` instead.
-                                            The default `None` still searches it for now, but this will stop when the parameter is removed.
+        :param search_current_dir:          Recursively search the current working directory for fonts.
         :param additional_fonts:            Font files or directories to search, as a single path or a list.
         :param collect_draw_fonts:          Include fonts used only for drawings (usually Arial).
                                             See https://github.com/libass/libass/issues/617 for details.
@@ -603,25 +600,14 @@ class SubFile(BaseSubFile):
         if not isinstance(additional_fonts, list):
             additional_fonts = [additional_fonts]
 
-        if search_current_dir is None:
-            warn(
-                "The 'search_current_dir' parameter is deprecated and the current directory will no longer be searched by default.\n"
-                "Please add '.' to 'additional_fonts' if you need it, or pass 'search_current_dir=False' to silence this.",
-                self,
-            )
-            search_current_dir = True
-        elif search_current_dir:
-            warn("The 'search_current_dir' parameter is deprecated.\nPlease add '.' to 'additional_fonts' instead.", self)
-
-        if search_current_dir:
-            additional_fonts = [*additional_fonts, os.getcwd()]
-
         from .font import _collect_fonts
 
         if error_missing:
             warn("The 'error_missing' parameter is deprecated.\nPlease use the 'error_on_danger' variable on the Setup.", self)
 
-        return _collect_fonts([self], use_system_fonts, additional_fonts, collect_draw_fonts, error_missing, use_ntfs_compliant_names)
+        return _collect_fonts(
+            [self], use_system_fonts, search_current_dir, additional_fonts, collect_draw_fonts, error_missing, use_ntfs_compliant_names
+        )
 
     def restyle(self, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True) -> Self:
         """
