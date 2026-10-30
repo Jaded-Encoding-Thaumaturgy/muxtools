@@ -113,6 +113,23 @@ def test_collect_fonts_multiple_subs(tmp_path: Path) -> None:
     assert len(collected) == 3
 
 
+def test_collect_fonts_separate_calls(tmp_path: Path) -> None:
+    """
+    Collecting again reuses the files already in the workdir, but not for a different font that ends up with the same file name.
+    """
+    source = tmp_path / "fonts"
+    source.mkdir()
+    _make_font(source / "one.ttf", "Foo Bar")
+    _make_font(source / "two.ttf", "Foo/Bar")
+    first = _write_sub(tmp_path / "first.ass", [("Default", "Foo Bar")], [("Default", "abc")])
+    second = _write_sub(tmp_path / "second.ass", [("Default", "Foo/Bar")], [("Default", "def")])
+
+    collect_fonts(first, use_system_fonts=False, additional_fonts=source)
+    collect_fonts(second, use_system_fonts=False, additional_fonts=source)
+    collected = collect_fonts(first, use_system_fonts=False, additional_fonts=source)
+    assert len(collected) == 2
+
+
 def test_collect_fonts_checks_repeated_face(tmp_path: Path) -> None:
     """
     Missing glyphs are reported even when an earlier style already used the same font.

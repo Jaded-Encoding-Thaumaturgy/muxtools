@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import filecmp
 import logging
 from collections import defaultdict
 from pathlib import Path
@@ -527,10 +528,10 @@ def _collect_fonts(
                     if fontpath in copied_sources:
                         outpath = copied_sources[fontpath]
                     else:
-                        # A different font file with the same name was already copied.
-                        # Only avoid names used in this run so collecting again reuses the same files.
+                        # A different font file may already be in the workdir under the same name, so use a numbered one then.
+                        # The same file is reused, e.g. when collecting again.
                         base, counter = outpath, 1
-                        while outpath in copied_sources.values():
+                        while outpath.exists() and not filecmp.cmp(fontpath, outpath, shallow=False):
                             outpath = base.with_stem(f"{base.stem} ({counter})")
                             counter += 1
                         if not outpath.exists():
