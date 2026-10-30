@@ -587,7 +587,7 @@ class SubFile(BaseSubFile):
         :param error_missing:               Raise an error instead of just warnings when a font is missing.\n
                                             This is **deprecated** and will be removed at some point in the future.
                                             Please use `error_on_danger` in the Setup.
-        :param use_ntfs_compliant_names:    Ensure that filenames will work on a NTFS (Windows) filesystem.
+        :param use_ntfs_compliant_names:    Ensure that filenames will work on an NTFS (Windows) filesystem.
                                             The `None` default means it'll use them but only if you're running the script on windows.
 
         :return:                        A list of FontFile objects
@@ -597,32 +597,14 @@ class SubFile(BaseSubFile):
             additional_fonts = [additional_fonts]
 
         if search_current_dir:
-            additional_fonts.append(os.getcwd())
+            additional_fonts = [*additional_fonts, os.getcwd()]
 
-        resolved_paths: list[Path] = []
-
-        for f in additional_fonts:
-            f = ensure_path_exists(f, self, True)
-            if f.is_dir():
-                resolved_paths.extend([file for file in f.rglob("*.[tT][tT][fF]")])
-                resolved_paths.extend([file for file in f.rglob("*.[oO][tT][fF]")])
-                resolved_paths.extend([file for file in f.rglob("*.[tT][tT][cC]")])
-                resolved_paths.extend([file for file in f.rglob("*.[oO][tT][cC]")])
-            else:
-                if f.suffix.lower() not in [".ttf", ".otf", ".ttc", ".otc"]:
-                    raise error(f"'{f.name}' is not a font!", self)
-                resolved_paths.append(f)
-        from .font import collect_fonts as collect
-
-        info(f"Collecting fonts for '{self.file.stem}'...", self)
+        from .font import _collect_fonts
 
         if error_missing:
             warn("The 'error_missing' parameter is deprecated.\nPlease use the 'error_on_danger' variable on the Setup.", self)
 
-        if use_ntfs_compliant_names is None:
-            use_ntfs_compliant_names = os.name == "nt"
-
-        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing, use_ntfs_compliant_names)
+        return _collect_fonts([self], use_system_fonts, additional_fonts, collect_draw_fonts, error_missing, use_ntfs_compliant_names)
 
     def restyle(self, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True) -> Self:
         """
