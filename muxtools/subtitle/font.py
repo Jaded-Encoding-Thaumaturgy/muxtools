@@ -521,18 +521,20 @@ def _collect_fonts(
                     if not outpath.exists():
                         info(f"Converting '{family_name}' variable font to a collection.")
                         query.font_face.variable_font_to_collection(outpath)
-                else:
-                    if query.font_face in collected_faces:
-                        continue
-
+                elif query.font_face not in collected_faces:
                     # If this source file was already copied (e.g. another face from the
                     # same TTC), reuse the existing copy instead of creating a duplicate.
                     if fontpath in copied_sources:
                         outpath = copied_sources[fontpath]
-                    elif not outpath.exists():
-                        shutil.copy(fontpath, outpath)
-                        copied_sources[fontpath] = outpath
                     else:
+                        # A different font file with the same name was already copied.
+                        # Only avoid names used in this run so collecting again reuses the same files.
+                        base, counter = outpath, 1
+                        while outpath in copied_sources.values():
+                            outpath = base.with_stem(f"{base.stem} ({counter})")
+                            counter += 1
+                        if not outpath.exists():
+                            shutil.copy(fontpath, outpath)
                         copied_sources[fontpath] = outpath
 
                 if query.font_face not in collected_faces:
