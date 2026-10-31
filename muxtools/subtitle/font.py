@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import filecmp
 import logging
 from collections import defaultdict
 from pathlib import Path
@@ -15,10 +16,13 @@ if TYPE_CHECKING:
 from .sub import SubFile, FontFile as MTFontFile
 from ..utils.convert import sizeof_fmt
 from ..utils.env import get_workdir
+from ..utils.files import ensure_path_exists
+from ..utils.types import PathLike
 from ..utils.log import warn, error, info, danger, debug
 
 
 __all__ = [
+    "collect_fonts",
     "subset_fonts",
 ]
 
@@ -412,13 +416,66 @@ def _get_fontname(font: ABCFontFace) -> str:
 
 
 def collect_fonts(
-    sub: SubFile,
+    subs: SubFile | list[SubFile],
     use_system_fonts: bool = True,
-    additional_fonts: list[Path] = [],
+    search_current_dir: bool = True,
+    additional_fonts: PathLike | list[PathLike] = [],
     collect_draw_fonts: bool = True,
-    error_missing: bool = False,
-    use_ntfs_compliant_names: bool = False,
+    use_ntfs_compliant_names: bool | None = None,
 ) -> list[MTFontFile]:
+    """
+    Collects the fonts used by one or more subtitles, loading the font files only once.
+    For multiple subtitles, this is much faster than calling `SubFile.collect_fonts` on each one.
+    The fonts are copied into the workdir of the current Setup, and every font in the workdir is returned.
+
+    :param subs:                        The subtitle file or files to collect fonts for.
+    :param use_system_fonts:            Search the fonts installed on the system.
+    :param search_current_dir:          Recursively search the current working directory for fonts.
+    :param additional_fonts:            Font files or directories to search, as a single path or a list.
+    :param collect_draw_fonts:          Include fonts used only for drawings (usually Arial).
+                                        See https://github.com/libass/libass/issues/617 for details.
+    :param use_ntfs_compliant_names:    Ensure that filenames will work on NTFS (Windows) filesystems.
+                                        The default `None` only does this when running on Windows.
+
+    :return:                            A list of FontFile objects
+    """
+    if not isinstance(subs, list):
+        subs = [subs]
+    if not isinstance(additional_fonts, list):
+        additional_fonts = [additional_fonts]
+
+    return _collect_fonts(subs, use_system_fonts, search_current_dir, additional_fonts, collect_draw_fonts, False, use_ntfs_compliant_names)
+
+
+def _collect_fonts(
+    subs: list[SubFile],
+    use_system_fonts: bool,
+    search_current_dir: bool,
+    additional_fonts: list[PathLike],
+    collect_draw_fonts: bool,
+    error_missing: bool,
+    use_ntfs_compliant_names: bool | None,
+) -> list[MTFontFile]:
+    if search_current_dir:
+        additional_fonts = [*additional_fonts, os.getcwd()]
+
+    resolved_paths: list[Path] = []
+
+    for f in additional_fonts:
+        f = ensure_path_exists(f, collect_fonts, True)
+        if f.is_dir():
+            resolved_paths.extend([file for file in f.rglob("*.[tT][tT][fF]")])
+            resolved_paths.extend([file for file in f.rglob("*.[oO][tT][fF]")])
+            resolved_paths.extend([file for file in f.rglob("*.[tT][tT][cC]")])
+            resolved_paths.extend([file for file in f.rglob("*.[oO][tT][cC]")])
+        else:
+            if f.suffix.lower() not in [".ttf", ".otf", ".ttc", ".otc"]:
+                raise error(f"'{f.name}' is not a font!", collect_fonts)
+            resolved_paths.append(f)
+
+    if use_ntfs_compliant_names is None:
+        use_ntfs_compliant_names = os.name == "nt"
+
     def clean_name(fontname: str) -> str:
         removed_slash = fontname.replace("/", "_")
         if not use_ntfs_compliant_names:
@@ -432,69 +489,74 @@ def collect_fonts(
     from font_collector import AssDocument, FontLoader, FontCollection, FontSelectionStrategyLibass, ABCFontFace, VariableFontFace
 
     font_collection = FontCollection(
-        use_system_fonts, additional_fonts=FontLoader.load_additional_fonts(additional_fonts, scan_subdirs=True) if additional_fonts else []
+        use_system_fonts, additional_fonts=FontLoader.load_additional_fonts(resolved_paths, scan_subdirs=True) if resolved_paths else []
     )
     load_strategy = FontSelectionStrategyLibass()
 
-    doc = AssDocument(sub._read_doc())
-    styles = doc.get_used_style(collect_draw_fonts)
-
     found_fonts = list[MTFontFile]()
-    collected_faces = set[ABCFontFace]()
     # Track source path -> workdir copy so TTC files aren't duplicated per-face
     copied_sources: dict[Path, Path] = {}
 
-    for style, usage_data in styles.items():
-        query = font_collection.get_used_font_by_style(style, load_strategy)
+    for sub in subs:
+        info(f"Collecting fonts for '{sub.file.stem}'...", sub)
+        doc = AssDocument(sub._read_doc())
+        styles = doc.get_used_style(collect_draw_fonts)
 
-        if not query:
-            msg = f"Font '{style.fontname}' was not found!"
-            if error_missing:
-                raise error(msg, collect_fonts)
-            else:
-                danger(msg, collect_fonts)
-        else:
-            fontname = _get_fontname(query.font_face)
-            assert query.font_face.font_file
-            fontpath = Path(query.font_face.font_file.filename)
-            outpath = get_workdir() / f"{clean_name(fontname)}{fontpath.suffix}"
-            family_name = query.font_face.get_best_family_name().value
+        collected_faces = set[ABCFontFace]()
 
-            if isinstance(query.font_face, VariableFontFace):
-                outpath = outpath.with_suffix(".ttc")
+        for style, usage_data in styles.items():
+            query = font_collection.get_used_font_by_style(style, load_strategy)
 
-                if not outpath.exists():
-                    info(f"Converting '{family_name}' variable font to a collection.")
-                    query.font_face.variable_font_to_collection(outpath)
-            else:
-                if query.font_face in collected_faces:
-                    continue
-
-                # If this source file was already copied (e.g. another face from the
-                # same TTC), reuse the existing copy instead of creating a duplicate.
-                if fontpath in copied_sources:
-                    outpath = copied_sources[fontpath]
-                elif not outpath.exists():
-                    shutil.copy(fontpath, outpath)
-                    copied_sources[fontpath] = outpath
+            if not query:
+                msg = f"Font '{style.fontname}' was not found!"
+                if error_missing:
+                    raise error(msg, collect_fonts)
                 else:
-                    copied_sources[fontpath] = outpath
+                    danger(msg, collect_fonts)
+            else:
+                fontname = _get_fontname(query.font_face)
+                assert query.font_face.font_file
+                fontpath = Path(query.font_face.font_file.filename)
+                outpath = get_workdir() / f"{clean_name(fontname)}{fontpath.suffix}"
+                family_name = query.font_face.get_best_family_name().value
 
-            if query.font_face not in collected_faces:
-                info(f"Found font '{fontname}'.", collect_fonts)
-                collected_faces.add(query.font_face)
+                if isinstance(query.font_face, VariableFontFace):
+                    outpath = outpath.with_suffix(".ttc")
 
-            if query.need_faux_bold:
-                warn(f"Faux bold used for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts)
-            elif query.mismatch_bold:
-                warn(f"Mismatched weight for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts)
+                    if not outpath.exists():
+                        info(f"Converting '{family_name}' variable font to a collection.")
+                        query.font_face.variable_font_to_collection(outpath)
+                elif query.font_face not in collected_faces:
+                    # If this source file was already copied (e.g. another face from the
+                    # same TTC), reuse the existing copy instead of creating a duplicate.
+                    if fontpath in copied_sources:
+                        outpath = copied_sources[fontpath]
+                    else:
+                        # A different font file may already be in the workdir under the same name, so use a numbered one then.
+                        # The same file is reused, e.g. when collecting again.
+                        base, counter = outpath, 1
+                        while outpath.exists() and not filecmp.cmp(fontpath, outpath, shallow=False):
+                            outpath = base.with_stem(f"{base.stem} ({counter})")
+                            counter += 1
+                        if not outpath.exists():
+                            shutil.copy(fontpath, outpath)
+                        copied_sources[fontpath] = outpath
 
-            if query.mismatch_italic:
-                warn(f"Could not find a requested {'non-' if query.font_face.is_italic else ''}italic variant for '{fontname}'!", collect_fonts)
+                if query.font_face not in collected_faces:
+                    info(f"Found font '{fontname}'.", collect_fonts)
+                    collected_faces.add(query.font_face)
 
-            missing_glyphs = query.font_face.get_missing_glyphs(usage_data.characters_used)
-            if len(missing_glyphs) != 0:
-                danger(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts)
+                if query.need_faux_bold:
+                    warn(f"Faux bold used for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts)
+                elif query.mismatch_bold:
+                    warn(f"Mismatched weight for '{fontname}' (requested weight {style.weight}, got {query.font_face.weight})!", collect_fonts)
+
+                if query.mismatch_italic:
+                    warn(f"Could not find a requested {'non-' if query.font_face.is_italic else ''}italic variant for '{fontname}'!", collect_fonts)
+
+                missing_glyphs = query.font_face.get_missing_glyphs(usage_data.characters_used)
+                if len(missing_glyphs) != 0:
+                    danger(f"'{fontname}' is missing the following glyphs: {missing_glyphs}", collect_fonts)
 
     for r in ["*.[tT][tT][fF]", "*.[oO][tT][fF]", "*.[tT][tT][cC]", "*.[oO][tT][cC]"]:
         for f in get_workdir().glob(r):

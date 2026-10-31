@@ -581,53 +581,38 @@ class SubFile(BaseSubFile):
         use_ntfs_compliant_names: bool | None = None,
     ) -> list[FontFile]:
         """
-        Collects fonts for current subtitle.
-        Note that this places all fonts into the workdir for the episode/Setup and all fonts in it.
+        Collects the fonts used by this subtitle.
+        The fonts are copied into the workdir of the current Setup, and every font in the workdir is returned,
+        including any collected for other subtitles.
 
-        :param use_system_fonts:            Parses and checks against all installed fonts
-        :param search_current_dir:          Recursively checks the current work directory for fonts
-        :param additional_fonts:            Can be a directory or a path to a file directly (or a list of either)
-        :param collect_draw_fonts:          Whether or not to include fonts used for drawing (usually Arial)
+        If you're collecting fonts for multiple subtitles, use `muxtools.collect_fonts` with all of them instead.
+        It loads the font files only once rather than once per call, which is much faster.
+
+        :param use_system_fonts:            Search the fonts installed on the system.
+        :param search_current_dir:          Recursively search the current working directory for fonts.
+        :param additional_fonts:            Font files or directories to search, as a single path or a list.
+        :param collect_draw_fonts:          Include fonts used only for drawings (usually Arial).
                                             See https://github.com/libass/libass/issues/617 for details.
-        :param error_missing:               Raise an error instead of just warnings when a font is missing.\n
-                                            This is **deprecated** and will be removed at some point in the future.
-                                            Please use `error_on_danger` in the Setup.
-        :param use_ntfs_compliant_names:    Ensure that filenames will work on a NTFS (Windows) filesystem.
-                                            The `None` default means it'll use them but only if you're running the script on windows.
+        :param error_missing:               Raise an error instead of a warning when a font is missing.\n
+                                            This is **deprecated** and will be removed in the future.
+                                            Use `error_on_danger` in the Setup instead.
+        :param use_ntfs_compliant_names:    Ensure that filenames will work on NTFS (Windows) filesystems.
+                                            The default `None` only does this when running on Windows.
 
-        :return:                        A list of FontFile objects
+        :return:                            A list of FontFile objects
         """
 
         if not isinstance(additional_fonts, list):
             additional_fonts = [additional_fonts]
 
-        if search_current_dir:
-            additional_fonts.append(os.getcwd())
-
-        resolved_paths: list[Path] = []
-
-        for f in additional_fonts:
-            f = ensure_path_exists(f, self, True)
-            if f.is_dir():
-                resolved_paths.extend([file for file in f.rglob("*.[tT][tT][fF]")])
-                resolved_paths.extend([file for file in f.rglob("*.[oO][tT][fF]")])
-                resolved_paths.extend([file for file in f.rglob("*.[tT][tT][cC]")])
-                resolved_paths.extend([file for file in f.rglob("*.[oO][tT][cC]")])
-            else:
-                if f.suffix.lower() not in [".ttf", ".otf", ".ttc", ".otc"]:
-                    raise error(f"'{f.name}' is not a font!", self)
-                resolved_paths.append(f)
-        from .font import collect_fonts as collect
-
-        info(f"Collecting fonts for '{self.file.stem}'...", self)
+        from .font import _collect_fonts
 
         if error_missing:
             warn("The 'error_missing' parameter is deprecated.\nPlease use the 'error_on_danger' variable on the Setup.", self)
 
-        if use_ntfs_compliant_names is None:
-            use_ntfs_compliant_names = os.name == "nt"
-
-        return collect(self, use_system_fonts, resolved_paths, collect_draw_fonts, error_missing, use_ntfs_compliant_names)
+        return _collect_fonts(
+            [self], use_system_fonts, search_current_dir, additional_fonts, collect_draw_fonts, error_missing, use_ntfs_compliant_names
+        )
 
     def restyle(self, styles: Style | list[Style], clean_after: bool = True, delete_existing: bool = False, adjust_styles: bool = True) -> Self:
         """
