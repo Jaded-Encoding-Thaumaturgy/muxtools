@@ -1,5 +1,6 @@
 from muxtools import SubFile, VideoMeta, Setup, get_workdir, ensure_path, resolve_timesource_and_scale, ABCTimestamps, TimeType, OutOfBoundsMode
 from muxtools.subtitle.basesub import _Line
+from muxtools.utils.convert import timedelta_to_frame
 from muxtools.subtitle.subutils import create_document
 from ass import Dialogue, Style
 from pathlib import Path
@@ -22,10 +23,6 @@ def setup_and_remove():
     rmtree(get_workdir())
 
 
-def _timedelta_to_frame(delta: timedelta, ts: ABCTimestamps, type: TimeType) -> int:
-    return ts.time_to_frame(int(delta.total_seconds() * 1000), type, 3)
-
-
 def _line_yap(line: _Line | None) -> str:
     if not line:
         return ""
@@ -35,7 +32,7 @@ def _line_yap(line: _Line | None) -> str:
 
 def _compare_times(delta: timedelta, other: timedelta, ts: ABCTimestamps, type: TimeType, line: _Line | None = None):
     tolerance = timedelta(microseconds=10000)  # One centisecond; both aegisub and muxtools will center the time so this should never be an issue
-    assert _timedelta_to_frame(delta, ts, type) == _timedelta_to_frame(other, ts, type), _line_yap(line)  # Frame matches
+    assert timedelta_to_frame(ts, delta, type) == timedelta_to_frame(ts, other, type), _line_yap(line)  # Frame matches
     assert (other - delta) <= tolerance, _line_yap(line)  # Difference is within tolerance
 
 
@@ -114,21 +111,21 @@ def test_shift_to_frame_zero() -> None:
             (timedelta(0), timedelta(0), "empty"),
         ],
     )
-    first = _timedelta_to_frame(timedelta(minutes=7, seconds=18, milliseconds=420), resolved, TimeType.START)
+    first = timedelta_to_frame(resolved, timedelta(minutes=7, seconds=18, milliseconds=420), TimeType.START)
 
     sub = SubFile(path)
     sub.shift(-first, resolved, oob_mode=OutOfBoundsMode.MAX_TO_ZERO)
     one, nxt, partial, gone, empty = (cast(_Line, line) for line in sub._read_doc().events)
 
     # one frame line lands on frame 0 and stays one frame long
-    assert _timedelta_to_frame(one.start, resolved, TimeType.START) == 0, _line_yap(one)
-    assert _timedelta_to_frame(one.end, resolved, TimeType.END) == 0, _line_yap(one)
+    assert timedelta_to_frame(resolved, one.start, TimeType.START) == 0, _line_yap(one)
+    assert timedelta_to_frame(resolved, one.end, TimeType.END) == 0, _line_yap(one)
     assert one.end > one.start, _line_yap(one)
     assert one.end == nxt.start, _line_yap(one)
 
     # frames 10509-10515 -> -3 to 3, start clamped to 0
-    assert _timedelta_to_frame(partial.start, resolved, TimeType.START) == 0, _line_yap(partial)
-    assert _timedelta_to_frame(partial.end, resolved, TimeType.END) == 3, _line_yap(partial)
+    assert timedelta_to_frame(resolved, partial.start, TimeType.START) == 0, _line_yap(partial)
+    assert timedelta_to_frame(resolved, partial.end, TimeType.END) == 3, _line_yap(partial)
     assert partial.end > partial.start, _line_yap(partial)
 
     # fully before 0 after the shift, should be hidden
@@ -156,7 +153,7 @@ def _shift_bounded(frame_ranges: list[tuple[int, int]], frames: int, **kwargs) -
     sub = SubFile(path)
     sub.shift(frames, resolved, **kwargs)
     lines = (cast(_Line, line) for line in sub._read_doc().events)
-    return [(_timedelta_to_frame(line.start, resolved, TimeType.START), _timedelta_to_frame(line.end, resolved, TimeType.END)) for line in lines]
+    return [(timedelta_to_frame(resolved, line.start, TimeType.START), timedelta_to_frame(resolved, line.end, TimeType.END)) for line in lines]
 
 
 def test_shift_before() -> None:
@@ -196,3 +193,23 @@ def test_shift_bounds_with_negative_offset_and_oob() -> None:
     """
     result = _shift_bounded([(2, 10), (200, 210)], -5, before=100, oob_mode=OutOfBoundsMode.MAX_TO_ZERO)
     assert result == [(0, 5), (200, 210)], result
+
+
+def test_shift_keeps_frame_with_float_imprecise_time() -> None:
+    """
+    256.09s turns into 256089ms when going through total_seconds(), which is on the previous frame at 23.976.
+    Shifting by 0 frames must keep the line on the same frames.
+    """
+    from fractions import Fraction
+
+    resolved = resolve_timesource_and_scale(Fraction(24000, 1001))
+    path = _write_sub(get_workdir() / "shift_float.ass", [(timedelta(milliseconds=256090), timedelta(milliseconds=256340), "on grid")])
+    sub = SubFile(path)
+
+    sub.shift(0, resolved)
+    line = cast(_Line, sub._read_doc().events[0])
+    # Frame n is shown at round(n * 1001 / 24) ms: 6140 at 256089, 6141 at 256131, 6146 at 256339 and 6147 at 256381.
+    # A line starts on the first frame shown at or after its start and ends after the last frame shown before its end.
+    # So the line is on frames 6141 to 6146 and has to stay in those frame windows.
+    assert timedelta(milliseconds=256089) < line.start <= timedelta(milliseconds=256131), _line_yap(line)
+    assert timedelta(milliseconds=256339) < line.end <= timedelta(milliseconds=256381), _line_yap(line)
