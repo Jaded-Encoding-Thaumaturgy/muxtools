@@ -47,6 +47,27 @@ def test_lossy_multi_trim_starts_at_zero(preserve_delay: bool) -> None:
     assert out.container_delay == (123 if preserve_delay else 0)
 
 
+@pytest.mark.parametrize("sample_file", [sample_file_flac, sample_file_wav])
+def test_sox_bounded_trim(sample_file) -> None:
+    out = Sox(trim=(1, 24)).trim_audio(sample_file)
+
+    assert get_md5_for_stream(out.file) == "e6932cd8e59676a2e5c69246bb2cff77"
+
+
+@pytest.mark.parametrize("sample_file", [sample_file_flac, sample_file_wav])
+@pytest.mark.parametrize("preserve_delay", [False, True])
+def test_sox_multi_trim_with_padding(sample_file, preserve_delay: bool) -> None:
+    meta = VideoMeta.from_json(test_dir / "test-data" / "input" / "vigilantes_s01e01.json")
+    source = AudioFile.from_file(sample_file, None)
+    source.container_delay = 123
+
+    out = Sox(trim=[(-2, 3), (12, 24), (3, 6)], num_frames=len(meta.pts), preserve_delay=preserve_delay).trim_audio(source)
+
+    assert get_md5_for_stream(out.file) == "c1739f08d9e17219ed8f932943bb4a8d"
+    assert out.container_delay == (123 if preserve_delay else 0)
+    assert out.source == source.source
+
+
 # Some of these tests randomly fail on some github runners and I'm not sure why.
 # Only a concern when both python versions and repeated fails occur.
 @pytest.mark.xfail

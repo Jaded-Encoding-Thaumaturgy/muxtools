@@ -796,7 +796,6 @@ dev = [
     { name = "ruff" },
     { name = "rust-just" },
     { name = "scipy-stubs" },
-    { name = "sox" },
     { name = "types-psutil" },
 ]
 
@@ -831,7 +830,6 @@ dev = [
     { name = "ruff", specifier = ">=0.6.5" },
     { name = "rust-just", specifier = ">=1.58.0" },
     { name = "scipy-stubs", specifier = ">=1.15.2.1" },
-    { name = "sox", specifier = ">=1.5.0" },
     { name = "types-psutil", specifier = ">=7.0.0.20250218" },
 ]
 
@@ -1516,16 +1514,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/dc/76/13f1b922b32ec8663
 wheels = [
     { url = "https://files.pythonhosted.org/packages/27/53/9b6dff8225ef3dbc203b1c2329d9efb2b66dfd51d5c2bf048c0676f47731/scipy_stubs-1.18.1.1-py3-none-any.whl", hash = "sha256:1a48be1702cad1ae9aa850c62ed157c988d990305880511d0e38994d502664f4", size = 665244, upload-time = "2026-09-20T22:37:37.029Z" },
 ]
-
-[[package]]
-name = "sox"
-version = "1.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3d/a2/d8e0d8fd7abf509ead4a2cb0fb24e5758b5330166bf9223d5cb9f98a7e8d/sox-1.5.0.tar.gz", hash = "sha256:12c7be5bb1f548d891fe11e82c08cf5f1a1d74e225298f60082e5aeb2469ada0", size = 63905, upload-time = "2024-03-20T16:59:37.385Z" }
 
 [[package]]
 name = "texttable"

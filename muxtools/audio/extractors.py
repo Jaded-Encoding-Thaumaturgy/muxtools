@@ -2,7 +2,7 @@ from shlex import split as splitcommand
 from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
-from typing import Callable, Sequence, cast, overload
+from typing import Sequence, overload
 from pathlib import Path
 from itertools import takewhile
 import subprocess
@@ -10,6 +10,7 @@ import os
 import re
 
 from .audioutils import sanitize_trims, ensure_valid_in, duration_from_file
+from ._sox import trim_file, concat_files
 from .tools import Extractor, Trimmer, AudioFile, HasExtractor, HasTrimmer
 from ..utils.files import ensure_path_exists, make_output, clean_temp_files
 from ..utils.log import error, warn, debug, info, danger
@@ -484,58 +485,53 @@ class Sox(Trimmer):
             return self.resolved_ts.frame_to_time(abs(val), TimeType.EXACT).__float__()
 
     def __post_init__(self) -> None:
-        sox_exe = get_executable("sox")
-        os.environ["PATH"] = str(Path(sox_exe).parent) + os.pathsep + os.environ["PATH"]
+        self.executable = get_executable("sox")
 
     def trim_audio(self, fileIn: AudioFile | PathLike, quiet: bool = True) -> AudioFile:
-        import sox  # type: ignore[import-untyped]
-
         if not isinstance(fileIn, AudioFile):
             fileIn = AudioFile.from_file(fileIn, self)
         out = make_output(fileIn.file, "flac", "trimmed", self.output)
         self.resolved_ts = resolve_timesource_and_scale(self.timesource, self.timescale, caller=self)
         trim = sanitize_trims(self.trim, self.num_frames, not self.trim_use_ms, allow_negative_start=True, caller=self)
-        source = ensure_valid_in(fileIn, caller=self, supports_pipe=False)
+        try:
+            source = ensure_valid_in(fileIn, caller=self, supports_pipe=False)
 
-        if len(trim) > 1:
-            files_to_concat = []
-            first = True
-            info(f"Generating trimmed tracks for '{fileIn.file.stem}'...", self)
-            for i, t in enumerate(trim):
-                soxr = sox.Transformer()
-                soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
-                trim_start = t[0] or 0
-                if trim_start < 0 and first:
-                    soxr.trim(0, self._conv(t[1]))
-                    soxr.pad(self._conv(trim_start))
-                else:
-                    soxr.trim(self._conv(trim_start), self._conv(t[1]))
-                first = False
-                tout = os.path.join(get_temp_workdir(), f"{fileIn.file.stem}_trimmed_part{i}.wav")
-                soxr.build(str(source.file.resolve()), tout)
-                files_to_concat.append(tout)
+            if len(trim) > 1:
+                files_to_concat = []
+                info(f"Generating trimmed tracks for '{fileIn.file.stem}'...", self)
+                for i, t in enumerate(trim):
+                    trim_start = t[0] or 0
+                    pad_start = self._conv(trim_start) if trim_start < 0 and i == 0 else 0.0
+                    tout = get_temp_workdir() / f"{fileIn.file.stem}_trimmed_part{i}.wav"
+                    trim_file(
+                        self.executable,
+                        source.file,
+                        tout,
+                        0.0 if pad_start else self._conv(trim_start),
+                        self._conv(t[1]),
+                        pad_start,
+                        quiet,
+                    )
+                    files_to_concat.append(tout)
 
-            info("Concatenating the tracks...", self)
-            soxr = sox.Combiner()
-            soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
-            formats = ["wav" for file in files_to_concat]
-            soxr.set_input_format(file_type=formats)
-            # SoX incorrectly annotates the input list as a single path.
-            cast(Callable[[list[str], str, str], bool], soxr.build)(files_to_concat, str(out.resolve()), "concatenate")
-            debug("Done", self)
-        else:
-            soxr = sox.Transformer()
-            soxr.set_globals(multithread=True, verbosity=0 if quiet else 1)
-            info(f"Applying trim to '{fileIn.file.stem}'", self)
-            t = trim[0]
-            trim_start = t[0] or 0
-            if trim_start < 0:
-                soxr.trim(0, self._conv(t[1]))
-                soxr.pad(self._conv(trim_start))
+                info("Concatenating the tracks...", self)
+                concat_files(self.executable, files_to_concat, out, quiet)
             else:
-                soxr.trim(self._conv(trim_start), self._conv(t[1]))
-            soxr.build(str(source.file), str(out.resolve()))
+                info(f"Applying trim to '{fileIn.file.stem}'", self)
+                t = trim[0]
+                trim_start = t[0] or 0
+                pad_start = self._conv(trim_start) if trim_start < 0 else 0.0
+                trim_file(
+                    self.executable,
+                    source.file,
+                    out,
+                    0.0 if pad_start else self._conv(trim_start),
+                    self._conv(t[1]),
+                    pad_start,
+                    quiet,
+                )
             debug("Done", self)
+        finally:
+            clean_temp_files()
 
-        clean_temp_files()
         return AudioFile(out.resolve(), fileIn.container_delay if self.preserve_delay else 0, fileIn.source)
