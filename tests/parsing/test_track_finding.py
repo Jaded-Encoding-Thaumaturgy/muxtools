@@ -1,5 +1,7 @@
+from pathlib import Path
+
 from muxtools import ensure_path, TrackType
-from muxtools.utils import AudioFormat, ParsedFile
+from muxtools.utils import AudioFormat, ContainerInfo, ParsedFile, ProbeFormat, ProbeResult, ProbeStream, TrackInfo
 import pytest
 
 
@@ -64,3 +66,55 @@ def test_find_custom_condition(parsed_file):
 def test_error_on_empty(parsed_file):
     with pytest.raises(Exception):
         parsed_file.find_tracks(custom_condition=lambda track: track.get_audio_format() == AudioFormat.FLAC, error_if_empty=True)
+
+
+def _parsed_with_sub_langs(*langs: str) -> ParsedFile:
+    tracks = [
+        TrackInfo(
+            index=i,
+            relative_index=i,
+            type=TrackType.SUB,
+            codec_name="ass",
+            codec_long_name=None,
+            profile=None,
+            language=lang,
+            title=None,
+            is_default=False,
+            is_forced=False,
+            container_delay=0,
+            other_tags={},
+            raw_ffprobe=ProbeStream(index=i, codec_name="ass", codec_type="subtitle"),
+            raw_mkvmerge=None,
+        )
+        for i, lang in enumerate(langs)
+    ]
+    probe_format = ProbeFormat(nb_streams=len(tracks), format_name="matroska")
+    return ParsedFile(
+        container_info=ContainerInfo(len(tracks), "matroska", None, {}, probe_format, None),
+        tracks=tracks,
+        is_video_file=False,
+        source=Path("synthetic.mkv"),
+        raw_ffprobe=ProbeResult(format=probe_format, streams=[t.raw_ffprobe for t in tracks]),
+        raw_mkvmerge=None,
+    )
+
+
+def test_find_by_language_hierarchy_and_allow_broader():
+    parsed = _parsed_with_sub_langs("en", "en-US", "en-GB", "es", "es-419", "es-ES", "zh-Hans", "zh-Hans-CN", "zh-Hant", "zh-TW")
+
+    assert [t.language for t in parsed.find_tracks(lang="en")] == ["en", "en-US", "en-GB"]
+    assert [t.language for t in parsed.find_tracks(lang="en-US")] == ["en-US"]
+    assert [t.language for t in parsed.find_tracks(lang="en-US", allow_broader_lang=True)] == ["en", "en-US"]
+
+    assert [t.language for t in parsed.find_tracks(lang="es")] == ["es", "es-419", "es-ES"]
+    assert [t.language for t in parsed.find_tracks(lang="es-419")] == ["es-419"]
+    assert [t.language for t in parsed.find_tracks(lang="es-419", allow_broader_lang=True)] == ["es", "es-419"]
+    assert [t.language for t in parsed.find_tracks(lang="es-ES")] == ["es-ES"]
+    assert [t.language for t in parsed.find_tracks(lang="es-ES", allow_broader_lang=True)] == ["es", "es-ES"]
+
+    assert [t.language for t in parsed.find_tracks(lang="zh-Hans")] == ["zh-Hans", "zh-Hans-CN"]
+    assert [t.language for t in parsed.find_tracks(lang="zh-CN")] == ["zh-Hans", "zh-Hans-CN"]
+    assert [t.language for t in parsed.find_tracks(lang="zh-Hant")] == ["zh-Hant", "zh-TW"]
+    assert [t.language for t in parsed.find_tracks(lang="zh-TW")] == ["zh-Hant", "zh-TW"]
+    assert [t.language for t in parsed.find_tracks(lang="zh-Hans-CN")] == ["zh-Hans-CN"]
+    assert [t.language for t in parsed.find_tracks(lang="zh-Hans-CN", allow_broader_lang=True)] == ["zh-Hans", "zh-Hans-CN"]

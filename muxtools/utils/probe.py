@@ -15,7 +15,7 @@ from .files import ensure_path_exists, GlobSearch
 from .download import get_executable
 from .formats import AudioFormat
 from .ffprobe import ProbeFormat, ProbeResult, ProbeStream, probe_file
-from .language_util import standardize_tag
+from .language_util import languages_match, standardize_tag
 
 __all__ = ["ParsedFile", "TrackInfo", "ContainerInfo", "ProbeResult", "ProbeFormat", "ProbeStream"]
 
@@ -220,6 +220,8 @@ class ParsedFile:
         custom_condition: Callable[[TrackInfo], bool] | None = None,
         error_if_empty: bool = False,
         caller: Any | None = None,
+        *,
+        allow_broader_lang: bool = False,
     ) -> list[TrackInfo]:
         """
         Convenience function to find tracks with some conditions.
@@ -234,6 +236,8 @@ class ParsedFile:
                                     For example: `custom_condition=lambda track: track.codec_name == "eac3"`
         :param error_if_empty:      Throw an error instead of returning an empty list if nothing was found for the given conditions.
         :param caller:              Caller to use for logging. Mostly intended for internal use.
+        :param allow_broader_lang:  If True, a region/script-specific `lang` query (e.g. `es-419`, `en-US`) also matches
+                                    broader untagged tracks of the same language (e.g. `es`, `en`).
         """
 
         if not name and not lang and not type and relative_id is None and custom_condition is None:
@@ -251,15 +255,7 @@ class ParsedFile:
             return False
 
         def language_matches(track: TrackInfo, language: Language) -> bool:
-            track_lang = track.sanitized_lang
-
-            if language == track_lang:
-                return True
-
-            if len(language.to_tag()) < 4:
-                return track_lang.to_alpha3() == language.to_alpha3()
-            else:
-                return False
+            return languages_match(language, track.sanitized_lang, allow_broader=allow_broader_lang)
 
         if type:
             if type not in (TrackType.VIDEO, TrackType.AUDIO, TrackType.SUB):
