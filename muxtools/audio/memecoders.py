@@ -53,7 +53,7 @@ class qALAC(Encoder):
         args = [qaac, "-A", "--no-optimize", "--threading"] + self.get_custom_args()
         args.extend(["-o", str(output), str(source.file.resolve()) if isinstance(source, AudioFile) else "-"])
 
-        stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
+        stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source
 
         if isinstance(source, AudioFile):
             config = ProgressBarConfig("Encoding...")

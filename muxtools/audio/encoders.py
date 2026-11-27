@@ -161,8 +161,9 @@ class FF_FLAC(LosslessEncoder):
     def get_pipe(self, fileIn: AudioFile) -> subprocess.Popen:
         debug("Piping audio for input to other encoder using ffmpeg...", self)
         args = self._base_command(fileIn, 0)
+        args[2:2] = ["-nostats", "-loglevel", "error"]
         args.extend(["-f", "flac", "-"])
-        p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
+        p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False)
         return p
 
 
@@ -212,7 +213,7 @@ class Opus(Encoder):
         args.append(str(source.file.resolve()) if isinstance(source, AudioFile) else "-")
         args.append(str(output))
 
-        stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
+        stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source
 
         if isinstance(source, AudioFile):
             config = ProgressBarConfig("Encoding...")
@@ -260,7 +261,7 @@ class qAAC(Encoder):
         args.extend(self.get_custom_args())
         args.extend(["-o", str(output), str(source.file.resolve()) if isinstance(source, AudioFile) else "-"])
 
-        stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source.stdout
+        stdin = subprocess.DEVNULL if isinstance(source, AudioFile) else source
 
         if isinstance(source, AudioFile):
             config = ProgressBarConfig("Encoding...")

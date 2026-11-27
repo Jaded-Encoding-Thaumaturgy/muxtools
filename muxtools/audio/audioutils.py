@@ -145,8 +145,9 @@ def get_pcm(
 
     if supports_pipe:
         debug("Piping audio to ensure valid input using ffmpeg...", caller)
+        args[1:1] = ["-hide_banner", "-nostats", "-loglevel", "error"]
         args.extend(["-f", "wav" if valid_type == ValidInputType.RF64 else "w64", "-"])
-        p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=False)
+        p = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False)
         return p
     else:
         debug("Preparing audio to ensure valid input using ffmpeg...", caller)

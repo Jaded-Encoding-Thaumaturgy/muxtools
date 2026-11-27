@@ -1,5 +1,6 @@
-from muxtools import ensure_path, Setup, get_workdir, do_audio, get_executable, Opus, Sox, FFMpeg, VideoMeta, FLAC, AudioFile
+from muxtools import ensure_path, Setup, get_workdir, do_audio, get_executable, Opus, Sox, FFMpeg, VideoMeta, FLAC, AudioFile, CustomPreprocessor
 from muxtools.utils.env import communicate_stdout
+from muxtools.utils.log import LoggingException
 from time import sleep
 from shutil import rmtree
 import pytest
@@ -125,3 +126,17 @@ def test_opus_no_extractor(caplog):
     Opus().encode_audio(sample_file_thd_fake24)
     assert len([record for record in caplog.get_records("call") if "Encoding 'thd_source_fake24' to Opus (320 kbps)" in record.message]) == 1
     assert len([record for record in caplog.get_records("call") if "Piping audio" in record.message]) == 1
+
+
+def test_opus_failure_prints_subprocess_output(capsys) -> None:
+    with pytest.raises(LoggingException):
+        Opus(bitrate=99999).encode_audio(sample_file_wav)
+    out = capsys.readouterr().out
+    assert "----------------------" in out.splitlines()
+    assert "99999" in out or "bitrate" in out.lower()
+
+    with pytest.raises(LoggingException):
+        Opus(preprocess=CustomPreprocessor(filt="nonexistent_filter_xyz")).encode_audio(sample_file_wav)
+    out = capsys.readouterr().out
+    assert "----------------------" in out.splitlines()
+    assert "nonexistent_filter_xyz" in out
